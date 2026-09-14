@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { BackButton } from "@/components/back-button";
 import { BrandMark } from "@/components/brand-mark";
+import { EditionPreview } from "@/components/edition-preview";
 import { NewsletterForm } from "@/components/newsletter-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,6 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function NewsletterPage() {
   const t = useTranslations("newsletter");
+  const preview = useTranslations("preview");
 
   return (
     <div className="relative grid min-h-svh flex-1 lg:grid-cols-[16fr_9fr]">
@@ -25,23 +27,30 @@ export default function NewsletterPage() {
         <BackButton />
       </div>
 
-      <section className="flex items-center justify-center px-6 py-16 sm:px-10 lg:px-16">
-        <div className="flex w-full max-w-2xl flex-col gap-10">
+      <section className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
+        <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <BrandMark />
 
           <div className="flex flex-col gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+            <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
               {t("heading")}
             </h1>
-            <p className="text-lg text-muted text-pretty">{t("subheading")}</p>
+            <p className="max-w-xl text-lg text-muted text-pretty">{t("subheading")}</p>
           </div>
 
           <NewsletterForm />
         </div>
+
       </section>
 
-      {/* Painel visual do protótipo. Ainda sem arte definida. */}
-      <aside aria-hidden="true" className="hidden border-l border-border bg-surface lg:block" />
+      {/* Provisório: mostra a mesma amostra de edição da tela de confirmação,
+          até existir arte própria para este painel. */}
+      <aside
+        aria-label={preview("label")}
+        className="hidden border-l border-border bg-surface p-10 lg:flex lg:items-center lg:justify-center"
+      >
+        <EditionPreview />
+      </aside>
     </div>
   );
 }

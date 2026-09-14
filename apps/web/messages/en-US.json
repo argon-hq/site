@@ -40,7 +40,7 @@
     "body": "This content is still being written. Soon you'll find here how Argon collects, uses and protects your data."
   },
   "footer": {
-    "copyright": "© {year} Argon",
+    "rights": "{brand} · Business newsletter © {year}. All rights reserved.",
     "privacy": "Privacy policy"
   },
   "localeSwitcher": {
@@ -53,5 +53,30 @@
     "system": "System",
     "light": "Light",
     "dark": "Dark"
+  },
+  "confirmed": {
+    "metaTitle": "Subscription confirmed",
+    "metaDescription": "Your email is verified. Starting tomorrow you'll get the Argon newsletter.",
+    "badge": "Subscription confirmed",
+    "heading": "Your sharpest thinking, every morning.",
+    "body": "All set! Your email is verified and you're part of the community. Starting tomorrow, you'll get a smart briefing on the business, tech and career news that matter most.",
+    "primaryCta": "Go to the platform",
+    "secondaryCta": "Back to home"
+  },
+  "preview": {
+    "label": "Edition preview",
+    "tagline": "A quick shot of intelligence with your morning coffee.",
+    "items": {
+      "market": {
+        "kicker": "Market & Technology",
+        "title": "What to expect from the innovation ecosystem in the coming quarters",
+        "body": "The main trends in automation, venture investment and the new regulations that will shape technology decisions."
+      },
+      "productivity": {
+        "kicker": "Productivity",
+        "title": "Focus frameworks that actually work for hybrid teams",
+        "body": "How senior managers are restructuring async work routines to cut out the excess of useless meetings."
+      }
+    }
   }
 }

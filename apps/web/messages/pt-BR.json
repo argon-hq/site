@@ -40,7 +40,7 @@
     "body": "Este conteúdo ainda está sendo redigido. Em breve você encontrará aqui como a Argon coleta, usa e protege os seus dados."
   },
   "footer": {
-    "copyright": "© {year} Argon",
+    "rights": "{brand} · Business newsletter © {year}. Todos os direitos reservados.",
     "privacy": "Política de privacidade"
   },
   "localeSwitcher": {
@@ -53,5 +53,30 @@
     "system": "Sistema",
     "light": "Claro",
     "dark": "Escuro"
+  },
+  "confirmed": {
+    "metaTitle": "Inscrição confirmada",
+    "metaDescription": "Seu e-mail foi validado. A partir de amanhã você recebe a newsletter da Argon.",
+    "badge": "Inscrição confirmada",
+    "heading": "Sua mente mais afiada todas as manhãs.",
+    "body": "Tudo certo! Seu e-mail foi validado e você já faz parte da nossa comunidade. A partir de amanhã, você receberá um resumo inteligente das notícias mais importantes de negócios, tecnologia e carreira.",
+    "primaryCta": "Acessar plataforma",
+    "secondaryCta": "Voltar para o início"
+  },
+  "preview": {
+    "label": "Preview da Edição",
+    "tagline": "Uma dose rápida de inteligência para o seu café da manhã.",
+    "items": {
+      "market": {
+        "kicker": "Mercado & Tecnologia",
+        "title": "O que esperar do ecossistema de inovação nos próximos trimestres?",
+        "body": "As principais tendências em automação, investimentos de risco e as novas regulações que moldarão as decisões de tecnologia."
+      },
+      "productivity": {
+        "kicker": "Produtividade",
+        "title": "Frameworks de foco que realmente funcionam para times híbridos",
+        "body": "Como gestores seniores estão reestruturando a rotina de trabalho assíncrono para eliminar o excesso de reuniões inúteis."
+      }
+    }
   }
 }
