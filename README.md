@@ -1,90 +1,73 @@
-# Argon — site
+# Argon
 
-Site institucional da Argon: home, cadastro na newsletter e política de privacidade.
+Monorepo da Argon.
 
-## Stack
+## Requisitos
 
-Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · ESLint · next-intl
+- **Node.js** 20.9 ou superior
+- **pnpm** — a versão está fixada em `packageManager` no `package.json`. Com o Corepack ativo
+  (`corepack enable`), ela é usada automaticamente.
 
-Gerenciador de pacotes: **pnpm**, fixado em `packageManager` no `package.json`.
-
-## Rodando
+## Começando
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Abre em `http://localhost:3000`. Outros scripts: `pnpm build`, `pnpm lint`, `pnpm check-types`.
+O site sobe em `http://localhost:3000`.
 
-## Rotas
+## Comandos
 
-| Rota | Descrição |
+Rodados da raiz, o Turborepo os executa em todos os pacotes do workspace:
+
+| Comando | O que faz |
 | --- | --- |
-| `/` | Home. Vazia por ora — só a marca e um CTA para a newsletter. |
-| `/newsletter` | Cadastro. Tela cheia, sem cabeçalho nem rodapé. |
-| `/privacy` | Placeholder — destino do aceite no cadastro. |
+| `pnpm dev` | Sobe os pacotes em modo de desenvolvimento |
+| `pnpm build` | Build de produção |
+| `pnpm lint` | ESLint |
+| `pnpm check-types` | Checagem de tipos |
 
-Os caminhos ficam sempre em inglês, independente do idioma escolhido.
+Para rodar em um pacote só, sem passar pelo turbo: `pnpm -C apps/web <script>`.
 
-## Navegação
-
-O `BackButton` da newsletter só volta no histórico quando existe página anterior *dentro* do
-site. Detectar isso não é trivial: o Next 16 não expõe índice de histórico, `document.referrer`
-vem vazio em navegação client-side, e `history.length` conta o `about:blank` da aba — usá-lo
-levaria quem abriu o link direto para uma tela branca.
-
-Por isso o `EntryPathTracker`, montado no layout raiz, grava em `sessionStorage` a rota de
-entrada. Rota atual igual à de entrada significa que não há para onde voltar, e o botão leva à
-home; diferente, volta no histórico.
+O turbo mantém cache local em `.turbo/` — execuções repetidas sem mudança no código terminam
+em milissegundos. O diretório cresce com o tempo e pode ser apagado a qualquer momento: é
+cache, e se refaz sozinho.
 
 ## Estrutura
 
 ```
-messages/
-├── pt-BR.json
-└── en-US.json
-src/
-├── app/
-│   ├── (site)/           # páginas com cabeçalho e rodapé
-│   │   ├── layout.tsx
-│   │   ├── page.tsx              → /
-│   │   └── privacy/page.tsx      → /privacy
-│   ├── newsletter/page.tsx       → /newsletter (fora do grupo: tela cheia)
-│   ├── layout.tsx        # html/body, fontes e metadata base
-│   └── globals.css       # tokens de cor e tema do Tailwind
-├── components/
-│   ├── back-button.tsx
-│   ├── brand-mark.tsx    # placeholder do logo
-│   ├── entry-path-tracker.tsx
-│   ├── flag-icon.tsx     # bandeiras em SVG inline
-│   ├── locale-switcher.tsx
-│   ├── newsletter-form.tsx
-│   ├── option-menu.tsx   # dropdown compartilhado pelos dois seletores
-│   ├── site-footer.tsx
-│   ├── site-header.tsx
-│   └── theme-switcher.tsx
-├── i18n/
-│   ├── config.ts         # idiomas disponíveis e padrão
-│   ├── locale.ts         # server actions de leitura/escrita do cookie
-│   └── request.ts        # carrega as mensagens do idioma atual
-├── theme/
-│   ├── config.ts         # temas disponíveis e padrão
-│   └── theme.ts          # server actions de leitura/escrita do cookie
-└── lib/
-    └── email.ts          # normalização e validação de formato
+argon/
+├── apps/
+│   └── web/              # @argon/web — site institucional (Next.js)
+├── packages/             # código compartilhado entre apps (ainda vazio)
+├── package.json          # raiz do workspace
+├── pnpm-workspace.yaml   # pacotes do workspace e permissões de build
+├── pnpm-lock.yaml        # lockfile único, para todo o workspace
+└── turbo.json            # tasks e suas dependências
 ```
 
-## Cadastro
+Cada app tem o seu README com as particularidades dele — comece por
+[`apps/web`](apps/web/README.md).
 
-O `NewsletterForm` valida formato, normaliza o e-mail (minúsculas, sem espaço nas pontas) e tem
-honeypot — mas **o envio ainda é simulado**, sem backend.
+`packages/` já está no glob do workspace: quando surgir código compartilhado, basta criar a
+pasta e rodar `pnpm install`.
 
-O honeypot é só a metade cliente da proteção: sozinho ele não barra nada, e a verificação
-precisa existir no servidor.
+## Trabalhando no workspace
 
-## Pendências de design
+Dependência para um app específico:
 
-A Argon ainda não tem logo — `BrandMark` desenha um quadrado com a inicial. O painel visual à
-direita na newsletter ainda não tem arte. A cor de destaque em `globals.css` é provisória, até
-existir identidade visual.
+```bash
+pnpm --filter @argon/web add <pacote>
+```
+
+Dependência de ferramental, na raiz:
+
+```bash
+pnpm add -Dw <pacote>
+```
+
+Alguns pacotes trazem scripts de instalação, que o pnpm bloqueia por padrão. A decisão de
+permitir ou não fica registrada em `allowBuilds`, no `pnpm-workspace.yaml`. Se um `pnpm install`
+reclamar de builds ignorados, use `pnpm approve-builds <pacote>` — ou `!<pacote>` para negar —
+e o arquivo é atualizado sozinho.

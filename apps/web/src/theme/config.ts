@@ -2,8 +2,11 @@ export const themes = ["system", "light", "dark"] as const;
 
 export type Theme = (typeof themes)[number];
 
-/** "system" segue o prefers-color-scheme do sistema operacional. */
-export const defaultTheme: Theme = "system";
+/**
+ * Tema de quem chega sem preferência salva: claro, independente do sistema
+ * operacional. "system" continua disponível como escolha no seletor.
+ */
+export const defaultTheme: Theme = "light";
 
 export const THEME_COOKIE = "theme";
 
