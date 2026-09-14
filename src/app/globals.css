@@ -1,27 +1,30 @@
 @import "tailwindcss";
 
+/**
+ * Cada token declara os dois valores via light-dark(), e quem decide qual vale
+ * e o color-scheme. Sem data-theme, "light dark" faz o sistema operacional
+ * mandar; com data-theme, a escolha do visitante vence. Como bonus, controles
+ * nativos (input, checkbox, scrollbar) seguem o mesmo esquema sozinhos.
+ */
 :root {
-  --background: #ffffff;
-  --surface: #fafafa;
-  --foreground: #0f0f12;
-  --muted: #5c5c6b;
-  --border: #e4e4e9;
-  --accent: #5b3df5;
-  --accent-foreground: #ffffff;
-  --danger: #c2323b;
+  color-scheme: light dark;
+
+  --background: light-dark(#ffffff, #0b0b0f);
+  --surface: light-dark(#fafafa, #141419);
+  --foreground: light-dark(#0f0f12, #f2f2f5);
+  --muted: light-dark(#5c5c6b, #9b9ba8);
+  --border: light-dark(#e4e4e9, #26262e);
+  --accent: light-dark(#5b3df5, #8b74ff);
+  --accent-foreground: light-dark(#ffffff, #0b0b0f);
+  --danger: light-dark(#c2323b, #ff6b72);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0b0f;
-    --surface: #141419;
-    --foreground: #f2f2f5;
-    --muted: #9b9ba8;
-    --border: #26262e;
-    --accent: #8b74ff;
-    --accent-foreground: #0b0b0f;
-    --danger: #ff6b72;
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 @theme inline {

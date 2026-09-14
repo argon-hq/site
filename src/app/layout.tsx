@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
+import { EntryPathTracker } from "@/components/entry-path-tracker";
+import { getUserTheme } from "@/theme/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,21 +16,35 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Argon",
-    template: "%s | Argon",
-  },
-  description: "As últimas notícias sobre negócios, direto ao ponto.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("brand");
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+  return {
+    title: {
+      default: t("name"),
+      template: `%s | ${t("name")}`,
+    },
+    description: t("tagline"),
+  };
+}
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+  const theme = await getUserTheme();
+
   return (
     <html
-      lang="pt-BR"
+      lang={locale}
+      // Ausente quando o tema e "system": ai o color-scheme segue o SO.
+      data-theme={theme === "system" ? undefined : theme}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <NextIntlClientProvider>
+          <EntryPathTracker />
+          {children}
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }

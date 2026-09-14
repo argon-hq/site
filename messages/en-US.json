@@ -1,0 +1,57 @@
+{
+  "common": {
+    "back": "Back"
+  },
+  "brand": {
+    "name": "Argon",
+    "tagline": "The latest business news, straight to the point."
+  },
+  "nav": {
+    "newsletter": "Newsletter"
+  },
+  "home": {
+    "cta": "Subscribe to the newsletter"
+  },
+  "newsletter": {
+    "metaTitle": "Newsletter",
+    "metaDescription": "Get the latest business news in your inbox. A short briefing, no noise.",
+    "heading": "Business news, without the noise.",
+    "subheading": "A short briefing on what matters to founders, straight to your inbox. Takes under five minutes a day.",
+    "emailLabel": "Your email",
+    "emailPlaceholder": "Enter your best email",
+    "submit": "Subscribe",
+    "submitting": "Sending...",
+    "honeypotLabel": "Do not fill in this field",
+    "consent": "I have read and accept the <link>privacy policy</link>, and I want to receive the Argon newsletter. No spam — unsubscribe any time, in one click.",
+    "errors": {
+      "required": "Enter your email.",
+      "invalid": "That email looks incomplete. Check the format: name@domain.com",
+      "consent": "Accept the privacy policy to continue."
+    },
+    "success": {
+      "title": "One step left: confirm in your email",
+      "body": "We sent a confirmation link to <strong>{email}</strong>. Your subscription is only active once you click it — and nothing is sent before that.",
+      "expiry": "The link is valid for 48 hours. Can't find it? Check your spam or promotions folder."
+    }
+  },
+  "privacy": {
+    "metaTitle": "Privacy policy",
+    "heading": "Privacy policy",
+    "body": "This content is still being written. Soon you'll find here how Argon collects, uses and protects your data."
+  },
+  "footer": {
+    "copyright": "© {year} Argon",
+    "privacy": "Privacy policy"
+  },
+  "localeSwitcher": {
+    "label": "Language",
+    "pt-BR": "Português",
+    "en-US": "English"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  }
+}

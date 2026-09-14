@@ -1,0 +1,57 @@
+{
+  "common": {
+    "back": "Voltar"
+  },
+  "brand": {
+    "name": "Argon",
+    "tagline": "As últimas notícias sobre negócios, direto ao ponto."
+  },
+  "nav": {
+    "newsletter": "Newsletter"
+  },
+  "home": {
+    "cta": "Assinar a newsletter"
+  },
+  "newsletter": {
+    "metaTitle": "Newsletter",
+    "metaDescription": "Receba as últimas notícias sobre negócios no seu e-mail. Um resumo curto, sem ruído.",
+    "heading": "Notícias de negócios, sem ruído.",
+    "subheading": "Um resumo curto do que importa para quem empreende, direto no seu e-mail. Leva menos de cinco minutos por dia.",
+    "emailLabel": "Seu e-mail",
+    "emailPlaceholder": "Coloque o seu melhor e-mail",
+    "submit": "Inscreva-se",
+    "submitting": "Enviando...",
+    "honeypotLabel": "Não preencha este campo",
+    "consent": "Li e aceito a <link>política de privacidade</link> e quero receber a newsletter da Argon. Sem spam — você cancela quando quiser, em um clique.",
+    "errors": {
+      "required": "Informe o seu e-mail.",
+      "invalid": "Esse e-mail parece incompleto. Confira o formato: nome@dominio.com",
+      "consent": "Marque o aceite da política de privacidade para continuar."
+    },
+    "success": {
+      "title": "Falta um passo: confirme no seu e-mail",
+      "body": "Enviamos um link de confirmação para <strong>{email}</strong>. Seu cadastro só fica ativo depois que você clicar nele — e nenhuma edição é enviada antes disso.",
+      "expiry": "O link vale por 48 horas. Não achou? Procure no spam ou nas promoções."
+    }
+  },
+  "privacy": {
+    "metaTitle": "Política de privacidade",
+    "heading": "Política de privacidade",
+    "body": "Este conteúdo ainda está sendo redigido. Em breve você encontrará aqui como a Argon coleta, usa e protege os seus dados."
+  },
+  "footer": {
+    "copyright": "© {year} Argon",
+    "privacy": "Política de privacidade"
+  },
+  "localeSwitcher": {
+    "label": "Idioma",
+    "pt-BR": "Português",
+    "en-US": "English"
+  },
+  "theme": {
+    "label": "Tema",
+    "system": "Sistema",
+    "light": "Claro",
+    "dark": "Escuro"
+  }
+}

@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 
 type Status = "idle" | "submitting" | "sent";
 
 export function NewsletterForm() {
+  const t = useTranslations("newsletter");
+
   const emailId = useId();
   const errorId = useId();
   const consentId = useId();
@@ -19,11 +22,9 @@ export function NewsletterForm() {
   const [sentTo, setSentTo] = useState("");
 
   function validate(): string | null {
-    if (!email.trim()) return "Informe o seu e-mail.";
-    if (!isValidEmail(email)) {
-      return "Esse e-mail parece incompleto. Confira o formato: nome@dominio.com";
-    }
-    if (!consent) return "Marque o aceite da política de privacidade para continuar.";
+    if (!email.trim()) return t("errors.required");
+    if (!isValidEmail(email)) return t("errors.invalid");
+    if (!consent) return t("errors.consent");
     return null;
   }
 
@@ -67,7 +68,7 @@ export function NewsletterForm() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
           <label htmlFor={emailId} className="sr-only">
-            Seu e-mail
+            {t("emailLabel")}
           </label>
           <input
             id={emailId}
@@ -75,7 +76,7 @@ export function NewsletterForm() {
             type="email"
             inputMode="email"
             autoComplete="email"
-            placeholder="Coloque o seu melhor e-mail"
+            placeholder={t("emailPlaceholder")}
             value={email}
             onChange={(event) => {
               setEmail(event.target.value);
@@ -92,13 +93,16 @@ export function NewsletterForm() {
           disabled={status === "submitting"}
           className="h-14 shrink-0 rounded-lg bg-accent px-8 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {status === "submitting" ? "Enviando..." : "Inscreva-se"}
+          {status === "submitting" ? t("submitting") : t("submit")}
         </button>
       </div>
 
       {/* Honeypot: invisível para pessoas, atraente para bots. */}
-      <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
-        <label htmlFor="empresa-site">Não preencha este campo</label>
+      <div
+        aria-hidden="true"
+        className="absolute left-[-9999px] h-0 w-0 overflow-hidden"
+      >
+        <label htmlFor="empresa-site">{t("honeypotLabel")}</label>
         <input
           id="empresa-site"
           name="empresa-site"
@@ -111,7 +115,11 @@ export function NewsletterForm() {
       </div>
 
       {error && (
-        <p id={errorId} role="alert" className="text-sm font-medium text-danger">
+        <p
+          id={errorId}
+          role="alert"
+          className="text-sm font-medium text-danger"
+        >
           {error}
         </p>
       )}
@@ -131,15 +139,16 @@ export function NewsletterForm() {
           className="mt-0.5 size-4 shrink-0 accent-accent"
         />
         <label htmlFor={consentId}>
-          Li e aceito a{" "}
-          <Link
-            href="/privacidade"
-            className="font-medium text-foreground underline underline-offset-2"
-          >
-            política de privacidade
-          </Link>{" "}
-          e quero receber a newsletter da Argon. Sem spam — você cancela quando quiser, em um
-          clique.
+          {t.rich("consent", {
+            link: (chunks) => (
+              <Link
+                href="/privacy"
+                className="font-medium text-foreground underline underline-offset-2"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
         </label>
       </div>
     </form>
@@ -147,20 +156,23 @@ export function NewsletterForm() {
 }
 
 function ConfirmationNotice({ email }: { email: string }) {
+  const t = useTranslations("newsletter.success");
+
   return (
     <div
       role="status"
       className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6"
     >
-      <h2 className="text-xl font-semibold">Falta um passo: confirme no seu e-mail</h2>
+      <h2 className="text-xl font-semibold">{t("title")}</h2>
       <p className="text-muted">
-        Enviamos um link de confirmação para <strong className="text-foreground">{email}</strong>.
-        Seu cadastro só fica ativo depois que você clicar nele — e nenhuma edição é enviada antes
-        disso.
+        {t.rich("body", {
+          email,
+          strong: (chunks) => (
+            <strong className="text-foreground">{chunks}</strong>
+          ),
+        })}
       </p>
-      <p className="text-sm text-muted">
-        O link vale por 48 horas. Não achou? Procure no spam ou nas promoções.
-      </p>
+      <p className="text-sm text-muted">{t("expiry")}</p>
     </div>
   );
 }
