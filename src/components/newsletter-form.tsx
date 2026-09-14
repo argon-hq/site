@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 
 type Status = "idle" | "submitting" | "sent";
@@ -157,22 +157,53 @@ export function NewsletterForm() {
 
 function ConfirmationNotice({ email }: { email: string }) {
   const t = useTranslations("newsletter.success");
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  // O aviso substitui o formulário. Sem mover o foco, quem navega por teclado
+  // ou leitor de tela perde a referência do que mudou na tela.
+  useEffect(() => {
+    noticeRef.current?.focus();
+  }, []);
 
   return (
     <div
+      ref={noticeRef}
       role="status"
-      className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6"
+      tabIndex={-1}
+      className="flex flex-col items-start gap-4 rounded-xl border border-accent/50 bg-accent/10 p-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:p-8"
     >
-      <h2 className="text-xl font-semibold">{t("title")}</h2>
-      <p className="text-muted">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+        <MailIcon />
+      </span>
+
+      <h2 className="text-2xl font-bold tracking-tight text-balance">{t("title")}</h2>
+
+      <p className="text-base text-pretty">
         {t.rich("body", {
           email,
-          strong: (chunks) => (
-            <strong className="text-foreground">{chunks}</strong>
-          ),
+          strong: (chunks) => <strong className="font-semibold">{chunks}</strong>,
         })}
       </p>
+
       <p className="text-sm text-muted">{t("expiry")}</p>
     </div>
+  );
+}
+
+/** Envelope, nao um check: o cadastro ainda nao esta concluido neste ponto. */
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.4" />
+        <path d="m3.4 7.4 7.3 5.1a2.3 2.3 0 0 0 2.6 0l7.3-5.1" />
+      </g>
+    </svg>
   );
 }
