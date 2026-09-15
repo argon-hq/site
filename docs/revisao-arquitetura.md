@@ -131,19 +131,20 @@ fazem o trabalho mecânico:
 
 | Ferramenta | Faz |
 | --- | --- |
-| `listar_fontes` | lê a tabela `fonte` (feed, categoria padrão, ativa, último acesso) |
+| `listar_fontes` | lê a tabela `fonte` (tipo: feed, página ou consulta; categoria padrão, instruções, ativa) |
 | `ler_feed(fonte)` | busca RSS/Atom, devolve itens com título, link, data, resumo |
 | `ler_pagina(url)` | busca HTML, extrai texto principal, respeita `robots.txt`, timeout 10s, só domínios da tabela `fonte` |
-| `consultar_selic` | série 432 do SGS (Banco Central); compara com `indicador_valor` |
+| `consultar(fonte)` | fonte do tipo `consulta` (ex.: SELIC na série 432 do SGS); devolve o valor atual |
 | `gravar_noticia` | upsert por `url_canonica`; rejeita duplicata |
 
 Regras que ficam em código, não no prompt: allowlist de domínios, janela de 24h/48h,
 respeito a `robots.txt`, tamanho máximo de texto extraído, e não guardar texto de fontes
 com paywall ou termos restritivos (Gartner, Zero Hora: usar release ou resumo do feed).
 
-SELIC: a ferramenta devolve `mudou: true/false`. Se mudou, o agente cria uma notícia
-sintética com link para o comunicado do Copom. A decisão de destaque fica com o
-Selecionador.
+SELIC: é uma fonte do tipo `consulta`, sem tabela própria. O agente lê o valor atual,
+compara com a última notícia gerada para essa fonte (o valor fica nas `tags` da notícia) e
+só cria notícia nova se mudou, com link para o comunicado do Copom. A decisão de destaque
+fica com o Selecionador.
 
 O que o agente ganha aqui: lidar com feed quebrado, página sem feed, título enganoso,
 notícia duplicada com URL diferente. O que perde se as ferramentas não existirem: cada
@@ -183,7 +184,10 @@ Requisitos do template:
   política.
 - Versão texto puro gerada do mesmo JSON.
 - Tamanho abaixo de 100 KB (Gmail corta acima de 102 KB).
-- Assunto vem do Redator como campo separado, limite de 60 caracteres.
+- Assunto do e-mail gerado pelo template a partir da data e da marca, sem LLM.
+- **HTML não é persistido.** A edição guarda só os ids das notícias; o template reconstrói
+  o HTML a qualquer momento ordenando por score. Consequência: manchete, corpo e score de
+  uma notícia ficam imutáveis depois que a edição sai.
 
 Validação mecânica na saída, mesmo sendo template: HTML válido, sem `<script>`, sem CSS ou
 imagem externa fora da allowlist, todos os links dos itens presentes. Se falhar aqui é bug
@@ -206,8 +210,8 @@ Três checagens, como no diagrama, cada uma com insumo adequado:
 Sobre a renderização: **Playwright não cabe numa função da Vercel** (limite de 250 MB de
 bundle, sem Chromium). Opções: serviço de screenshot por API (Browserless, ScreenshotOne,
 Urlbox) ou Vercel Sandbox rodando Chromium. Ambos têm custo por captura; a 26 edições por
-mês e 2 capturas por tentativa, é irrelevante. A imagem deve ser guardada junto da execução
-para o alerta e para auditoria.
+mês e 2 capturas por tentativa, é irrelevante. As capturas não são persistidas: vivem só
+durante a execução e vão anexadas ao alerta se a edição falhar.
 
 Limite honesto da revisão visual por agente: ela vê Chromium, não Outlook nem o app do
 Gmail. Recomendo um teste manual nos três clientes principais uma vez por versão do
@@ -333,12 +337,13 @@ Esquema completo em [`esquema.sql`](esquema.sql). O que mudou em relação ao di
 | `Assinante.consentimento (boolean)` | `consentimento_em`, `consentimento_ip`, `consentimento_user_agent`, `politica_versao` | prova de consentimento auditável (LGPD) |
 | sem token | `token_hash`, `token_expira_em`, `token_descadastro_hash` | §3.1 e §3.4 |
 | sem motivo de cancelamento | `motivo_cancelamento`, `data_cancelamento`, `bounces_soft` | §3.4 e §7.2 |
-| `Edicao.noticias (Noticia[])` | tabela `edicao_noticia` com `ordem` | relação N:N não cabe em coluna |
-| `Edicao` sem estado | `status`, `assunto`, `texto_plano`, `tentativas`, `log_revisao`, `custo_tokens` | orquestração e auditoria |
+| `Edicao.noticias (Noticia[])` | `noticia_ids uuid[]` | mantido como array; ordem vem do `score` da notícia |
+| `Edicao.html_edicao` | removido | HTML reconstruído pelo template a partir das notícias |
+| `Edicao` sem estado | `status`, `tentativas`, `log_revisao`, `custo_tokens` | orquestração e auditoria |
 | `Noticia` sem origem | `fonte_id`, `url_canonica` única, `hash_conteudo`, `texto_extraido`, `embedding`, `score`, `score_detalhe` | dedup, seleção auditável |
 | — | `envio` | idempotência e bounce (§7) |
 | — | `execucao_pipeline` | estado das etapas, medição, alerta |
-| — | `fonte`, `indicador_valor` | ferramentas do Ingestor (§4.1) |
+| — | `fonte` (com `tipo` feed, página ou consulta) | ferramentas do Ingestor; a SELIC é uma fonte de consulta (§4.1) |
 | — | `evento_cadastro` | limites anti-abuso (§3.2) |
 | — | `configuracao` | kill switch e parâmetros |
 
@@ -348,6 +353,8 @@ Notas:
 - Acesso só pelo servidor com chave de serviço. RLS ligado em todas as tabelas sem
   políticas públicas, como rede de segurança.
 - `texto_extraido` é insumo, não publicação. Limpar após 30 dias.
+- `noticia_ids` é array, sem chave estrangeira: uma notícia apagada some da edição sem
+  aviso. Não apagar notícias que já saíram em edição.
 - Cliente tipado (Drizzle é a sugestão; o SQL é a fonte de verdade de qualquer forma).
 
 ## 7. Envio e entregabilidade

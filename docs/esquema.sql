@@ -31,6 +31,7 @@ create type etapa_pipeline as enum (
 );
 create type status_execucao as enum ('iniciada', 'concluida', 'falhou', 'pulada');
 create type tipo_evento_cadastro as enum ('cadastro', 'reenvio', 'honeypot', 'descadastro');
+create type tipo_fonte as enum ('feed', 'pagina', 'consulta');   -- consulta: API de dado (ex.: SELIC no SGS)
 
 -- ---------------------------------------------------------------------------
 -- Assinante
@@ -105,35 +106,25 @@ create index evento_cadastro_ip_idx on evento_cadastro (ip_hash, criado_em desc)
 create index evento_cadastro_email_idx on evento_cadastro (email_hash, criado_em desc);
 
 -- ---------------------------------------------------------------------------
--- Fontes de notícia (ferramenta `listar_fontes` do Ingestor)
+-- Fontes (ferramenta `listar_fontes` do Ingestor)
+-- Uma fonte pode ser feed, página ou consulta a uma API de dado. A SELIC é uma
+-- fonte do tipo `consulta`: o agente lê o valor, compara com a última notícia
+-- gerada para essa fonte e só cria notícia nova se mudou.
 -- ---------------------------------------------------------------------------
 
 create table fonte (
-  id                 text primary key,             -- slug estável: 'forbes-br', 'gartner'
+  id                 text primary key,             -- slug estável: 'forbes-br', 'selic'
   nome               text not null,
-  url_feed           text,                         -- RSS/Atom; nulo se só página
-  url_pagina         text,
+  tipo               tipo_fonte not null default 'feed',
+  url                text not null,                -- feed, página ou endpoint da consulta
   dominios           text[] not null,              -- allowlist para `ler_pagina`
   categoria_padrao   categoria_noticia,
   guardar_texto      boolean not null default true,-- false para paywall/termos restritivos
+  instrucoes         text,                         -- orientação específica para o agente (ex.: como ler a série do SGS)
   ativa              boolean not null default true,
   ultimo_acesso_em   timestamptz,
   ultimo_erro        text,
   criado_em          timestamptz not null default now()
-);
-
--- ---------------------------------------------------------------------------
--- Indicadores (SELIC e o que vier): só vira notícia quando o valor muda
--- ---------------------------------------------------------------------------
-
-create table indicador_valor (
-  id            bigint generated always as identity primary key,
-  indicador     text not null,                 -- 'selic'
-  valor         numeric(10, 4) not null,
-  referencia    date not null,                 -- data do dado na fonte
-  fonte_url     text,
-  coletado_em   timestamptz not null default now(),
-  constraint indicador_valor_unico unique (indicador, referencia)
 );
 
 -- ---------------------------------------------------------------------------
@@ -181,16 +172,16 @@ create index noticia_embedding_idx on noticia
 -- Edição
 -- ---------------------------------------------------------------------------
 
+-- O HTML não é guardado: é reconstruído pelo template a partir das notícias
+-- apontadas em `noticia_ids`, ordenadas por `noticia.score`. Por isso manchete,
+-- corpo e score de uma notícia não mudam depois que a edição sai.
+
 create table edicao (
   id                   uuid primary key default gen_random_uuid(),
   data                 date not null,             -- uma por dia
   status               status_edicao not null default 'gerando',
 
-  assunto              text,
-  html                 text,
-  texto_plano          text,
-  captura_600_url      text,                      -- imagens da revisão visual
-  captura_375_url      text,
+  noticia_ids          uuid[] not null default '{}',  -- notícias da edição (sem FK: array)
 
   numero_assinantes    integer,                   -- snapshot no envio
   enviada_em           timestamptz,
@@ -203,17 +194,11 @@ create table edicao (
   atualizado_em        timestamptz not null default now(),
 
   constraint edicao_data_unica unique (data),
-  constraint edicao_assunto_tamanho check (assunto is null or char_length(assunto) <= 60),
-  constraint edicao_enviada_tem_data check (status <> 'enviada' or enviada_em is not null)
+  constraint edicao_enviada_tem_data check (status <> 'enviada' or enviada_em is not null),
+  constraint edicao_enviada_tem_noticias check (status <> 'enviada' or cardinality(noticia_ids) >= 3)
 );
 
-create table edicao_noticia (
-  edicao_id    uuid not null references edicao (id) on delete cascade,
-  noticia_id   uuid not null references noticia (id),
-  ordem        smallint not null,
-  primary key (edicao_id, noticia_id),
-  constraint edicao_noticia_ordem_unica unique (edicao_id, ordem)
-);
+create index edicao_noticia_ids_idx on edicao using gin (noticia_ids);
 
 -- ---------------------------------------------------------------------------
 -- Envio: uma linha por (edição, assinante). Criada antes de chamar o Resend.
@@ -318,10 +303,8 @@ create trigger configuracao_atualizado_em before update on configuracao
 alter table assinante          enable row level security;
 alter table evento_cadastro    enable row level security;
 alter table fonte              enable row level security;
-alter table indicador_valor    enable row level security;
 alter table noticia            enable row level security;
 alter table edicao             enable row level security;
-alter table edicao_noticia     enable row level security;
 alter table envio              enable row level security;
 alter table evento_resend      enable row level security;
 alter table execucao_pipeline  enable row level security;
