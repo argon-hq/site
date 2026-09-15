@@ -34,6 +34,16 @@ O turbo mantém cache local em `.turbo/` — execuções repetidas sem mudança 
 em milissegundos. O diretório cresce com o tempo e pode ser apagado a qualquer momento: é
 cache, e se refaz sozinho.
 
+### Antes de abrir o PR
+
+```bash
+pnpm install --frozen-lockfile
+pnpm lint && pnpm check-types && pnpm build
+```
+
+O install com lockfile congelado é o que a Vercel executa: se o lockfile estiver dessincronizado
+do `package.json`, o build falha lá e passa aqui.
+
 ## Estrutura
 
 ```
