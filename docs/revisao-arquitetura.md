@@ -67,9 +67,10 @@ domínio. Ordem de verificação no servidor, antes de tocar no banco ou no Rese
 
 1. Honeypot preenchido: responder sucesso e descartar. Nunca revelar que foi detectado.
 2. Validação e normalização do e-mail (a mesma função já existente em `lib/email.ts`).
-3. Limite por IP: 5 submissões por hora. Limite por e-mail: 1 reenvio a cada 10 minutos, 3 por
-   dia. Implementado com a tabela `evento_cadastro` do esquema (contagem por janela) ou, se
-   preferirem não tocar no banco para isso, Upstash Redis ou o Firewall da Vercel.
+3. Limite por IP: 5 submissões por hora, no Firewall da Vercel (rate limiting por rota, sem
+   tabela). Limite por e-mail: 1 reenvio a cada 10 minutos e 3 por dia, com dois campos no
+   próprio assinante (`ultimo_envio_confirmacao_em`, `envios_confirmacao`), zerados por job
+   diário.
 4. Consentimento marcado e versão da política registrada.
 5. Só então a ação da tabela em §3.3.
 
@@ -163,7 +164,11 @@ execução reinventa o parser, com custo e erro variáveis.
 
 ### 4.3 Redator (agente)
 
-- Saída estruturada: `manchete`, `corpo` (até 190 caracteres), `link`. Nunca HTML.
+- Saída estruturada por item: `manchete` e `corpo` (até 190 caracteres). O link é a URL
+  canônica da notícia, não é gerado. Nunca HTML.
+- Depois dos itens, o Redator produz dois campos da **edição**, que não estavam no diagrama:
+  `titulo` (manchete da edição, no cabeçalho do e-mail) e `assunto` (linha de assunto, até
+  78 caracteres). Ambos validados em código e checados pelo Revisor.
 - Validação em código: tamanho, link igual ao da fonte, campos presentes. Estourou, pede
   reescrita **do item**, não da edição.
 - Restrição de fidelidade no prompt e verificada pelo Revisor: só fatos presentes no texto
@@ -184,10 +189,10 @@ Requisitos do template:
   política.
 - Versão texto puro gerada do mesmo JSON.
 - Tamanho abaixo de 100 KB (Gmail corta acima de 102 KB).
-- Assunto do e-mail gerado pelo template a partir da data e da marca, sem LLM.
-- **HTML não é persistido.** A edição guarda só os ids das notícias; o template reconstrói
-  o HTML a qualquer momento ordenando por score. Consequência: manchete, corpo e score de
-  uma notícia ficam imutáveis depois que a edição sai.
+- Título e assunto vêm da edição, gerados pelo Redator (§4.3).
+- **HTML não é persistido.** As notícias apontam para a edição por `edicao_id`; o template
+  reconstrói o HTML a qualquer momento ordenando por score. Um gatilho no banco impede
+  alterar manchete, corpo ou score de notícia que saiu em edição enviada.
 
 Validação mecânica na saída, mesmo sendo template: HTML válido, sem `<script>`, sem CSS ou
 imagem externa fora da allowlist, todos os links dos itens presentes. Se falhar aqui é bug
@@ -330,22 +335,168 @@ Testar o pipeline sem subir o site e mudar de orquestrador sem reescrever os age
 
 ## 6. Modelo de dados
 
-Esquema completo em [`esquema.sql`](esquema.sql). O que mudou em relação ao diagrama e por quê:
+Esquema completo em [`esquema.sql`](esquema.sql): **sete tabelas**.
+
+### 6.1 O que mudou em relação ao diagrama
 
 | Diagrama | Proposta | Motivo |
 | --- | --- | --- |
 | `Assinante.consentimento (boolean)` | `consentimento_em`, `consentimento_ip`, `consentimento_user_agent`, `politica_versao` | prova de consentimento auditável (LGPD) |
 | sem token | `token_hash`, `token_expira_em`, `token_descadastro_hash` | §3.1 e §3.4 |
 | sem motivo de cancelamento | `motivo_cancelamento`, `data_cancelamento`, `bounces_soft` | §3.4 e §7.2 |
-| `Edicao.noticias (Noticia[])` | `noticia_ids uuid[]` | mantido como array; ordem vem do `score` da notícia |
+| sem limite de reenvio | `envios_confirmacao`, `ultimo_envio_confirmacao_em` | §3.2 |
+| `Edicao.noticias (Noticia[])` | `noticia.edicao_id` (1:N) | uma notícia sai em no máximo uma edição; ordem é o `score` |
 | `Edicao.html_edicao` | removido | HTML reconstruído pelo template a partir das notícias |
-| `Edicao` sem estado | `status`, `tentativas`, `log_revisao`, `custo_tokens` | orquestração e auditoria |
-| `Noticia` sem origem | `fonte_id`, `url_canonica` única, `hash_conteudo`, `texto_extraido`, `embedding`, `score`, `score_detalhe` | dedup, seleção auditável |
+| `Edicao.numero_assinantes` | removido | é `count(*)` em `envio` |
+| — | `edicao.titulo`, `edicao.assunto` | cabeçalho e assunto do e-mail, que não existiam no diagrama |
+| `Edicao` sem estado | `status`, `log_revisao`, `custo_tokens` | orquestração e auditoria |
+| `Noticia` sem origem | `fonte_id`, `url_canonica` única, `texto_extraido`, `embedding`, `score`, `score_detalhe` | dedup e seleção auditável |
+| `Noticia.link` | removido | é a própria `url_canonica` |
 | — | `envio` | idempotência e bounce (§7) |
 | — | `execucao_pipeline` | estado das etapas, medição, alerta |
-| — | `fonte` (com `tipo` feed, página ou consulta) | ferramentas do Ingestor; a SELIC é uma fonte de consulta (§4.1) |
-| — | `evento_cadastro` | limites anti-abuso (§3.2) |
+| — | `fonte` (feed, página ou consulta) | ferramentas do Ingestor; a SELIC é fonte de consulta (§4.1) |
 | — | `configuracao` | kill switch e parâmetros |
+
+### 6.2 Simplificações da última passada
+
+- **`evento_cadastro` removida.** Limite por IP vai para o Firewall da Vercel; limite por
+  e-mail vira dois campos no assinante.
+- **`evento_resend` removida.** As transições de `envio.status` só avançam, então o webhook é
+  idempotente sem guardar evento bruto.
+- **`indicador_valor` removida.** SELIC é uma `fonte` do tipo consulta.
+- **`edicao_noticia` e o array `noticia_ids` removidos.** Como a dedup garante que uma
+  notícia nunca é republicada, a relação é 1:N: `noticia.edicao_id`.
+- **Campos derivados removidos:** `edicao.numero_assinantes`, `edicao.tentativas` (vem de
+  `execucao_pipeline`), `noticia.link` e `noticia.url_original` (a canônica basta),
+  `noticia.hash_conteudo` (a URL canônica e o embedding cobrem), `fonte.dominios` (o domínio
+  permitido é o da própria `url`), `assinante.ultimo_bounce_em`.
+
+### 6.3 Normalização
+
+Passada por forma normal, tabela a tabela.
+
+**1FN (atributos atômicos, sem grupos repetidos).** `noticia_ids uuid[]` violava e foi
+substituído por `noticia.edicao_id`. Ficam três exceções deliberadas: `noticia.tags text[]`
+(atributo folha, sem consulta relacional prevista), `configuracao.valor jsonb` (registro
+chave–valor) e os campos `jsonb` de auditoria (`score_detalhe`, `log_revisao`,
+`custo_tokens`, `metricas`), que são documentos gravados uma vez e lidos inteiros. Se
+alguma dessas passar a ser filtrada ou agregada, vira tabela.
+
+**2FN (sem dependência parcial da chave).** Todas as tabelas têm chave primária simples
+(uuid ou slug). A única chave composta é a restrição única de `envio (edicao_id,
+assinante_id)`, e nenhum atributo de `envio` depende só de uma das duas. Passa.
+
+**3FN (sem dependência transitiva).** Violações encontradas e removidas:
+`edicao.numero_assinantes` dependia de `envio`; `noticia.link` dependia de `url_canonica`;
+`fonte.dominios` dependia de `fonte.url`; `edicao.tentativas` dependia de
+`execucao_pipeline`. `assinante.status` não é derivável só das datas (bounce e reclamação
+não têm data própria), então fica. `noticia.categoria` pode coincidir com
+`fonte.categoria_padrao`, mas é a classificação da notícia em si, que o Selecionador pode
+mudar; não é transitiva.
+
+### 6.4 Diagrama
+
+```mermaid
+erDiagram
+  assinante ||--o{ envio : "recebe"
+  edicao    ||--o{ envio : "gera um por assinante"
+  edicao    ||--o{ noticia : "contém (ordem = score)"
+  fonte     ||--o{ noticia : "origina"
+  edicao    ||--o{ execucao_pipeline : "registra etapas"
+
+  assinante {
+    uuid id PK
+    text email UK "normalizado"
+    status_assinante status
+    text token_hash "só o hash"
+    timestamptz token_expira_em
+    text token_descadastro_hash
+    smallint envios_confirmacao
+    timestamptz ultimo_envio_confirmacao_em
+    timestamptz consentimento_em
+    inet consentimento_ip
+    text consentimento_user_agent
+    text politica_versao
+    timestamptz data_cadastro
+    timestamptz data_confirmacao
+    timestamptz data_cancelamento
+    motivo_cancelamento motivo_cancelamento
+    smallint bounces_soft
+  }
+
+  fonte {
+    text id PK "slug"
+    text nome
+    tipo_fonte tipo "feed | pagina | consulta"
+    text url
+    categoria_noticia categoria_padrao
+    boolean guardar_texto
+    text instrucoes
+    boolean ativa
+    timestamptz ultimo_acesso_em
+    text ultimo_erro
+  }
+
+  noticia {
+    uuid id PK
+    text fonte_id FK
+    uuid edicao_id FK "nulo até ser selecionada"
+    text url_canonica UK "identidade e link"
+    text titulo_original
+    text texto_extraido "limpo em 30 dias"
+    timestamptz publicado_em
+    categoria_noticia categoria
+    text_array tags
+    vector embedding "dedup"
+    numeric score "definido na seleção"
+    jsonb score_detalhe
+    text manchete
+    text corpo "até 190"
+  }
+
+  edicao {
+    uuid id PK
+    date data UK
+    status_edicao status
+    text titulo "cabeçalho do e-mail"
+    text assunto "linha de assunto"
+    timestamptz enviada_em
+    jsonb log_revisao
+    jsonb custo_tokens
+  }
+
+  envio {
+    uuid id PK
+    uuid edicao_id FK
+    uuid assinante_id FK
+    integer lote "idempotência"
+    status_envio status "só avança"
+    text resend_email_id
+    timestamptz enviado_em
+    text erro
+  }
+
+  execucao_pipeline {
+    uuid id PK
+    uuid edicao_id FK
+    text run_id
+    etapa_pipeline etapa
+    text item_ref
+    status_execucao status
+    smallint tentativa
+    timestamptz iniciado_em
+    timestamptz terminado_em
+    text erro
+    jsonb metricas
+  }
+
+  configuracao {
+    text chave PK
+    jsonb valor
+  }
+```
+
+`configuracao` não se relaciona com as demais: é o kill switch e os parâmetros do pipeline.
 
 Notas:
 
@@ -353,8 +504,8 @@ Notas:
 - Acesso só pelo servidor com chave de serviço. RLS ligado em todas as tabelas sem
   políticas públicas, como rede de segurança.
 - `texto_extraido` é insumo, não publicação. Limpar após 30 dias.
-- `noticia_ids` é array, sem chave estrangeira: uma notícia apagada some da edição sem
-  aviso. Não apagar notícias que já saíram em edição.
+- Gatilho impede alterar manchete, corpo, score ou URL de notícia que saiu em edição
+  enviada, porque o HTML é reconstruído a partir dela.
 - Cliente tipado (Drizzle é a sugestão; o SQL é a fonte de verdade de qualquer forma).
 
 ## 7. Envio e entregabilidade
@@ -366,6 +517,10 @@ Uma linha por (edição, assinante), criada **antes** de chamar o Resend, com st
 `resend_email_id` liga o webhook de bounce ao assinante. A chave de idempotência do Resend
 (24h de validade) é `edicao_id:lote_n`, o que cobre retry dentro da mesma execução.
 
+Os eventos do webhook não são guardados: o `status` do envio só avança (pendente, enviado,
+entregue, bounce ou reclamação), então receber o mesmo evento duas vezes não muda nada e a
+tabela de eventos brutos ficou dispensável.
+
 ### 7.2 Política de bounce (proposta)
 
 | Evento (webhook) | Ação |
@@ -375,7 +530,7 @@ Uma linha por (edição, assinante), criada **antes** de chamar o Resend, com st
 | `email.complained` | `cancelado`, motivo `reclamacao`, nunca reenviar |
 | `email.delivered` | zera `bounces_soft` |
 
-Webhook com verificação de assinatura, idempotente por `resend_email_id + tipo`.
+Webhook com verificação de assinatura; idempotência vem das transições de `envio.status`.
 
 ### 7.3 Entregabilidade é infraestrutura, não código do Distribuidor
 
