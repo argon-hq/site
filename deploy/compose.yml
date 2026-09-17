@@ -1,4 +1,4 @@
-# Dois ambientes na mesma instância. Tags das imagens vêm de /opt/argon/.env (PROD_TAG, DEV_TAG).
+# Três ambientes na mesma instância: prod, dev e lab (branches em desenvolvimento). Tags em /opt/argon/.env (PROD_TAG, DEV_TAG, LAB_TAG).
 services:
   caddy:
     image: caddy:2-alpine
@@ -20,6 +20,18 @@ services:
     restart: unless-stopped
     env_file: env/dev.env
     logging: { driver: awslogs, options: { awslogs-group: /argon/dev/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
+  web-lab:
+    image: ${ECR}/argon/web:${LAB_TAG}
+    restart: unless-stopped
+    env_file: env/lab.env
+    logging: { driver: awslogs, options: { awslogs-group: /argon/lab/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
+  api-lab:
+    image: ${ECR}/argon/api:${LAB_TAG}
+    restart: unless-stopped
+    env_file: env/lab.env
+    logging: { driver: awslogs, options: { awslogs-group: /argon/lab/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
 volumes:
   caddy-data:
