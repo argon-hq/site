@@ -1,0 +1,158 @@
+// Application schema. Mastra keeps its own tables in the `mastra` schema, outside Prisma.
+// Rules Prisma cannot express (check constraints, triggers, seed rows) live in the migration SQL.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "cjs"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+enum SubscriberStatus {
+  pending
+  confirmed
+  cancelled
+  bounced
+  blocked
+
+  @@map("subscriber_status")
+}
+
+enum ArticleCategory {
+  business
+  entrepreneurship
+  technology
+  economy
+  politics
+
+  @@map("article_category")
+}
+
+enum EditionStatus {
+  generating
+  ready
+  sending
+  sent
+  failed
+  skipped
+
+  @@map("edition_status")
+}
+
+enum DeliveryStatus {
+  pending
+  sent
+  delivered
+  soft_bounce
+  hard_bounce
+  complaint
+  failed
+
+  @@map("delivery_status")
+}
+
+model Subscriber {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String           @unique // lower-case, trimmed (check constraint)
+  status                 SubscriberStatus @default(pending)
+  tokenHash              String?          @map("token_hash") // confirmation token: hash only
+  tokenExpiresAt         DateTime?        @map("token_expires_at") @db.Timestamptz
+  unsubscribeTokenHash   String?          @map("unsubscribe_token_hash") // permanent, created on confirmation
+  confirmationSends      Int              @default(0) @map("confirmation_sends") @db.SmallInt
+  lastConfirmationSentAt DateTime?        @map("last_confirmation_sent_at") @db.Timestamptz
+  consentAt              DateTime?        @map("consent_at") @db.Timestamptz
+  consentIp              String?          @map("consent_ip") @db.Inet
+  consentUserAgent       String?          @map("consent_user_agent")
+  policyVersion          String?          @map("policy_version")
+  signedUpAt             DateTime         @default(now()) @map("signed_up_at") @db.Timestamptz
+  confirmedAt            DateTime?        @map("confirmed_at") @db.Timestamptz
+  cancelledAt            DateTime?        @map("cancelled_at") @db.Timestamptz
+  softBounces            Int              @default(0) @map("soft_bounces") @db.SmallInt
+  updatedAt              DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  deliveries Delivery[]
+
+  @@index([status])
+  @@index([tokenHash])
+  @@index([unsubscribeTokenHash])
+  @@index([tokenExpiresAt])
+  @@index([cancelledAt])
+  @@map("subscriber")
+}
+
+model Article {
+  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  editionId     String?                      @map("edition_id") @db.Uuid // null until selected
+  canonicalUrl  String                       @unique @map("canonical_url") // identity and link
+  sourceName    String                       @map("source_name") // source from the ingestor prompt
+  originalTitle String                       @map("original_title")
+  extractedText String?                      @map("extracted_text") // cleared after 30 days
+  publishedAt   DateTime?                    @map("published_at") @db.Timestamptz
+  category      ArticleCategory?
+  embedding     Unsupported("vector(1536)")? // dedup by similarity
+  score         Decimal?                     @db.Decimal(5, 2) // set on selection, frozen once sent
+  scoreDetails  Json?                        @map("score_details")
+  headline      String?
+  body          String? // up to 190 characters (check constraint)
+  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  edition Edition? @relation(fields: [editionId], references: [id])
+
+  @@index([publishedAt(sort: Desc)])
+  @@index([editionId, score(sort: Desc)])
+  @@map("article")
+}
+
+model Edition {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date      DateTime      @unique @db.Date
+  status    EditionStatus @default(generating)
+  title     String? // e-mail header
+  subject   String? // e-mail subject, up to 78 characters (check constraint)
+  html      String? // built once, read by the archive and resends
+  text      String? // plain-text version
+  sentAt    DateTime?     @map("sent_at") @db.Timestamptz
+  reviewLog Json          @default("[]") @map("review_log") // [{attempt, step, verdict, analysis}]
+  tokenCost Json          @default("{}") @map("token_cost") // {step: {model, input, output}}
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  articles   Article[]
+  deliveries Delivery[]
+
+  @@map("edition")
+}
+
+model Delivery {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  editionId       String         @map("edition_id") @db.Uuid
+  subscriberId    String         @map("subscriber_id") @db.Uuid
+  batch           Int // provider idempotency key: edition_id:batch
+  status          DeliveryStatus @default(pending) // only moves forward
+  providerEmailId String?        @map("provider_email_id")
+  sentAt          DateTime?      @map("sent_at") @db.Timestamptz
+  error           String?
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  edition    Edition    @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  subscriber Subscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, subscriberId])
+  @@index([editionId, status])
+  @@index([providerEmailId])
+  @@map("delivery")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("setting")
+}

@@ -28,6 +28,9 @@ COPY --from=deps --chown=app:app /repo/node_modules ./node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=app:app /repo/apps/api/dist ./apps/api/dist
+# Prisma CLI + migrations: deploy.sh runs `prisma migrate deploy` from this image.
+COPY --from=build --chown=app:app /repo/apps/api/prisma ./apps/api/prisma
+COPY --from=build --chown=app:app /repo/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 USER app
 WORKDIR /repo/apps/api
 EXPOSE 3001

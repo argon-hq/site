@@ -6,11 +6,13 @@ import { loadConfig } from "./config";
 import { EditionModule } from "./edition/edition.module";
 import { HealthController } from "./health/health.controller";
 import { mastra } from "./mastra";
+import { PrismaModule } from "./prisma/prisma.module";
 
 const config = loadConfig();
 
 @Module({
   imports: [
+    PrismaModule.forRoot(config.DATABASE_URL),
     EditionModule,
     // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.
     // Global so any module can inject MastraService without re-registering the instance.
