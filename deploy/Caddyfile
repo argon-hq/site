@@ -3,8 +3,16 @@ argon.eduardofockink.com {
 	reverse_proxy web-prod:3000
 }
 
+api.argon.eduardofockink.com {
+	reverse_proxy api-prod:3001
+}
+
 dev.argon.eduardofockink.com {
 	reverse_proxy web-dev:3000
+}
+
+api.dev.argon.eduardofockink.com {
+	reverse_proxy api-dev:3001
 }
 
 lab.argon.eduardofockink.com {

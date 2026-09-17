@@ -7,6 +7,7 @@ WORKDIR /repo
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/
+COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --filter @argon/web...
 
 FROM deps AS build
