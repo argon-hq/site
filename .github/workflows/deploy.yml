@@ -7,41 +7,74 @@ on:
       env:
         description: "Ambiente"
         type: choice
-        options: [dev, prod]
-        default: dev
+        options: [lab, dev, prod]
+        default: lab
+      branch:
+        description: "Branch a publicar (lab). Vazio usa a branch deste workflow"
+        type: string
+        default: ""
 permissions:
   id-token: write
   contents: read
 env:
   AWS_REGION: sa-east-1
+# Um deploy por ambiente de cada vez; o seguinte espera.
+concurrency:
+  group: deploy-${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
 jobs:
   deploy:
     runs-on: ubuntu-24.04-arm
     environment: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
     steps:
+      # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda.
       - uses: actions/checkout@v4
+      # O código publicado pode vir de outra branch: é o caso do lab.
+      - uses: actions/checkout@v4
+        if: inputs.branch != ''
+        with:
+          ref: ${{ inputs.branch }}
+          path: src
+      - id: src
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          DIR=.; [ -n "$BRANCH" ] && DIR=src
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "tag=$(git -C "$DIR" rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Build e push do site
+      # Constrói cada app que tem Dockerfile na branch publicada e informa a lista ao deploy.sh.
+      - name: Build e push das imagens
+        id: build
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
+          DIR: ${{ steps.src.outputs.dir }}
+          TAG: ${{ steps.src.outputs.tag }}
         run: |
-          docker build -f apps/web/Dockerfile -t "$REGISTRY/argon/web:${GITHUB_SHA::12}" -t "$REGISTRY/argon/web:$ENV_NAME" .
-          docker push --all-tags "$REGISTRY/argon/web"
+          APPS=""
+          for app in web api; do
+            [ -f "$DIR/apps/$app/Dockerfile" ] || continue
+            docker build -f "$DIR/apps/$app/Dockerfile" -t "$REGISTRY/argon/$app:$TAG" -t "$REGISTRY/argon/$app:$ENV_NAME" "$DIR"
+            docker push --all-tags "$REGISTRY/argon/$app"
+            APPS="$APPS $app"
+          done
+          echo "apps=${APPS# }" >> "$GITHUB_OUTPUT"
       - name: Deploy na instância
         env:
           ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
           INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
+          TAG: ${{ steps.src.outputs.tag }}
+          APPS: ${{ steps.build.outputs.apps }}
         run: |
           FILES=$(for f in compose.yml Caddyfile deploy.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
-            --comment "deploy $ENV_NAME ${GITHUB_SHA::12}" \
-            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x deploy.sh && ./deploy.sh $ENV_NAME ${GITHUB_SHA::12}" '{commands:[$s]}')" \
+            --comment "deploy $ENV_NAME $TAG" \
+            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x deploy.sh && ./deploy.sh $ENV_NAME $TAG \"$APPS\"" '{commands:[$s]}')" \
             --query Command.CommandId --output text)
           aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
