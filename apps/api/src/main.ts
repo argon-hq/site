@@ -1,3 +1,5 @@
+// Local .env first; in AWS the variables come from the container and dotenv changes nothing.
+import "dotenv/config";
 import "reflect-metadata";
 import { ConsoleLogger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
