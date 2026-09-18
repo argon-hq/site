@@ -26,7 +26,8 @@
     "errors": {
       "required": "Informe o seu e-mail.",
       "invalid": "Esse e-mail parece incompleto. Confira o formato: nome@dominio.com",
-      "consent": "Marque o aceite da política de privacidade para continuar."
+      "consent": "Marque o aceite da política de privacidade para continuar.",
+      "unexpected": "Não foi possível concluir o cadastro agora. Tente de novo em instantes."
     },
     "success": {
       "title": "Falta um passo: confirme no seu e-mail",

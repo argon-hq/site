@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
+import { subscribe } from "@/actions/subscribe";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 
 type Status = "idle" | "submitting" | "sent";
@@ -49,9 +50,14 @@ export function NewsletterForm() {
     setError(null);
     setStatus("submitting");
 
-    // TODO(REB-74/REB-75): trocar pela chamada real de cadastro, que gera o
-    // token de uso único e dispara o e-mail de confirmação.
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const result = await subscribe({ email, consent });
+
+    if (!result.ok) {
+      // O e-mail digitado continua no campo: o usuário só precisa tentar de novo.
+      setError(t("errors.unexpected"));
+      setStatus("idle");
+      return;
+    }
 
     setSentTo(normalizeEmail(email));
     setStatus("sent");

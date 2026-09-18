@@ -79,6 +79,8 @@ src/
 ├── theme/
 │   ├── config.ts         # temas disponíveis e padrão
 │   └── theme.ts          # server actions de leitura/escrita do cookie
+├── actions/
+│   └── subscribe.ts      # server action do cadastro: chama a API
 └── lib/
     └── email.ts          # normalização e validação de formato
 ```
@@ -86,10 +88,26 @@ src/
 ## Cadastro
 
 O `NewsletterForm` valida formato, normaliza o e-mail (minúsculas, sem espaço nas pontas) e tem
-honeypot — mas **o envio ainda é simulado**, sem backend.
+honeypot. O envio passa pela server action `subscribe`, que chama `POST /subscriber` na API e
+grava o cadastro como pendente.
+
+A chamada acontece no servidor: o `INTERNAL_API_SECRET` nunca vai para o navegador. A action
+também registra a prova de opt-in exigida pela LGPD — IP (primeiro valor do `x-forwarded-for`,
+que o Caddy preenche) e user-agent.
+
+O retorno é o mesmo para endereço novo, pendente ou já confirmado: a tela não revela quem está
+cadastrado. Cadastrar de novo em menos de um minuto não dispara outro e-mail — o link anterior
+continua valendo.
 
 O honeypot é só a metade cliente da proteção: sozinho ele não barra nada, e a verificação
 precisa existir no servidor.
+
+Variáveis (veja `.env.example`, ambas só de servidor):
+
+| Variável | Para quê |
+| --- | --- |
+| `API_URL` | Base da API. Local: `http://localhost:3001`. Em produção, o serviço no compose. |
+| `INTERNAL_API_SECRET` | Header `x-internal-secret` exigido por toda rota da API. |
 
 ## Pendências de design
 

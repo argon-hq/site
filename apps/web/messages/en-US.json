@@ -26,7 +26,8 @@
     "errors": {
       "required": "Enter your email.",
       "invalid": "That email looks incomplete. Check the format: name@domain.com",
-      "consent": "Accept the privacy policy to continue."
+      "consent": "Accept the privacy policy to continue.",
+      "unexpected": "We couldn't complete your sign-up right now. Please try again in a moment."
     },
     "success": {
       "title": "One step left: confirm in your email",
