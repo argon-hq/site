@@ -3,12 +3,12 @@ import { Readability } from "@mozilla/readability";
 import { Data, Effect, Schedule } from "effect";
 import { parseHTML } from "linkedom";
 import { z } from "zod";
+import { MAX_TEXT_CHARS } from "../../pipeline/rules";
 import { extractedArticleSchema, type ExtractedArticle } from "../schemas/article";
 
 // Hard rules live here, not in the prompt.
 const TIMEOUT = "10 seconds";
 const MAX_HTML_BYTES = 2_000_000;
-const MAX_TEXT_CHARS = 12_000;
 const USER_AGENT = "ArgonNewsletterBot/0.1 (+https://argon.com.br)";
 
 export class FetchFailed extends Data.TaggedError("FetchFailed")<{ url: string; reason: string }> {}
@@ -53,13 +53,11 @@ export const fetchArticle = (url: string) =>
     Effect.retry({ schedule: Schedule.exponential("500 millis"), times: 2, while: (error) => error._tag === "FetchFailed" }),
   );
 
-// Promise boundary for code outside Effect.
-export const extractArticle = (url: string): Promise<ExtractedArticle> => Effect.runPromise(fetchArticle(url));
-
 export const readPage = createTool({
   id: "read_page",
   description: "Lê uma página de notícia e devolve título, texto principal, data de publicação e URL canônica.",
   inputSchema: z.object({ url: z.string().url() }),
   outputSchema: extractedArticleSchema,
-  execute: ({ url }) => extractArticle(url),
+  // Promise boundary: Mastra calls the tool, the effect runs here.
+  execute: ({ url }) => Effect.runPromise(fetchArticle(url)),
 });

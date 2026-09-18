@@ -11,6 +11,8 @@ import { RECENT_DAYS, windowHours, windowStart } from "./rules";
 
 export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
 
+const MAX_STEPS = 60; // ceiling for one collection run: searches, page reads and the final answer
+
 export type CollectReport = {
   date: string;
   since: string;
@@ -43,22 +45,26 @@ export class PipelineService {
         catch: (error) => new CollectFailed({ reason: `settings: ${String(error)}` }),
       });
       const since = windowStart(now);
-      const context: CollectContext = { prisma: this.prisma, recentDays: RECENT_DAYS };
       const prompt = collectPrompt({ now, since, cutoff: settings.score_cutoff, max: settings.max_articles });
       this.logger.log({ msg: "collect started", since: since.toISOString(), cutoff: settings.score_cutoff });
+
+      // Tools have no Nest injection: they read what the run needs from the request context.
+      const requestContext = new RequestContext<CollectContext>();
+      requestContext.set("prisma", this.prisma);
+      requestContext.set("recentDays", RECENT_DAYS);
 
       const editor = this.mastra.getAgent("editor");
       const generated = yield* Effect.tryPromise({
         try: () =>
           editor.generate(prompt, {
             structuredOutput: { schema: collectResultSchema },
-            requestContext: new RequestContext<CollectContext>(Object.entries(context) as never),
-            maxSteps: 60,
+            requestContext,
+            maxSteps: MAX_STEPS,
           }),
         catch: (error) => new CollectFailed({ reason: String(error) }),
       });
 
-      const toolCalls = (generated.toolCalls ?? []).map((c: { payload?: { toolName?: string } }) => c.payload?.toolName ?? "?");
+      const toolCalls = (generated.toolCalls ?? []).map((call) => call.payload?.toolName ?? "?");
       this.logger.log({ msg: "editor finished", steps: generated.steps?.length ?? null, toolCalls: countBy(toolCalls), evaluated: generated.object.candidates.length });
 
       // The agent's list is persisted by code, one candidate at a time, in score order.

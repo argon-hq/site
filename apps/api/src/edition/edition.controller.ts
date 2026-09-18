@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from "@nestjs/common";
 import { z } from "zod";
+import { runEffect } from "../effect/nest";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { EditionService } from "./edition.service";
 
@@ -12,6 +13,6 @@ export class EditionController {
   // POST /edition/write { url } → article + written edition. Internal secret required.
   @Post("write")
   write(@Body(ZodBody(writeBody)) body: z.infer<typeof writeBody>) {
-    return this.editions.writeFromUrl(body.url);
+    return runEffect("write", this.editions.writeFromUrl(body.url));
   }
 }
