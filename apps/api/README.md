@@ -8,6 +8,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/edition/`: `POST /edition/write { url }` runs the writer agent on one article.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
+- `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, assets and stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, unsubscribeUrl)` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `asset_base_url`, `social`), with the unsubscribe URL per subscriber. Fixed strings live in `copy.ts`, Figma tokens in `theme.ts`. Icons in `public/email` (`pnpm email:icons`, Font Awesome Free, CC BY 4.0).
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
 - `prisma/schema.prisma`: the five application tables from the database diagram. Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
@@ -20,6 +21,7 @@ cp .env.example .env   # fill ANTHROPIC_API_KEY and INTERNAL_API_SECRET
 pnpm dev               # http://localhost:3001
 pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
 pnpm test
+pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
 ```
 
 ## Database

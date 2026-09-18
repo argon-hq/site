@@ -18,7 +18,9 @@
     "precheck-types": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "email:preview": "tsx src/email/preview.ts",
+    "email:icons": "tsx scripts/build-email-icons.ts"
   },
   "dependencies": {
     "@mastra/core": "^1.67.0",
@@ -39,12 +41,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@fortawesome/free-brands-svg-icons": "^7.1.0",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/testing": "^11.2.5",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.43",
     "eslint": "^9.39.5",
     "mastra": "^1.30.0",
+    "sharp": "^0.34.5",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0",
     "vitest": "^5.0.1"
