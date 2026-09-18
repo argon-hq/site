@@ -2,7 +2,7 @@
 
 Site institucional da Argon: home, cadastro na newsletter e política de privacidade.
 
-Pacote `@argon/web` do monorepo, em `apps/web`.
+Pacote `web` do monorepo, em `apps/web`.
 
 ## Stack
 

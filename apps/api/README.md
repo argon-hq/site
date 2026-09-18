@@ -1,4 +1,4 @@
-# @argon/api
+# api
 
 NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues and sending. Source of truth for decisions: the Architecture and Stack documents on OneDrive.
 
