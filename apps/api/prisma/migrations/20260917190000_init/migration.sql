@@ -189,12 +189,18 @@ END;
 $$;
 CREATE TRIGGER article_frozen_after_send BEFORE UPDATE ON "article" FOR EACH ROW EXECUTE FUNCTION article_frozen_after_send();
 
--- Initial settings; `sending_paused` is the kill switch. Idempotent so re-running never overwrites operator changes.
+-- Initial settings; `sending_paused` is the kill switch. The identity keys have no sensible
+-- default in code (see src/settings/settings.schema.ts) and carry development values here;
+-- prod adjusts them in the database. Idempotent so re-running never overwrites operator changes.
 INSERT INTO "setting" ("key", "value") VALUES
   ('sending_paused', 'false'),
   ('min_articles', '3'),
   ('max_articles', '6'),
   ('score_cutoff', '3.0'),
   ('owner_emails', '[]'),
-  ('policy_version', '""')
+  ('policy_version', '""'),
+  ('sender', '{"name": "Argon", "address": "newsletter@dev.argon.eduardofockink.com", "postalAddress": "Passo Fundo, RS, Brasil"}'),
+  ('privacy_policy_url', '"https://dev.argon.eduardofockink.com/privacy"'),
+  ('asset_base_url', '"https://dev.argon.eduardofockink.com/email"'),
+  ('social', '{"site": "https://dev.argon.eduardofockink.com"}')
 ON CONFLICT ("key") DO NOTHING;
