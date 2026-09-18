@@ -9,6 +9,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
+- `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
 - `prisma/schema.prisma`: the five application tables from the database diagram. Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
 
 ## Run
