@@ -4,8 +4,9 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 
 ## Layout
 
-- `src/mastra/`: Mastra instance (`index.ts`), `agents/`, `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
-- `src/edition/`: `POST /edition/write { url }` runs the writer agent on one article.
+- `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step, copied to `dist` by nest-cli assets), `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
+- `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources (Anthropic web search restricted to `rules.ts` domains), reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes, marking every evaluated link in `seen_url`. Errors, retries and outcomes use Effect.
+- `src/edition/`: `POST /edition/write { url }` runs the Editor on one article (writing rules only).
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
@@ -21,6 +22,10 @@ pnpm dev               # http://localhost:3001
 pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
 pnpm test
 ```
+
+## Conventions
+
+Effect is the standard for typed errors (`Data.TaggedError`), pattern matching (`Match`), retries (`Effect.retry`) and promises (`Effect.tryPromise`); run effects at the Nest boundary with `Effect.runPromise`/`runPromiseExit`.
 
 ## Database
 

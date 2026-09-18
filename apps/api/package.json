@@ -32,6 +32,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "dotenv": "^17.4.2",
+    "effect": "^3.22.2",
     "linkedom": "^0.18.13",
     "prisma": "7.10.0",
     "reflect-metadata": "^0.2.2",
