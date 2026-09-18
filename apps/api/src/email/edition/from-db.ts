@@ -1,4 +1,6 @@
+import { Effect } from "effect";
 import type { Article, Edition } from "../../generated/prisma/client";
+import { EditionNotReadyError } from "../errors";
 import { CATEGORIES } from "../../mastra/schemas/edition";
 import type { Settings } from "../../settings/settings.schema";
 import type { EditionInput, EditionItem } from "../types";
@@ -24,24 +26,18 @@ export function editionContext(settings: IdentitySettings, unsubscribeUrl: strin
   };
 }
 
-// The pipeline calls the builder only after the writer filled every field; a null here is a bug upstream.
-export class EditionNotReadyError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "EditionNotReadyError";
-  }
-}
-
 // `edition.date` is a DATE column: Prisma returns it as midnight UTC, which is the previous evening
 // in São Paulo. Move it to noon UTC so the calendar day survives the time-zone conversion.
 export function editionDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12));
 }
 
-function toItem(article: ArticleRow): EditionItem {
+function toItem(article: ArticleRow): Effect.Effect<EditionItem, EditionNotReadyError> {
   const { canonicalUrl, headline, body, category } = article;
-  if (!headline || !body || !category) throw new EditionNotReadyError(`article ${canonicalUrl} is not written yet`);
-  return { category: CATEGORIES[category], headline, body, url: canonicalUrl };
+  if (!headline || !body || !category) {
+    return Effect.fail(new EditionNotReadyError({ reason: `article ${canonicalUrl} is not written yet` }));
+  }
+  return Effect.succeed({ category: CATEGORIES[category], headline, body, url: canonicalUrl });
 }
 
 // Highest score first; same score, newest first; then by URL so the order is stable.
@@ -53,16 +49,28 @@ function byRank(a: ArticleRow, b: ArticleRow): number {
   return a.canonicalUrl.localeCompare(b.canonicalUrl);
 }
 
-// Adapter from the database rows to the builder input. Pure: no I/O, no clock.
-export function toEditionInput(edition: EditionRow, articles: ArticleRow[], context: EditionContext): EditionInput {
-  const day = edition.date.toISOString().slice(0, 10);
-  if (!edition.title || !edition.subject) throw new EditionNotReadyError(`edition ${day} has no title or subject`);
-  if (articles.length === 0) throw new EditionNotReadyError(`edition ${day} has no articles`);
-  return {
-    ...context,
-    date: editionDay(edition.date),
-    title: edition.title,
-    subject: edition.subject,
-    items: [...articles].sort(byRank).map(toItem),
-  };
+// Adapter from the database rows to the builder input. No I/O, no clock: a missing field is a
+// typed failure, never an exception.
+export function toEditionInput(
+  edition: EditionRow,
+  articles: ArticleRow[],
+  context: EditionContext,
+): Effect.Effect<EditionInput, EditionNotReadyError> {
+  return Effect.gen(function* () {
+    const day = edition.date.toISOString().slice(0, 10);
+    if (!edition.title || !edition.subject) {
+      return yield* new EditionNotReadyError({ reason: `edition ${day} has no title or subject` });
+    }
+    if (articles.length === 0) {
+      return yield* new EditionNotReadyError({ reason: `edition ${day} has no articles` });
+    }
+    const items = yield* Effect.forEach([...articles].sort(byRank), toItem);
+    return {
+      ...context,
+      date: editionDay(edition.date),
+      title: edition.title,
+      subject: edition.subject,
+      items,
+    };
+  });
 }

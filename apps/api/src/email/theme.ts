@@ -1,5 +1,8 @@
 import { BODY_MAX, SUBJECT_MAX } from "../mastra/schemas/edition";
 
+// The one external stylesheet allowed. Clients that do not load it fall back to the font stack.
+export const FONT_STYLESHEET = "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap";
+
 // Figma tokens (node 6:5 "Email recebido"). Safe fonts with Inter first.
 export const theme = {
   width: 600,

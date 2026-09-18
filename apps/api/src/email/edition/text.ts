@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { formatDate } from "../html";
+import { formatDate } from "../format";
 import type { EditionInput } from "../types";
 
 // 78-column limit (RFC 5322). Lines with a URL are never wrapped.

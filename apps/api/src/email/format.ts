@@ -1,13 +1,5 @@
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-// "Quarta-feira, 11 set 2026", as in the prototype.
+// "Quarta-feira, 11 set 2026", as in the prototype. React escapes every value it renders, so the
+// module no longer carries an escaping helper.
 export function formatDate(date: Date): string {
   const parts = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
