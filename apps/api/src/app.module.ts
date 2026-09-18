@@ -7,6 +7,7 @@ import { MailModule } from "./mail/mail.module";
 import { EditionModule } from "./edition/edition.module";
 import { HealthController } from "./health/health.controller";
 import { mastra } from "./mastra";
+import { PipelineModule } from "./pipeline/pipeline.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SettingsModule } from "./settings/settings.module";
 import { SubscriberModule } from "./subscriber/subscriber.module";
@@ -19,6 +20,7 @@ const config = loadConfig();
     SettingsModule,
     MailModule.forRoot(config),
     EditionModule,
+    PipelineModule,
     SubscriberModule.forRoot(config),
     // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.
     // Global so any module can inject MastraService without re-registering the instance.

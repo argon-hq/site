@@ -4,8 +4,9 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 
 ## Layout
 
-- `src/mastra/`: Mastra instance (`index.ts`), `agents/`, `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
-- `src/edition/`: `POST /edition/write { url }` runs the writer agent on one article.
+- `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step, copied to `dist` by nest-cli assets), `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
+- `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources (Anthropic web search restricted to `rules.ts` domains), reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes, marking every evaluated link in `seen_url`. Errors, retries and outcomes use Effect.
+- `src/edition/`: `POST /edition/write { url }` runs the Editor on one article (writing rules only).
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
   confirmed subscription and issues the permanent unsubscribe token in the same write; the hash of the confirmation token
@@ -59,6 +60,10 @@ run the site and point the setting at it:
 ```bash
 docker exec api-db-1 psql -U argon -d argon_dev -c "update setting set value='\"http://localhost:3000/email\"' where key='asset_base_url';"
 ```
+
+## Conventions
+
+Effect is the standard for typed errors (`Data.TaggedError`), pattern matching (`Match`), retries (`Effect.retry`) and promises (`Effect.tryPromise`); run effects at the Nest boundary with `Effect.runPromise`/`runPromiseExit`.
 
 ## Database
 

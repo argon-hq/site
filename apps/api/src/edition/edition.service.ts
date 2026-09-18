@@ -20,7 +20,7 @@ export class EditionService {
     const article = await extractArticle(url);
     this.logger.log({ msg: "article extracted", url: article.canonicalUrl, chars: article.extractedText.length });
 
-    const writer = this.mastra.getAgent("writer");
+    const writer = this.mastra.getAgent("editor");
     const prompt = [
       "Escreva a edição de hoje com a única notícia abaixo: exatamente um item.",
       `Fonte: ${article.siteName ?? new URL(article.canonicalUrl).hostname}`,
