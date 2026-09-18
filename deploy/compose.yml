@@ -15,11 +15,23 @@ services:
     env_file: env/prod.env
     logging: { driver: awslogs, options: { awslogs-group: /argon/prod/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
+  api-prod:
+    image: ${ECR}/argon/api:${PROD_TAG}
+    restart: unless-stopped
+    env_file: env/prod.env
+    logging: { driver: awslogs, options: { awslogs-group: /argon/prod/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
   web-dev:
     image: ${ECR}/argon/web:${DEV_TAG}
     restart: unless-stopped
     env_file: env/dev.env
     logging: { driver: awslogs, options: { awslogs-group: /argon/dev/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
+  api-dev:
+    image: ${ECR}/argon/api:${DEV_TAG}
+    restart: unless-stopped
+    env_file: env/dev.env
+    logging: { driver: awslogs, options: { awslogs-group: /argon/dev/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   web-lab:
     image: ${ECR}/argon/web:${LAB_TAG}
