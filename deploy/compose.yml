@@ -1,0 +1,26 @@
+# Dois ambientes na mesma instância. Tags das imagens vêm de /opt/argon/.env (PROD_TAG, DEV_TAG).
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  web-prod:
+    image: ${ECR}/argon/web:${PROD_TAG}
+    restart: unless-stopped
+    env_file: env/prod.env
+    logging: { driver: awslogs, options: { awslogs-group: /argon/prod/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
+  web-dev:
+    image: ${ECR}/argon/web:${DEV_TAG}
+    restart: unless-stopped
+    env_file: env/dev.env
+    logging: { driver: awslogs, options: { awslogs-group: /argon/dev/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
+volumes:
+  caddy-data:
+  caddy-config:

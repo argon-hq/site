@@ -1,0 +1,8 @@
+# TLS automático (Let's Encrypt). Ao trocar de domínio, só estas linhas mudam.
+argon.eduardofockink.com {
+	reverse_proxy web-prod:3000
+}
+
+dev.argon.eduardofockink.com {
+	reverse_proxy web-dev:3000
+}

@@ -1,0 +1,48 @@
+name: Deploy
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Ambiente"
+        type: choice
+        options: [dev, prod]
+        default: dev
+permissions:
+  id-token: write
+  contents: read
+env:
+  AWS_REGION: sa-east-1
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    environment: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build e push do site
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
+        run: |
+          docker build -f apps/web/Dockerfile -t "$REGISTRY/argon/web:${GITHUB_SHA::12}" -t "$REGISTRY/argon/web:$ENV_NAME" .
+          docker push --all-tags "$REGISTRY/argon/web"
+      - name: Deploy na instância
+        env:
+          ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
+          INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
+        run: |
+          FILES=$(for f in compose.yml Caddyfile deploy.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+          CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment "deploy $ENV_NAME ${GITHUB_SHA::12}" \
+            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x deploy.sh && ./deploy.sh $ENV_NAME ${GITHUB_SHA::12}" '{commands:[$s]}')" \
+            --query Command.CommandId --output text)
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
+          [ "$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query Status --output text)" = "Success" ]
