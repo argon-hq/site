@@ -24,11 +24,18 @@ pnpm test
 
 ## Database
 
+Until the first production deploy the schema lives in a single migration, `prisma/migrations/20260917190000_init`. There is no data worth keeping in any environment yet, so a schema change is an edit to that one migration rather than a new one:
+
 ```bash
-pnpm db:migrate    # after editing schema.prisma: creates the next migration and applies it locally
+# 1. edit schema.prisma, then regenerate the generated part of the init migration
+pnpm db:migrate --create-only --name init   # writes the SQL; keep the hand-written tail below the fold
+# 2. re-apply from scratch
+pnpm db:reset      # drops the local database and replays init (schema, constraints, triggers, initial settings)
 pnpm db:deploy     # applies pending migrations only (what deploy.sh runs in AWS)
 pnpm db:studio     # browse the local database
 ```
+
+The tail of the init migration (check constraints, triggers, the initial `setting` rows) is hand-written and Prisma does not regenerate it — keep it when rewriting the file. Dev is reset by `db:reset`; the lab environment is reset by redeploying against an empty database. Once we go to production this stops: from then on every schema change is a new migration and init is frozen.
 
 Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit the RDS schema by hand. Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
