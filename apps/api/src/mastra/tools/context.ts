@@ -1,4 +1,5 @@
 import type { RequestContext } from "@mastra/core/request-context";
+import { Data, Effect } from "effect";
 import type { PrismaClient } from "../../generated/prisma/client";
 
 // What the pipeline hands to the tools for one run. Tools have no Nest injection: they read this.
@@ -9,7 +10,12 @@ export type CollectContext = {
 
 export type CollectRequestContext = RequestContext<CollectContext>;
 
-export function collectContext(requestContext: CollectRequestContext | undefined): CollectContext {
-  if (!requestContext) throw new Error("collect tools need the pipeline request context");
-  return { prisma: requestContext.get("prisma"), recentDays: requestContext.get("recentDays") };
-}
+export class MissingContext extends Data.TaggedError("MissingContext")<{ tool: string }> {}
+
+export const collectContext = (
+  tool: string,
+  requestContext: CollectRequestContext | undefined,
+): Effect.Effect<CollectContext, MissingContext> =>
+  requestContext
+    ? Effect.succeed({ prisma: requestContext.get("prisma"), recentDays: requestContext.get("recentDays") })
+    : new MissingContext({ tool });
