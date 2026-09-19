@@ -2,6 +2,8 @@ import { z } from "zod";
 
 // Environment is the only configuration source; in AWS it comes from Parameter Store.
 const schema = z.object({
+  // Only production gets the JSON logs; anything else reads better on a terminal.
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().url(),
   ANTHROPIC_API_KEY: z.string().min(1),
   INTERNAL_API_SECRET: z.string().min(16),
