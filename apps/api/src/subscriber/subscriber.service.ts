@@ -4,6 +4,8 @@ import { SettingsService } from "../settings/settings.service";
 import {
   CONFIRMATION_RESEND_WINDOW_SECONDS,
   createConfirmationToken,
+  createUnsubscribeToken,
+  hashToken,
 } from "./token";
 
 export type SignUpInput = {
@@ -19,6 +21,17 @@ export type SignUpResult =
   | { status: "throttled" }
   | { status: "already_confirmed" }
   | { status: "ignored" };
+
+// What the subscriber sees on the unsubscribe page. `invalid` covers a token that is wrong,
+// truncated by the e-mail client or from a subscriber that no longer exists.
+export type UnsubscribeResult =
+  | { status: "cancelled"; email: string }
+  | { status: "already_cancelled"; email: string }
+  | { status: "invalid" };
+
+// Only what a request from outside may claim. `complaint` and the bounces are written by the
+// provider webhook (ARG-100), never by someone following a link.
+export type UnsubscribeReason = "user" | "manual";
 
 @Injectable()
 export class SubscriberService {
@@ -94,7 +107,9 @@ export class SubscriberService {
         status: "pending",
         tokenHash: token.hash,
         tokenExpiresAt: token.expiresAt,
-        cancelledAt: null, // signing up again reopens a cancelled subscription
+        // Signing up again reopens a cancelled subscription, and the old reason goes with it.
+        cancelledAt: null,
+        cancellationReason: null,
         confirmationSends: { increment: 1 },
         lastConfirmationSentAt: now,
         ...consent,
@@ -107,6 +122,53 @@ export class SubscriberService {
       returning: Boolean(existing),
     });
     return { status: "pending", token: token.token };
+  }
+
+  // Read-only: the page shows who is about to be unsubscribed and confirms before cancelling.
+  // A GET must never cancel — the link scanners in e-mail clients follow it on their own.
+  async findByUnsubscribeToken(token: string): Promise<{ email: string; status: string } | null> {
+    const subscriber = await this.prisma.subscriber.findFirst({
+      where: { unsubscribeTokenHash: hashToken(token) },
+      select: { email: true, status: true },
+    });
+    return subscriber;
+  }
+
+  // Cancelling twice is not an error: the second click just confirms the subscription is off.
+  async unsubscribe(token: string, reason: UnsubscribeReason = "user"): Promise<UnsubscribeResult> {
+    const subscriber = await this.prisma.subscriber.findFirst({
+      where: { unsubscribeTokenHash: hashToken(token) },
+    });
+
+    if (!subscriber) {
+      this.logger.warn({ msg: "unsubscribe with unknown token" });
+      return { status: "invalid" };
+    }
+
+    // Cancelled, bounced or blocked: already off the list, and nothing is rewritten. A complaint
+    // in particular must keep its own reason.
+    if (subscriber.status !== "confirmed" && subscriber.status !== "pending") {
+      return { status: "already_cancelled", email: subscriber.email };
+    }
+
+    await this.prisma.subscriber.update({
+      where: { id: subscriber.id },
+      data: { status: "cancelled", cancelledAt: new Date(), cancellationReason: reason },
+    });
+
+    this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id, reason });
+    return { status: "cancelled", email: subscriber.email };
+  }
+
+  // Issued when the subscription is confirmed, which is where the confirmation route will call
+  // it. The plain token goes into every edition; the database keeps only the hash.
+  async issueUnsubscribeToken(subscriberId: string): Promise<string> {
+    const { token, hash } = createUnsubscribeToken();
+    await this.prisma.subscriber.update({
+      where: { id: subscriberId },
+      data: { unsubscribeTokenHash: hash },
+    });
+    return token;
   }
 }
 

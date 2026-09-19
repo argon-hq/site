@@ -23,6 +23,16 @@ enum SubscriberStatus {
   @@map("subscriber_status")
 }
 
+enum CancellationReason {
+  user // the subscriber asked: unsubscribe link, List-Unsubscribe header or a manual request
+  complaint // marked as spam: never send again
+  hard_bounce
+  soft_bounce // three in a row
+  manual // cancelled by the operator
+
+  @@map("cancellation_reason")
+}
+
 enum ArticleCategory {
   business
   entrepreneurship
@@ -57,23 +67,24 @@ enum DeliveryStatus {
 }
 
 model Subscriber {
-  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                  String           @unique // lower-case, trimmed (check constraint)
-  status                 SubscriberStatus @default(pending)
-  tokenHash              String?          @map("token_hash") // confirmation token: hash only
-  tokenExpiresAt         DateTime?        @map("token_expires_at") @db.Timestamptz
-  unsubscribeTokenHash   String?          @map("unsubscribe_token_hash") // permanent, created on confirmation
-  confirmationSends      Int              @default(0) @map("confirmation_sends") @db.SmallInt
-  lastConfirmationSentAt DateTime?        @map("last_confirmation_sent_at") @db.Timestamptz
-  consentAt              DateTime?        @map("consent_at") @db.Timestamptz
-  consentIp              String?          @map("consent_ip") @db.Inet
-  consentUserAgent       String?          @map("consent_user_agent")
-  policyVersion          String?          @map("policy_version")
-  signedUpAt             DateTime         @default(now()) @map("signed_up_at") @db.Timestamptz
-  confirmedAt            DateTime?        @map("confirmed_at") @db.Timestamptz
-  cancelledAt            DateTime?        @map("cancelled_at") @db.Timestamptz
-  softBounces            Int              @default(0) @map("soft_bounces") @db.SmallInt
-  updatedAt              DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String              @unique // lower-case, trimmed (check constraint)
+  status                 SubscriberStatus    @default(pending)
+  tokenHash              String?             @map("token_hash") // confirmation token: hash only
+  tokenExpiresAt         DateTime?           @map("token_expires_at") @db.Timestamptz
+  unsubscribeTokenHash   String?             @map("unsubscribe_token_hash") // permanent, created on confirmation
+  confirmationSends      Int                 @default(0) @map("confirmation_sends") @db.SmallInt
+  lastConfirmationSentAt DateTime?           @map("last_confirmation_sent_at") @db.Timestamptz
+  consentAt              DateTime?           @map("consent_at") @db.Timestamptz
+  consentIp              String?             @map("consent_ip") @db.Inet
+  consentUserAgent       String?             @map("consent_user_agent")
+  policyVersion          String?             @map("policy_version")
+  signedUpAt             DateTime            @default(now()) @map("signed_up_at") @db.Timestamptz
+  confirmedAt            DateTime?           @map("confirmed_at") @db.Timestamptz
+  cancelledAt            DateTime?           @map("cancelled_at") @db.Timestamptz
+  cancellationReason     CancellationReason? @map("cancellation_reason")
+  softBounces            Int                 @default(0) @map("soft_bounces") @db.SmallInt
+  updatedAt              DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   deliveries Delivery[]
 

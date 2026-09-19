@@ -1,5 +1,6 @@
-import { Body, Controller, HttpCode, Post } from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpCode, NotFoundException, Post, Query } from "@nestjs/common";
 import { z } from "zod";
+import { Public } from "../auth/public.decorator";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { SubscriberService } from "./subscriber.service";
 
@@ -15,6 +16,16 @@ const signUpBody = z.object({
   consentUserAgent: z.string().max(500).optional(),
 });
 
+// 32 bytes in base64url: 43 characters. The bound keeps a pasted e-mail body out of the query.
+const unsubscribeToken = z.string().min(20).max(100);
+
+const unsubscribeBody = z.object({
+  token: unsubscribeToken,
+  // `user` is the subscriber following the link; `manual` is the request made to the data
+  // protection officer and applied by the operator.
+  reason: z.enum(["user", "manual"]).default("user"),
+});
+
 @Controller("subscriber")
 export class SubscriberController {
   constructor(private readonly subscribers: SubscriberService) {}
@@ -26,5 +37,41 @@ export class SubscriberController {
   async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>) {
     const result = await this.subscribers.signUp(body);
     return { status: result.status };
+  }
+
+  // GET /subscriber/unsubscribe?token=… → who the token belongs to, so the page can confirm
+  // before cancelling. It never changes anything: the link scanners in e-mail clients follow
+  // every URL they find, and a GET that cancelled would unsubscribe people on its own.
+  @Get("unsubscribe")
+  @Header("Referrer-Policy", "no-referrer")
+  async lookup(@Query("token") token: string) {
+    const parsed = unsubscribeToken.safeParse(token);
+    const subscriber = parsed.success ? await this.subscribers.findByUnsubscribeToken(parsed.data) : null;
+    if (!subscriber) throw new NotFoundException({ status: "invalid" });
+    return subscriber;
+  }
+
+  // POST /subscriber/unsubscribe { token, reason? } → cancels. Internal secret required: this is
+  // the route the site's page calls.
+  @Post("unsubscribe")
+  @HttpCode(200)
+  @Header("Referrer-Policy", "no-referrer")
+  async unsubscribe(@Body(ZodBody(unsubscribeBody)) body: z.infer<typeof unsubscribeBody>) {
+    return this.subscribers.unsubscribe(body.token, body.reason);
+  }
+
+  // One-click unsubscribe (RFC 8058): the URI announced in `List-Unsubscribe`, posted by the
+  // e-mail client itself with `List-Unsubscribe=One-Click`. Public by definition — the request
+  // comes from Gmail's servers, not from the site — so the token is the only credential.
+  @Public()
+  @Post("unsubscribe/one-click")
+  @HttpCode(200)
+  @Header("Referrer-Policy", "no-referrer")
+  async oneClick(@Query("token") token: string) {
+    const parsed = unsubscribeToken.safeParse(token);
+    // The mail client shows its own message and ignores the body; an invalid token still answers
+    // 200, so a retry loop is not started over something a retry cannot fix.
+    if (parsed.success) await this.subscribers.unsubscribe(parsed.data, "user");
+    return { status: "ok" };
   }
 }

@@ -79,5 +79,37 @@
         "body": "How senior managers are restructuring async work routines to cut out the excess of useless meetings."
       }
     }
+  },
+  "unsubscribe": {
+    "metaTitle": "Unsubscribe",
+    "metaDescription": "Unsubscribe from the Argon newsletter.",
+    "heading": "Unsubscribe?",
+    "body": "You will stop receiving the Argon newsletter at <strong>{email}</strong>. This takes effect right away — nothing new is sent after it.",
+    "confirm": "Yes, unsubscribe",
+    "cancelling": "Unsubscribing...",
+    "keep": "I want to keep receiving it",
+    "error": "We couldn't unsubscribe you right now. Please try again in a moment.",
+    "invalid": {
+      "heading": "This link no longer works",
+      "body": "The unsubscribe link is incomplete, or it belongs to a subscription that no longer exists. If you still receive the newsletter, use the link in the footer of the latest issue.",
+      "cta": "Go to the home page"
+    },
+    "done": {
+      "badge": "Subscription cancelled",
+      "heading": "Done — you won't hear from us again.",
+      "body": "We removed <strong>{email}</strong> from the list. Nothing new will be sent.",
+      "alreadyBody": "<strong>{email}</strong> was already off the list. Nothing new will be sent.",
+      "mistake": "Did you click by mistake?",
+      "consent": "I have read and accept the <link>privacy policy</link>, and I want to receive the newsletter again.",
+      "consentError": "Accept the privacy policy to resubscribe.",
+      "reactivate": "Resubscribe",
+      "reactivating": "Sending...",
+      "error": "We couldn't resubscribe you right now. Please try again in a moment."
+    },
+    "reactivated": {
+      "heading": "One step left: confirm in your email",
+      "body": "We sent a confirmation link to <strong>{email}</strong>. Your subscription is only active again once you click it.",
+      "expiry": "The link is valid for 48 hours. Can't find it? Check your spam or promotions folder."
+    }
   }
 }

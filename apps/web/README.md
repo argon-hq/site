@@ -31,6 +31,7 @@ Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 | --- | --- |
 | `/` | Home. Vazia por ora — só a marca e um CTA para a newsletter. |
 | `/newsletter` | Cadastro. Tela cheia, sem cabeçalho nem rodapé. |
+| `/newsletter/unsubscribe` | Cancelamento. Destino do link no rodapé da edição, com o token na query. |
 | `/privacy` | Placeholder — destino do aceite no cadastro. |
 
 Os caminhos ficam sempre em inglês, independente do idioma escolhido.
@@ -71,6 +72,7 @@ src/
 │   ├── option-menu.tsx   # dropdown compartilhado pelos dois seletores
 │   ├── site-footer.tsx
 │   ├── site-header.tsx
+│   ├── unsubscribe-panel.tsx
 │   └── theme-switcher.tsx
 ├── i18n/
 │   ├── config.ts         # idiomas disponíveis e padrão
@@ -80,9 +82,12 @@ src/
 │   ├── config.ts         # temas disponíveis e padrão
 │   └── theme.ts          # server actions de leitura/escrita do cookie
 ├── actions/
-│   └── subscribe.ts      # server action do cadastro: chama a API
+│   ├── subscribe.ts      # server action do cadastro: chama a API
+│   └── unsubscribe.ts    # server action do cancelamento (só o POST)
 └── lib/
-    └── email.ts          # normalização e validação de formato
+    ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
+    ├── email.ts          # normalização e validação de formato
+    └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
 ```
 
 ## Cadastro
@@ -108,6 +113,22 @@ Variáveis (veja `.env.example`, ambas só de servidor):
 | --- | --- |
 | `API_URL` | Base da API. Local: `http://localhost:3001`. Em produção, o serviço no compose. |
 | `INTERNAL_API_SECRET` | Header `x-internal-secret` exigido por toda rota da API. |
+
+## Cancelamento
+
+`/newsletter/unsubscribe?token=…` mostra de quem é a inscrição e pede confirmação. Abrir a
+página não cancela nada: scanner de link de cliente de e-mail abre toda URL que encontra, e um
+GET que cancelasse descadastraria a pessoa sozinho. O cancelamento sai no POST do botão.
+
+A tela oferece "foi engano? reativar", que exige aceite novo da política — reativar é um
+cadastro novo, com consentimento novo, e cai na mesma tela de "confirme no seu e-mail".
+
+O `Referrer-Policy: no-referrer` da rota está no `next.config.ts`: o token viaja na URL e
+vazaria no Referer de qualquer link clicado a partir da página.
+
+O cancelamento em um clique dos clientes de e-mail (RFC 8058) não passa por aqui — o cabeçalho
+`List-Unsubscribe` aponta direto para a API, que aceita o POST sem segredo porque quem envia é
+o servidor do Gmail, não o site.
 
 ## Pendências de design
 

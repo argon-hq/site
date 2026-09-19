@@ -14,6 +14,7 @@ type Write = {
   tokenHash?: string;
   tokenExpiresAt?: Date;
   cancelledAt?: Date | null;
+  cancellationReason?: string | null;
   consentIp?: string | null;
   consentUserAgent?: string | null;
   policyVersion?: string | null;
@@ -99,6 +100,8 @@ describe("SubscriberService", () => {
     const { update } = upsertArgs(cancelled.prisma);
     expect(update.status).toBe("pending");
     expect(update.cancelledAt).toBeNull();
+    // The row is active again: keeping why it once ended would misread as a current state.
+    expect(update.cancellationReason).toBeNull();
   });
 
   it("keeps the consent already recorded when the new sign-up carries none", async () => {
@@ -159,3 +162,91 @@ async function subscribeOnce({ subscribers }: ReturnType<typeof service>): Promi
   const result = await subscribers.signUp({ email: "joao@example.com" });
   expect(result.status).toBe("pending");
 }
+
+type Cancelled = {
+  id: string;
+  email: string;
+  status: string;
+};
+type UpdateArgs = {
+  where: { id: string };
+  data: { status?: string; cancelledAt?: Date; cancellationReason?: string; unsubscribeTokenHash?: string };
+};
+
+function unsubscribeService(row: Cancelled | null) {
+  const prisma = {
+    subscriber: {
+      findFirst: vi.fn(async (args: { where: { unsubscribeTokenHash: string } }) =>
+        args.where.unsubscribeTokenHash ? row : null,
+      ),
+      update: vi.fn(async (args: UpdateArgs) => ({ id: args.where.id })),
+    },
+  };
+  const settings = { get: vi.fn(async () => "") };
+  return {
+    prisma,
+    subscribers: new SubscriberService(prisma as unknown as PrismaService, settings as unknown as SettingsService),
+  };
+}
+
+const TOKEN = "cRkM2wJq8vN4tL6yB1xZ0aS3dF5gH7jK9lP2oI4uY6e";
+
+describe("SubscriberService.unsubscribe", () => {
+  it("cancels a confirmed subscription and records why", async () => {
+    const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
+
+    const result = await subscribers.unsubscribe(TOKEN);
+
+    expect(result).toEqual({ status: "cancelled", email: "joao@example.com" });
+    // Looked up by hash: the plain token is never stored, so it cannot be searched for either.
+    expect(prisma.subscriber.findFirst.mock.calls[0]?.[0].where.unsubscribeTokenHash).toBe(hashToken(TOKEN));
+    const update = prisma.subscriber.update.mock.calls[0]?.[0];
+    expect(update?.data.status).toBe("cancelled");
+    expect(update?.data.cancelledAt).toEqual(expect.any(Date));
+    expect(update?.data.cancellationReason).toBe("user");
+  });
+
+  it("records the operator's own request under its own reason", async () => {
+    const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
+
+    await subscribers.unsubscribe(TOKEN, "manual");
+
+    expect(prisma.subscriber.update.mock.calls[0]?.[0].data.cancellationReason).toBe("manual");
+  });
+
+  it("answers `invalid` for a token nobody holds, without writing", async () => {
+    const { prisma, subscribers } = unsubscribeService(null);
+
+    expect(await subscribers.unsubscribe(TOKEN)).toEqual({ status: "invalid" });
+    expect(prisma.subscriber.update).not.toHaveBeenCalled();
+  });
+
+  it("treats a second click as success, and never rewrites a complaint", async () => {
+    for (const status of ["cancelled", "blocked", "bounced"]) {
+      const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status });
+
+      expect(await subscribers.unsubscribe(TOKEN)).toEqual({
+        status: "already_cancelled",
+        email: "joao@example.com",
+      });
+      expect(prisma.subscriber.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it("cancels a subscription that never got confirmed", async () => {
+    const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "pending" });
+
+    expect((await subscribers.unsubscribe(TOKEN)).status).toBe("cancelled");
+    expect(prisma.subscriber.update).toHaveBeenCalled();
+  });
+
+  it("stores only the hash of the unsubscribe token it issues", async () => {
+    const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
+
+    const token = await subscribers.issueUnsubscribeToken("abc");
+
+    const stored = prisma.subscriber.update.mock.calls[0]?.[0].data.unsubscribeTokenHash;
+    expect(stored).toBe(hashToken(token));
+    expect(stored).not.toBe(token);
+  });
+});

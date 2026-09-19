@@ -22,3 +22,11 @@ export function createConfirmationToken(now: Date = new Date()): ConfirmationTok
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
+
+// Permanent, one per subscriber, created when the subscription is confirmed: it is what the
+// unsubscribe link and the List-Unsubscribe header carry for the rest of the subscription.
+// It never expires — an old edition in the inbox has to keep working.
+export function createUnsubscribeToken(): { token: string; hash: string } {
+  const token = randomBytes(32).toString("base64url");
+  return { token, hash: hashToken(token) };
+}
