@@ -13,6 +13,11 @@ export class EditionRenderError extends Data.TaggedError("EditionRenderError")<{
   readonly cause: unknown;
 }> {}
 
+// React Email failed to render the confirmation. A template bug, never bad content.
+export class ConfirmationRenderError extends Data.TaggedError("ConfirmationRenderError")<{
+  readonly cause: unknown;
+}> {}
+
 // The rendered HTML could not be parsed back for validation. Also a template bug.
 export class HtmlParseError extends Data.TaggedError("HtmlParseError")<{
   readonly cause: unknown;

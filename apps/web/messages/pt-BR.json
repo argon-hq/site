@@ -26,7 +26,8 @@
     "errors": {
       "required": "Informe o seu e-mail.",
       "invalid": "Esse e-mail parece incompleto. Confira o formato: nome@dominio.com",
-      "consent": "Marque o aceite da política de privacidade para continuar."
+      "consent": "Marque o aceite da política de privacidade para continuar.",
+      "unexpected": "Não foi possível concluir o cadastro agora. Tente de novo em instantes."
     },
     "success": {
       "title": "Falta um passo: confirme no seu e-mail",
@@ -77,6 +78,61 @@
         "title": "Frameworks de foco que realmente funcionam para times híbridos",
         "body": "Como gestores seniores estão reestruturando a rotina de trabalho assíncrono para eliminar o excesso de reuniões inúteis."
       }
+    }
+  },
+  "unsubscribe": {
+    "metaTitle": "Cancelar inscrição",
+    "metaDescription": "Cancele a sua inscrição na newsletter da Argon.",
+    "heading": "Cancelar a sua inscrição?",
+    "body": "Você deixa de receber a newsletter da Argon em <strong>{email}</strong>. É para valer — nenhuma edição nova é enviada depois disso.",
+    "confirm": "Sim, cancelar inscrição",
+    "cancelling": "Cancelando...",
+    "keep": "Quero continuar recebendo",
+    "error": "Não foi possível cancelar agora. Tente de novo em instantes.",
+    "invalid": {
+      "heading": "Este link não vale mais",
+      "body": "O link de cancelamento está incompleto ou é de uma inscrição que não existe mais. Se você ainda recebe a newsletter, use o link do rodapé da edição mais recente.",
+      "cta": "Ir para a home"
+    },
+    "done": {
+      "badge": "Inscrição cancelada",
+      "heading": "Pronto, você não recebe mais.",
+      "body": "Tiramos <strong>{email}</strong> da lista. Nenhuma edição nova será enviada.",
+      "alreadyBody": "<strong>{email}</strong> já estava fora da lista. Nenhuma edição nova será enviada.",
+      "mistake": "Foi engano?",
+      "consent": "Li e aceito a <link>política de privacidade</link> e quero voltar a receber a newsletter.",
+      "consentError": "Marque o aceite da política de privacidade para reativar.",
+      "reactivate": "Reativar inscrição",
+      "reactivating": "Enviando...",
+      "error": "Não foi possível reativar agora. Tente de novo em instantes."
+    },
+    "reactivated": {
+      "heading": "Falta um passo: confirme no seu e-mail",
+      "body": "Enviamos um link de confirmação para <strong>{email}</strong>. A inscrição só volta a valer depois que você clicar nele.",
+      "expiry": "O link vale por 48 horas. Não achou? Procure no spam ou nas promoções."
+    }
+  },
+  "confirm": {
+    "metaTitle": "Confirmar inscrição",
+    "metaDescription": "Confirme a sua inscrição na newsletter da Argon.",
+    "confirming": {
+      "heading": "Confirmando a sua inscrição...",
+      "body": "Só um instante. Não feche esta página."
+    },
+    "expired": {
+      "heading": "Este link expirou",
+      "body": "O link de confirmação vale por 48 horas, e este já passou do prazo. Inscreva-se de novo e enviamos outro na hora.",
+      "cta": "Inscrever-se de novo"
+    },
+    "invalid": {
+      "heading": "Este link não vale mais",
+      "body": "O link está incompleto ou já foi usado. Se a sua inscrição ainda não está ativa, inscreva-se de novo.",
+      "cta": "Inscrever-se de novo"
+    },
+    "error": {
+      "heading": "Não foi possível confirmar agora",
+      "body": "Algo saiu errado do nosso lado. Abra o link do e-mail de novo em alguns instantes.",
+      "cta": "Ir para a inscrição"
     }
   }
 }

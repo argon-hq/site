@@ -1,5 +1,7 @@
-# Local Postgres for development, same major version and extensions as the RDS instance.
+# Local dependencies for development: Postgres, with the same major version and extensions as the
+# RDS instance, and Mailpit, which accepts every message and delivers none.
 #   pnpm db:up    →  postgresql://argon:argon@localhost:5432/argon_dev
+#                 →  smtp://localhost:1025, inbox at http://localhost:8025
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -17,6 +19,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Catches every e-mail the API sends in development. Nothing leaves the machine, so a wrong
+  # address in a fixture cannot reach a real person.
+  mail:
+    image: axllent/mailpit:v1.28
+    restart: unless-stopped
+    ports: ["1025:1025", "8025:8025"]
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
 volumes:
   db-data:

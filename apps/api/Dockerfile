@@ -8,15 +8,15 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter @argon/api...
+RUN pnpm install --frozen-lockfile --filter api...
 COPY apps/api apps/api
-RUN pnpm --filter @argon/api build
+RUN pnpm --filter api build
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --prod --filter @argon/api...
+RUN pnpm install --frozen-lockfile --prod --filter api...
 
 FROM node:22-alpine AS run
 ENV NODE_ENV=production PORT=3001

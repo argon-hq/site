@@ -39,7 +39,7 @@ cache, e se refaz sozinho.
 ```
 argon/
 ├── apps/
-│   └── web/              # @argon/web — site institucional (Next.js)
+│   └── web/              # site institucional (Next.js)
 ├── packages/             # código compartilhado entre apps (ainda vazio)
 ├── package.json          # raiz do workspace
 ├── pnpm-workspace.yaml   # pacotes do workspace e permissões de build
@@ -58,7 +58,7 @@ pasta e rodar `pnpm install`.
 Dependência para um app específico:
 
 ```bash
-pnpm --filter @argon/web add <pacote>
+pnpm --filter web add <pacote>
 ```
 
 Dependência de ferramental, na raiz:

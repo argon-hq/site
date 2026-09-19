@@ -2,7 +2,7 @@
 
 Site institucional da Argon: home, cadastro na newsletter e política de privacidade.
 
-Pacote `@argon/web` do monorepo, em `apps/web`.
+Pacote `web` do monorepo, em `apps/web`.
 
 ## Stack
 
@@ -31,6 +31,8 @@ Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 | --- | --- |
 | `/` | Home. Vazia por ora — só a marca e um CTA para a newsletter. |
 | `/newsletter` | Cadastro. Tela cheia, sem cabeçalho nem rodapé. |
+| `/newsletter/confirm` | Confirmação. Destino do link do e-mail de inscrição, com o token na query. |
+| `/newsletter/unsubscribe` | Cancelamento. Destino do link no rodapé da edição, com o token na query. |
 | `/privacy` | Placeholder — destino do aceite no cadastro. |
 
 Os caminhos ficam sempre em inglês, independente do idioma escolhido.
@@ -71,6 +73,7 @@ src/
 │   ├── option-menu.tsx   # dropdown compartilhado pelos dois seletores
 │   ├── site-footer.tsx
 │   ├── site-header.tsx
+│   ├── unsubscribe-panel.tsx
 │   └── theme-switcher.tsx
 ├── i18n/
 │   ├── config.ts         # idiomas disponíveis e padrão
@@ -79,17 +82,68 @@ src/
 ├── theme/
 │   ├── config.ts         # temas disponíveis e padrão
 │   └── theme.ts          # server actions de leitura/escrita do cookie
+├── actions/
+│   ├── subscribe.ts      # server action do cadastro: chama a API
+│   └── unsubscribe.ts    # server action do cancelamento (só o POST)
 └── lib/
-    └── email.ts          # normalização e validação de formato
+    ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
+    ├── email.ts          # normalização e validação de formato
+    └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
 ```
 
 ## Cadastro
 
 O `NewsletterForm` valida formato, normaliza o e-mail (minúsculas, sem espaço nas pontas) e tem
-honeypot — mas **o envio ainda é simulado**, sem backend.
+honeypot. O envio passa pela server action `subscribe`, que chama `POST /subscriber` na API e
+grava o cadastro como pendente.
+
+A chamada acontece no servidor: o `INTERNAL_API_SECRET` nunca vai para o navegador. A action
+também registra a prova de opt-in exigida pela LGPD — IP (primeiro valor do `x-forwarded-for`,
+que o Caddy preenche) e user-agent.
+
+O retorno é o mesmo para endereço novo, pendente ou já confirmado: a tela não revela quem está
+cadastrado. Cadastrar de novo em menos de um minuto não dispara outro e-mail — o link anterior
+continua valendo.
 
 O honeypot é só a metade cliente da proteção: sozinho ele não barra nada, e a verificação
 precisa existir no servidor.
+
+Variáveis (veja `.env.example`, ambas só de servidor):
+
+| Variável | Para quê |
+| --- | --- |
+| `API_URL` | Base da API. Local: `http://localhost:3001`. Em produção, o serviço no compose. |
+| `INTERNAL_API_SECRET` | Header `x-internal-secret` exigido por toda rota da API. |
+
+## Confirmação
+
+`/newsletter/confirm?token=…` confirma e leva para `/newsletter/confirmed`. A chamada sai no
+`useEffect`, não num link: scanner de cliente de e-mail abre a URL mas não executa JavaScript,
+então quem confirma é sempre uma pessoa com o navegador aberto. Link fora do prazo, já usado ou
+quebrado cai em telas próprias, cada uma com o caminho de volta para a inscrição.
+
+## Cancelamento
+
+`/newsletter/unsubscribe?token=…` mostra de quem é a inscrição e pede confirmação. Abrir a
+página não cancela nada: scanner de link de cliente de e-mail abre toda URL que encontra, e um
+GET que cancelasse descadastraria a pessoa sozinho. O cancelamento sai no POST do botão.
+
+A tela oferece "foi engano? reativar", que exige aceite novo da política — reativar é um
+cadastro novo, com consentimento novo, e cai na mesma tela de "confirme no seu e-mail".
+
+O `Referrer-Policy: no-referrer` da rota está no `next.config.ts`: o token viaja na URL e
+vazaria no Referer de qualquer link clicado a partir da página.
+
+O cancelamento em um clique dos clientes de e-mail (RFC 8058) não passa por aqui — o cabeçalho
+`List-Unsubscribe` aponta direto para a API, que aceita o POST sem segredo porque quem envia é
+o servidor do Gmail, não o site.
+
+## Imagens do e-mail
+
+`public/email/*.png` são os ícones do rodapé da newsletter. Ficam aqui, e não na API, porque o
+`asset_base_url` das configurações aponta para o domínio do site em todos os ambientes — é ele que
+serve estático. Cliente de e-mail não aceita SVG nem caminho relativo, então são PNG e a URL é
+absoluta. Quem gera é o `pnpm -C apps/api email:icons`.
 
 ## Pendências de design
 

@@ -18,7 +18,7 @@ const ICONS = ["logo", "linkedin", "instagram", "youtube"];
 // Preview only: swap image URLs for data URIs so the file opens without a server.
 function inlineIcons(html: string, assetBaseUrl: string) {
   return Effect.reduce(ICONS, html, (current, icon) =>
-    Effect.promise(() => readFile(path.resolve("public/email", `${icon}.png`))).pipe(
+    Effect.promise(() => readFile(path.resolve("../web/public/email", `${icon}.png`))).pipe(
       Effect.map((png) => current.replaceAll(`${assetBaseUrl}/${icon}.png`, `data:image/png;base64,${png.toString("base64")}`)),
     ),
   );
