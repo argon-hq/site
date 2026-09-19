@@ -1,6 +1,12 @@
 // Builder input and output contract. Independent of the database schema: the adapter that
 // reads edition + article (from-db.ts) converts to this shape.
 
+// Shared by every template, not just the edition: the components in `email/components` take
+// these, so they never depend on the edition contract.
+export type Sender = { name: string; address: string; postalAddress: string };
+
+export type SocialLinks = { site: string; linkedin?: string; instagram?: string; youtube?: string };
+
 export type EditionItem = {
   category: string;
   headline: string;
@@ -14,13 +20,13 @@ export type EditionInput = {
   title: string;
   subject: string;
   items: EditionItem[];
-  sender: { name: string; address: string; postalAddress: string };
+  sender: Sender;
   // Absolute URLs built by the caller. The builder never builds a URL.
   unsubscribeUrl: string;
   privacyPolicyUrl: string;
   // Absolute base of the images in public/email. E-mail clients accept neither SVG nor relative paths.
   assetBaseUrl: string;
-  social: { site: string; linkedin?: string; instagram?: string; youtube?: string };
+  social: SocialLinks;
 };
 
 export type BuiltEdition = { subject: string; html: string; text: string };

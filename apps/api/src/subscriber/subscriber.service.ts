@@ -29,10 +29,6 @@ export type UnsubscribeResult =
   | { status: "already_cancelled"; email: string }
   | { status: "invalid" };
 
-// Only what a request from outside may claim. `complaint` and the bounces are written by the
-// provider webhook (ARG-100), never by someone following a link.
-export type UnsubscribeReason = "user" | "manual";
-
 @Injectable()
 export class SubscriberService {
   private readonly logger = new Logger(SubscriberService.name);
@@ -107,9 +103,8 @@ export class SubscriberService {
         status: "pending",
         tokenHash: token.hash,
         tokenExpiresAt: token.expiresAt,
-        // Signing up again reopens a cancelled subscription, and the old reason goes with it.
+        // Signing up again reopens a cancelled subscription.
         cancelledAt: null,
-        cancellationReason: null,
         confirmationSends: { increment: 1 },
         lastConfirmationSentAt: now,
         ...consent,
@@ -135,7 +130,7 @@ export class SubscriberService {
   }
 
   // Cancelling twice is not an error: the second click just confirms the subscription is off.
-  async unsubscribe(token: string, reason: UnsubscribeReason = "user"): Promise<UnsubscribeResult> {
+  async unsubscribe(token: string): Promise<UnsubscribeResult> {
     const subscriber = await this.prisma.subscriber.findFirst({
       where: { unsubscribeTokenHash: hashToken(token) },
     });
@@ -145,18 +140,18 @@ export class SubscriberService {
       return { status: "invalid" };
     }
 
-    // Cancelled, bounced or blocked: already off the list, and nothing is rewritten. A complaint
-    // in particular must keep its own reason.
+    // Cancelled, bounced or blocked: already off the list, so nothing is rewritten. A spam
+    // complaint in particular must not be turned back into an ordinary cancellation.
     if (subscriber.status !== "confirmed" && subscriber.status !== "pending") {
       return { status: "already_cancelled", email: subscriber.email };
     }
 
     await this.prisma.subscriber.update({
       where: { id: subscriber.id },
-      data: { status: "cancelled", cancelledAt: new Date(), cancellationReason: reason },
+      data: { status: "cancelled", cancelledAt: new Date() },
     });
 
-    this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id, reason });
+    this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id });
     return { status: "cancelled", email: subscriber.email };
   }
 

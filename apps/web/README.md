@@ -130,6 +130,13 @@ O cancelamento em um clique dos clientes de e-mail (RFC 8058) não passa por aqu
 `List-Unsubscribe` aponta direto para a API, que aceita o POST sem segredo porque quem envia é
 o servidor do Gmail, não o site.
 
+## Imagens do e-mail
+
+`public/email/*.png` são os ícones do rodapé da newsletter. Ficam aqui, e não na API, porque o
+`asset_base_url` das configurações aponta para o domínio do site em todos os ambientes — é ele que
+serve estático. Cliente de e-mail não aceita SVG nem caminho relativo, então são PNG e a URL é
+absoluta. Quem gera é o `pnpm -C apps/api email:icons`.
+
 ## Pendências de design
 
 A Argon ainda não tem logo — `BrandMark` desenha um quadrado com a inicial. O painel visual à

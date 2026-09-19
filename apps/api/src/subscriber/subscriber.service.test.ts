@@ -14,7 +14,6 @@ type Write = {
   tokenHash?: string;
   tokenExpiresAt?: Date;
   cancelledAt?: Date | null;
-  cancellationReason?: string | null;
   consentIp?: string | null;
   consentUserAgent?: string | null;
   policyVersion?: string | null;
@@ -100,8 +99,6 @@ describe("SubscriberService", () => {
     const { update } = upsertArgs(cancelled.prisma);
     expect(update.status).toBe("pending");
     expect(update.cancelledAt).toBeNull();
-    // The row is active again: keeping why it once ended would misread as a current state.
-    expect(update.cancellationReason).toBeNull();
   });
 
   it("keeps the consent already recorded when the new sign-up carries none", async () => {
@@ -170,7 +167,7 @@ type Cancelled = {
 };
 type UpdateArgs = {
   where: { id: string };
-  data: { status?: string; cancelledAt?: Date; cancellationReason?: string; unsubscribeTokenHash?: string };
+  data: { status?: string; cancelledAt?: Date; unsubscribeTokenHash?: string };
 };
 
 function unsubscribeService(row: Cancelled | null) {
@@ -192,7 +189,7 @@ function unsubscribeService(row: Cancelled | null) {
 const TOKEN = "cRkM2wJq8vN4tL6yB1xZ0aS3dF5gH7jK9lP2oI4uY6e";
 
 describe("SubscriberService.unsubscribe", () => {
-  it("cancels a confirmed subscription and records why", async () => {
+  it("cancels a confirmed subscription", async () => {
     const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
 
     const result = await subscribers.unsubscribe(TOKEN);
@@ -203,15 +200,6 @@ describe("SubscriberService.unsubscribe", () => {
     const update = prisma.subscriber.update.mock.calls[0]?.[0];
     expect(update?.data.status).toBe("cancelled");
     expect(update?.data.cancelledAt).toEqual(expect.any(Date));
-    expect(update?.data.cancellationReason).toBe("user");
-  });
-
-  it("records the operator's own request under its own reason", async () => {
-    const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
-
-    await subscribers.unsubscribe(TOKEN, "manual");
-
-    expect(prisma.subscriber.update.mock.calls[0]?.[0].data.cancellationReason).toBe("manual");
   });
 
   it("answers `invalid` for a token nobody holds, without writing", async () => {
@@ -221,7 +209,7 @@ describe("SubscriberService.unsubscribe", () => {
     expect(prisma.subscriber.update).not.toHaveBeenCalled();
   });
 
-  it("treats a second click as success, and never rewrites a complaint", async () => {
+  it("treats a second click as success, and never rewrites an address already off the list", async () => {
     for (const status of ["cancelled", "blocked", "bounced"]) {
       const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status });
 

@@ -1,9 +1,9 @@
 import { Column, Img, Link, Row } from "@react-email/components";
-import { copy } from "../../copy";
-import type { EditionInput } from "../../types";
+import { copy } from "../copy";
+import type { SocialLinks } from "../types";
 import * as styles from "./styles";
 
-type SocialProps = Pick<EditionInput, "social" | "assetBaseUrl">;
+type SocialProps = { social: SocialLinks; assetBaseUrl: string };
 
 // PNG only: e-mail clients accept neither SVG nor relative paths. A network without a URL in the
 // settings is simply left out.

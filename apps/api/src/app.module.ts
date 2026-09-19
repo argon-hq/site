@@ -3,6 +3,7 @@ import { APP_GUARD, Reflector } from "@nestjs/core";
 import { MastraModule } from "@mastra/nestjs";
 import { InternalSecretGuard } from "./auth/internal-secret.guard";
 import { loadConfig } from "./config";
+import { MailModule } from "./mail/mail.module";
 import { EditionModule } from "./edition/edition.module";
 import { HealthController } from "./health/health.controller";
 import { mastra } from "./mastra";
@@ -16,6 +17,7 @@ const config = loadConfig();
   imports: [
     PrismaModule.forRoot(config.DATABASE_URL),
     SettingsModule,
+    MailModule.forRoot(config),
     EditionModule,
     SubscriberModule,
     // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.

@@ -10,7 +10,7 @@ type UnsubscribeResult =
 export async function unsubscribe(token: string): Promise<UnsubscribeResult> {
   const result = await apiFetch<{ status: string; email?: string }>("/subscriber/unsubscribe", {
     method: "POST",
-    body: { token, reason: "user" },
+    body: { token },
   });
 
   // `invalid` não chega como erro de rede: a API responde 200 com o status dentro.

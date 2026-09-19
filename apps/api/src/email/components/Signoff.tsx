@@ -1,5 +1,5 @@
 import { Section, Text } from "@react-email/components";
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import * as styles from "./styles";
 
 // Fixed closing, the same in every edition.

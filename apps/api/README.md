@@ -13,6 +13,10 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   public RFC 8058 endpoint the `List-Unsubscribe` header announces. The permanent unsubscribe token is issued by
   `issueUnsubscribeToken`, which the confirmation route will call.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
+- `src/mail/`: the only way out of the API. `MailService.send()` takes the message and fills `from` from the `sender`
+  setting; which provider delivers is bound in `MailModule.forRoot` by `MAIL_TRANSPORT` — `ResendTransport` with the
+  injected Resend client in AWS, `SmtpTransport` pointing at the local Mailpit otherwise. Resend is never the default, so
+  no development machine reaches a real inbox by accident.
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
 - `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, assets and stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, unsubscribeUrl)` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `asset_base_url`, `social`), with the unsubscribe URL per subscriber. Fixed strings live in `copy.ts`, Figma tokens in `theme.ts`. Icons in `public/email` (`pnpm email:icons`, Font Awesome Free, CC BY 4.0).
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
@@ -22,12 +26,28 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 ## Run
 
 ```bash
-pnpm db:up             # local Postgres 16 with pgvector (Docker), argon/argon@localhost:5432/argon_dev
+pnpm db:up             # local Postgres 16 with pgvector and Mailpit (Docker); inbox at http://localhost:8025
 cp .env.example .env   # fill ANTHROPIC_API_KEY and INTERNAL_API_SECRET
 pnpm dev               # http://localhost:3001
 pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
 pnpm test
 pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
+```
+
+## E-mail
+
+```bash
+pnpm email:send        # sends the fixture edition through the real transport; locally it lands in Mailpit
+pnpm email:icons       # regenerates the social PNGs into apps/web/public/email
+```
+
+The images are served by the site, not by the API: `asset_base_url` points at the site's domain in
+every environment, and the API has no static route. They live in `apps/web/public/email`, which the
+web image copies, so a change only reaches an inbox after the site is deployed. To see them locally,
+run the site and point the setting at it:
+
+```bash
+docker exec api-db-1 psql -U argon -d argon_dev -c "update setting set value='\"http://localhost:3000/email\"' where key='asset_base_url';"
 ```
 
 ## Database
