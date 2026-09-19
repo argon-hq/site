@@ -22,6 +22,8 @@ case " $APPS " in *" api "*)
   docker compose run --rm --no-deps "api-$ENV_NAME" sh -c 'if [ -f prisma.config.ts ]; then exec ./node_modules/.bin/prisma migrate deploy; else echo "no migrations in this image"; fi' ;;
 esac
 docker compose up -d caddy $SERVICES
+# The Caddyfile is a bind mount: a changed file needs an explicit reload, or new hosts never get certificates.
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 # Retenção de 30 dias nos logs do ambiente; o grupo é criado pelo driver awslogs no primeiro start.
 sleep 5; for a in $APPS; do aws logs put-retention-policy --region sa-east-1 --log-group-name "/argon/$ENV_NAME/$a" --retention-in-days 30 || true; done
 docker image prune -f >/dev/null

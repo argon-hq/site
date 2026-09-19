@@ -14,6 +14,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `issueUnsubscribeToken`, which the confirmation route will call.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
+- `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, assets and stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, unsubscribeUrl)` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `asset_base_url`, `social`), with the unsubscribe URL per subscriber. Fixed strings live in `copy.ts`, Figma tokens in `theme.ts`. Icons in `public/email` (`pnpm email:icons`, Font Awesome Free, CC BY 4.0).
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
 - `prisma/schema.prisma`: the five application tables from the database diagram. Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
@@ -26,15 +27,23 @@ cp .env.example .env   # fill ANTHROPIC_API_KEY and INTERNAL_API_SECRET
 pnpm dev               # http://localhost:3001
 pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
 pnpm test
+pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
 ```
 
 ## Database
 
+Until the first production deploy the schema lives in a single migration, `prisma/migrations/20260917190000_init`. There is no data worth keeping in any environment yet, so a schema change is an edit to that one migration rather than a new one:
+
 ```bash
-pnpm db:migrate    # after editing schema.prisma: creates the next migration and applies it locally
+# 1. edit schema.prisma, then regenerate the generated part of the init migration
+pnpm db:migrate --create-only --name init   # writes the SQL; keep the hand-written tail below the fold
+# 2. re-apply from scratch
+pnpm db:reset      # drops the local database and replays init (schema, constraints, triggers, initial settings)
 pnpm db:deploy     # applies pending migrations only (what deploy.sh runs in AWS)
 pnpm db:studio     # browse the local database
 ```
+
+The tail of the init migration (check constraints, triggers, the initial `setting` rows) is hand-written and Prisma does not regenerate it — keep it when rewriting the file. Dev is reset by `db:reset`; the lab environment is reset by redeploying against an empty database. Once we go to production this stops: from then on every schema change is a new migration and init is frozen.
 
 Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit the RDS schema by hand. Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
