@@ -21,6 +21,9 @@ const unsubscribeToken = z.string().min(20).max(100);
 
 const unsubscribeBody = z.object({ token: unsubscribeToken });
 
+// Same shape as the unsubscribe token: 32 bytes in base64url.
+const confirmBody = z.object({ token: unsubscribeToken });
+
 @Controller("subscriber")
 export class SubscriberController {
   constructor(private readonly subscribers: SubscriberService) {}
@@ -32,6 +35,16 @@ export class SubscriberController {
   async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>) {
     const result = await this.subscribers.signUp(body);
     return { status: result.status };
+  }
+
+  // POST /subscriber/confirm { token } → confirms the subscription and issues the permanent
+  // unsubscribe token. A POST, not a GET: the link scanners in e-mail clients follow every URL
+  // they find, and the site's page is what turns the click into this call.
+  @Post("confirm")
+  @HttpCode(200)
+  @Header("Referrer-Policy", "no-referrer")
+  async confirm(@Body(ZodBody(confirmBody)) body: z.infer<typeof confirmBody>) {
+    return this.subscribers.confirm(body.token);
   }
 
   // GET /subscriber/unsubscribe?token=… → who the token belongs to, so the page can confirm

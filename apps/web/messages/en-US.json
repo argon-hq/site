@@ -111,5 +111,28 @@
       "body": "We sent a confirmation link to <strong>{email}</strong>. Your subscription is only active again once you click it.",
       "expiry": "The link is valid for 48 hours. Can't find it? Check your spam or promotions folder."
     }
+  },
+  "confirm": {
+    "metaTitle": "Confirm subscription",
+    "metaDescription": "Confirm your subscription to the Argon newsletter.",
+    "confirming": {
+      "heading": "Confirming your subscription...",
+      "body": "One moment. Please don't close this page."
+    },
+    "expired": {
+      "heading": "This link has expired",
+      "body": "The confirmation link is valid for 48 hours, and this one is past that. Sign up again and we'll send a new one right away.",
+      "cta": "Sign up again"
+    },
+    "invalid": {
+      "heading": "This link no longer works",
+      "body": "The link is incomplete or has already been used. If your subscription isn't active yet, sign up again.",
+      "cta": "Sign up again"
+    },
+    "error": {
+      "heading": "We couldn't confirm right now",
+      "body": "Something went wrong on our side. Open the link from your email again in a moment.",
+      "cta": "Go to sign-up"
+    }
   }
 }

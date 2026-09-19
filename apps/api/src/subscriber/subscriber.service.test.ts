@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { SettingsService } from "../settings/settings.service";
+import type { ConfirmationMail } from "./confirmation-mail";
 import { SubscriberService, type SignUpResult } from "./subscriber.service";
 import { hashToken } from "./token";
 
@@ -21,18 +22,28 @@ type Write = {
 type UpsertArgs = { where: { email: string }; create: Write; update: Write };
 type Row = { id: string; status: string; lastConfirmationSentAt?: Date | null } | null;
 
+const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+
 function service(existing: Row) {
   const row = existing && { lastConfirmationSentAt: null, ...existing };
   const prisma = {
     subscriber: {
       findUnique: vi.fn(async () => row),
       upsert: vi.fn(async (args: UpsertArgs) => ({ id: "new-id", email: args.where.email })),
+      update: vi.fn(async () => ({ id: "new-id" })),
     },
   };
   const settings = { get: vi.fn(async () => "2026-09-01") };
+  const confirmation = { send: vi.fn(async () => undefined) };
   return {
     prisma,
-    subscribers: new SubscriberService(prisma as unknown as PrismaService, settings as unknown as SettingsService),
+    confirmation,
+    subscribers: new SubscriberService(
+      prisma as unknown as PrismaService,
+      settings as unknown as SettingsService,
+      confirmation as unknown as ConfirmationMail,
+      origins,
+    ),
   };
 }
 
@@ -113,6 +124,43 @@ describe("SubscriberService", () => {
     expect(update.consentAt).toEqual(expect.any(Date));
   });
 
+  it("sends the confirmation with the token that was stored, hashed", async () => {
+    const { confirmation, prisma, subscribers } = service(null);
+
+    const result = await subscribers.signUp({ email: "joao@example.com" });
+
+    expect(confirmation.send).toHaveBeenCalledWith("joao@example.com", tokenOf(result), origins);
+    expect(upsertArgs(prisma).create.tokenHash).toBe(hashToken(tokenOf(result)));
+  });
+
+  it("does not send to an address that is confirmed, blocked or still inside the window", async () => {
+    const confirmed = service({ id: "abc", status: "confirmed" });
+    await confirmed.subscribers.signUp({ email: "joao@example.com" });
+    expect(confirmed.confirmation.send).not.toHaveBeenCalled();
+
+    const blocked = service({ id: "abc", status: "blocked" });
+    await blocked.subscribers.signUp({ email: "joao@example.com" });
+    expect(blocked.confirmation.send).not.toHaveBeenCalled();
+
+    const recent = service({ id: "abc", status: "pending", lastConfirmationSentAt: new Date() });
+    await recent.subscribers.signUp({ email: "joao@example.com" });
+    expect(recent.confirmation.send).not.toHaveBeenCalled();
+  });
+
+  it("clears the send mark when the provider fails, so the person can try again at once", async () => {
+    const { confirmation, prisma, subscribers } = service(null);
+    confirmation.send.mockRejectedValueOnce(new Error("provider down"));
+
+    await expect(subscribers.signUp({ email: "joao@example.com" })).rejects.toThrow("provider down");
+
+    // Left as it was, the resend window would block the retry for a minute over an e-mail that
+    // never left.
+    expect(prisma.subscriber.update).toHaveBeenCalledWith({
+      where: { id: "new-id" },
+      data: { lastConfirmationSentAt: null, confirmationSends: { decrement: 1 } },
+    });
+  });
+
   it("sends nothing new while the confirmation just issued is still recent", async () => {
     const { prisma, subscribers } = service({
       id: "abc",
@@ -167,7 +215,14 @@ type Cancelled = {
 };
 type UpdateArgs = {
   where: { id: string };
-  data: { status?: string; cancelledAt?: Date; unsubscribeTokenHash?: string };
+  data: {
+    status?: string;
+    cancelledAt?: Date;
+    confirmedAt?: Date;
+    unsubscribeTokenHash?: string | null;
+    tokenHash?: string | null;
+    tokenExpiresAt?: Date | null;
+  };
 };
 
 function unsubscribeService(row: Cancelled | null) {
@@ -180,13 +235,102 @@ function unsubscribeService(row: Cancelled | null) {
     },
   };
   const settings = { get: vi.fn(async () => "") };
+  const confirmation = { send: vi.fn(async () => undefined) };
   return {
     prisma,
-    subscribers: new SubscriberService(prisma as unknown as PrismaService, settings as unknown as SettingsService),
+    subscribers: new SubscriberService(
+      prisma as unknown as PrismaService,
+      settings as unknown as SettingsService,
+      confirmation as unknown as ConfirmationMail,
+      origins,
+    ),
   };
 }
 
 const TOKEN = "cRkM2wJq8vN4tL6yB1xZ0aS3dF5gH7jK9lP2oI4uY6e";
+
+describe("SubscriberService.confirm", () => {
+  function confirmService(row: (Cancelled & { tokenExpiresAt?: Date | null }) | null) {
+    const prisma = {
+      subscriber: {
+        findFirst: vi.fn(async (args: { where: { tokenHash: string } }) => (args.where.tokenHash ? row : null)),
+        update: vi.fn(async (args: UpdateArgs) => ({ id: args.where.id })),
+      },
+    };
+    const settings = { get: vi.fn(async () => "") };
+    const confirmation = { send: vi.fn(async () => undefined) };
+    return {
+      prisma,
+      subscribers: new SubscriberService(
+        prisma as unknown as PrismaService,
+        settings as unknown as SettingsService,
+        confirmation as unknown as ConfirmationMail,
+        origins,
+      ),
+    };
+  }
+
+  const inAnHour = () => new Date(Date.now() + 3_600_000);
+
+  it("confirms a pending subscription and issues the unsubscribe token", async () => {
+    const { prisma, subscribers } = confirmService({
+      id: "abc",
+      email: "joao@example.com",
+      status: "pending",
+      tokenExpiresAt: inAnHour(),
+    });
+
+    expect(await subscribers.confirm(TOKEN)).toEqual({ status: "confirmed", email: "joao@example.com" });
+
+    const { data } = prisma.subscriber.update.mock.calls[0]?.[0] ?? { data: {} };
+    expect(data.status).toBe("confirmed");
+    // The confirmed row has to carry an unsubscribe token; the check constraint requires it.
+    expect(data.unsubscribeTokenHash).toEqual(expect.any(String));
+    // The confirmation hash is kept on purpose: the status is what stops a second confirmation,
+    // and the row has to stay findable so the same link clicked twice is not an error.
+    expect(data.tokenHash).toBeUndefined();
+  });
+
+  it("looks the subscriber up by the hash, never by the token itself", async () => {
+    const { prisma, subscribers } = confirmService({
+      id: "abc",
+      email: "joao@example.com",
+      status: "pending",
+      tokenExpiresAt: inAnHour(),
+    });
+
+    await subscribers.confirm(TOKEN);
+
+    expect(prisma.subscriber.findFirst.mock.calls[0]?.[0].where.tokenHash).toBe(hashToken(TOKEN));
+  });
+
+  it("treats a second click as success, without writing again", async () => {
+    const { prisma, subscribers } = confirmService({ id: "abc", email: "joao@example.com", status: "confirmed" });
+
+    expect(await subscribers.confirm(TOKEN)).toEqual({ status: "already_confirmed", email: "joao@example.com" });
+    expect(prisma.subscriber.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a token past its deadline, and says so", async () => {
+    const { prisma, subscribers } = confirmService({
+      id: "abc",
+      email: "joao@example.com",
+      status: "pending",
+      tokenExpiresAt: new Date(Date.now() - 1000),
+    });
+
+    expect(await subscribers.confirm(TOKEN)).toEqual({ status: "expired", email: "joao@example.com" });
+    expect(prisma.subscriber.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unknown token and a cancelled subscription", async () => {
+    expect(await confirmService(null).subscribers.confirm(TOKEN)).toEqual({ status: "invalid" });
+
+    const cancelled = confirmService({ id: "abc", email: "joao@example.com", status: "cancelled" });
+    expect(await cancelled.subscribers.confirm(TOKEN)).toEqual({ status: "invalid" });
+    expect(cancelled.prisma.subscriber.update).not.toHaveBeenCalled();
+  });
+});
 
 describe("SubscriberService.unsubscribe", () => {
   it("cancels a confirmed subscription", async () => {

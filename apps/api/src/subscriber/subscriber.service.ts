@@ -1,6 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
+import { ConfirmationMail } from "./confirmation-mail";
+import { ORIGINS, type Origins } from "./urls";
 import {
   CONFIRMATION_RESEND_WINDOW_SECONDS,
   createConfirmationToken,
@@ -22,6 +24,14 @@ export type SignUpResult =
   | { status: "already_confirmed" }
   | { status: "ignored" };
 
+// What the confirmation page shows. `expired` is separated from `invalid` because only one of
+// them is worth telling the person to sign up again about.
+export type ConfirmResult =
+  | { status: "confirmed"; email: string }
+  | { status: "already_confirmed"; email: string }
+  | { status: "expired"; email: string }
+  | { status: "invalid" };
+
 // What the subscriber sees on the unsubscribe page. `invalid` covers a token that is wrong,
 // truncated by the e-mail client or from a subscriber that no longer exists.
 export type UnsubscribeResult =
@@ -36,6 +46,8 @@ export class SubscriberService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly confirmation: ConfirmationMail,
+    @Inject(ORIGINS) private readonly origins: Origins,
   ) {}
 
   // Sign-up is idempotent by e-mail: the same address never becomes a second row.
@@ -116,7 +128,66 @@ export class SubscriberService {
       subscriberId: subscriber.id,
       returning: Boolean(existing),
     });
+
+    await this.sendConfirmation(subscriber.id, email, token.token);
     return { status: "pending", token: token.token };
+  }
+
+  // The row is already written when the e-mail goes out, so a provider failure would leave a
+  // subscriber holding a token nobody sent — and the resend window would block the retry for a
+  // minute. Clearing the mark is what lets the person press the button again right away.
+  private async sendConfirmation(id: string, email: string, token: string): Promise<void> {
+    try {
+      await this.confirmation.send(email, token, this.origins);
+    } catch (error) {
+      this.logger.error({ msg: "confirmation not sent", subscriberId: id, error: String(error) });
+      await this.prisma.subscriber.update({
+        where: { id },
+        data: { lastConfirmationSentAt: null, confirmationSends: { decrement: 1 } },
+      });
+      throw error;
+    }
+  }
+
+  // Turns the one-time token into a confirmed subscription, and issues the permanent unsubscribe
+  // token in the same write: the check constraint requires a confirmed row to carry one.
+  async confirm(token: string): Promise<ConfirmResult> {
+    const subscriber = await this.prisma.subscriber.findFirst({ where: { tokenHash: hashToken(token) } });
+
+    if (!subscriber) {
+      this.logger.warn({ msg: "confirmation with unknown token" });
+      return { status: "invalid" };
+    }
+
+    // Confirming twice is the same click arriving twice, or a mail client prefetching the link.
+    if (subscriber.status === "confirmed") {
+      return { status: "already_confirmed", email: subscriber.email };
+    }
+
+    if (subscriber.status !== "pending") {
+      this.logger.warn({ msg: "confirmation for a subscription that is off", status: subscriber.status });
+      return { status: "invalid" };
+    }
+
+    if (!subscriber.tokenExpiresAt || subscriber.tokenExpiresAt.getTime() < Date.now()) {
+      return { status: "expired", email: subscriber.email };
+    }
+
+    const unsubscribe = createUnsubscribeToken();
+    await this.prisma.subscriber.update({
+      where: { id: subscriber.id },
+      data: {
+        status: "confirmed",
+        confirmedAt: new Date(),
+        unsubscribeTokenHash: unsubscribe.hash,
+        // The hash stays: what makes the token single use is the status guard above, and keeping
+        // it is what lets a second click on the same link answer "already confirmed" instead of
+        // "this link is broken" — the same click arriving twice is not an error.
+      },
+    });
+
+    this.logger.log({ msg: "confirmed", subscriberId: subscriber.id });
+    return { status: "confirmed", email: subscriber.email };
   }
 
   // Read-only: the page shows who is about to be unsubscribed and confirms before cancelling.

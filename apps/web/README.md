@@ -31,6 +31,7 @@ Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 | --- | --- |
 | `/` | Home. Vazia por ora — só a marca e um CTA para a newsletter. |
 | `/newsletter` | Cadastro. Tela cheia, sem cabeçalho nem rodapé. |
+| `/newsletter/confirm` | Confirmação. Destino do link do e-mail de inscrição, com o token na query. |
 | `/newsletter/unsubscribe` | Cancelamento. Destino do link no rodapé da edição, com o token na query. |
 | `/privacy` | Placeholder — destino do aceite no cadastro. |
 
@@ -113,6 +114,13 @@ Variáveis (veja `.env.example`, ambas só de servidor):
 | --- | --- |
 | `API_URL` | Base da API. Local: `http://localhost:3001`. Em produção, o serviço no compose. |
 | `INTERNAL_API_SECRET` | Header `x-internal-secret` exigido por toda rota da API. |
+
+## Confirmação
+
+`/newsletter/confirm?token=…` confirma e leva para `/newsletter/confirmed`. A chamada sai no
+`useEffect`, não num link: scanner de cliente de e-mail abre a URL mas não executa JavaScript,
+então quem confirma é sempre uma pessoa com o navegador aberto. Link fora do prazo, já usado ou
+quebrado cai em telas próprias, cada uma com o caminho de volta para a inscrição.
 
 ## Cancelamento
 

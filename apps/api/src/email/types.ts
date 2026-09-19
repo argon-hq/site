@@ -29,7 +29,21 @@ export type EditionInput = {
   social: SocialLinks;
 };
 
-export type BuiltEdition = { subject: string; html: string; text: string };
+// Transactional e-mail of the sign-up (ARG-38). It carries no unsubscribe link: the permanent
+// token is only issued at confirmation, so there is nothing to cancel yet.
+export type ConfirmationInput = {
+  // Absolute, built by the caller with the subscriber's one-time token.
+  confirmUrl: string;
+  expiresInHours: number;
+  sender: Sender;
+  privacyPolicyUrl: string;
+  assetBaseUrl: string;
+  social: SocialLinks;
+};
+
+export type BuiltEmail = { subject: string; html: string; text: string };
+
+export type BuiltEdition = BuiltEmail;
 
 export type ValidationCode =
   | "html_unparseable"

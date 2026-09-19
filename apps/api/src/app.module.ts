@@ -19,7 +19,7 @@ const config = loadConfig();
     SettingsModule,
     MailModule.forRoot(config),
     EditionModule,
-    SubscriberModule,
+    SubscriberModule.forRoot(config),
     // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.
     // Global so any module can inject MastraService without re-registering the instance.
     { ...MastraModule.register({ mastra, prefix: "/mastra" }), global: true },

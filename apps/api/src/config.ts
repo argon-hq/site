@@ -7,6 +7,11 @@ const schema = z.object({
   INTERNAL_API_SECRET: z.string().min(16),
   PORT: z.coerce.number().default(3001),
 
+  // Where the two halves answer from. They go into the links of every e-mail, so they are absolute
+  // and per environment: the site serves the unsubscribe page, the API the one-click endpoint.
+  WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
+  API_ORIGIN: z.string().url().default("http://localhost:3001"),
+
   // Mail. Resend delivers for real, so it is never the default: a development machine sends to
   // the local Mailpit, and only an explicit MAIL_TRANSPORT=resend reaches a real inbox.
   MAIL_TRANSPORT: z.enum(["smtp", "resend"]).default("smtp"),

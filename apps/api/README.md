@@ -7,12 +7,21 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/mastra/`: Mastra instance (`index.ts`), `agents/`, `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
 - `src/edition/`: `POST /edition/write { url }` runs the writer agent on one article.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
+  The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
+  confirmed subscription and issues the permanent unsubscribe token in the same write; the hash of the confirmation token
+  is kept, so the same link clicked twice answers `already_confirmed` instead of looking broken.
   Unsubscribing lives here too: `GET /subscriber/unsubscribe?token=…` only says who the token belongs to, so the page can
   confirm first — a GET that cancelled would unsubscribe people on its own, since e-mail clients follow every link they find.
-  `POST /subscriber/unsubscribe { token, reason? }` cancels, and `POST /subscriber/unsubscribe/one-click?token=…` is the
+  `POST /subscriber/unsubscribe { token }` cancels, and `POST /subscriber/unsubscribe/one-click?token=…` is the
   public RFC 8058 endpoint the `List-Unsubscribe` header announces. The permanent unsubscribe token is issued by
   `issueUnsubscribeToken`, which the confirmation route will call.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
+- `src/subscriber/urls.ts`: every address the subscriber reaches from an e-mail — the confirmation page, the unsubscribe
+  page for the footer link, and the API endpoint the `List-Unsubscribe` header announces. The builders receive them ready
+  (they build no URL), so this is where the format is decided. The origins are bound once in `SubscriberModule.forRoot`.
+- `src/subscriber/confirmation-mail.ts`: composes the sign-up confirmation from the settings and sends it. A provider
+  failure clears the send mark before it propagates, or the resend window would block the retry over an e-mail that never
+  left.
 - `src/mail/`: the only way out of the API. `MailService.send()` takes the message and fills `from` from the `sender`
   setting; which provider delivers is bound in `MailModule.forRoot` by `MAIL_TRANSPORT` — `ResendTransport` with the
   injected Resend client in AWS, `SmtpTransport` pointing at the local Mailpit otherwise. Resend is never the default, so
@@ -37,7 +46,8 @@ pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, ima
 ## E-mail
 
 ```bash
-pnpm email:send        # sends the fixture edition through the real transport; locally it lands in Mailpit
+pnpm email:send [to]   # sends the fixture edition through the real transport; locally it lands in Mailpit,
+                       # with a working unsubscribe link: the recipient is recorded as a subscriber
 pnpm email:icons       # regenerates the social PNGs into apps/web/public/email
 ```
 
@@ -69,6 +79,10 @@ Every deploy runs `prisma migrate deploy` from the API image before starting the
 
 ```bash
 curl -X POST http://localhost:3001/subscriber -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"email":"someone@example.com"}'
+```
+
+```bash
+curl -X POST http://localhost:3001/subscriber/confirm -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"token":"<confirmation token, from the e-mail>"}'
 ```
 
 ```bash

@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
         source: "/newsletter/unsubscribe",
         headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
+      {
+        // Mesmo motivo: o token de confirmação viaja na URL.
+        source: "/newsletter/confirm",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
     ];
   },
 };

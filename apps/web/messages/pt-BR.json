@@ -111,5 +111,28 @@
       "body": "Enviamos um link de confirmação para <strong>{email}</strong>. A inscrição só volta a valer depois que você clicar nele.",
       "expiry": "O link vale por 48 horas. Não achou? Procure no spam ou nas promoções."
     }
+  },
+  "confirm": {
+    "metaTitle": "Confirmar inscrição",
+    "metaDescription": "Confirme a sua inscrição na newsletter da Argon.",
+    "confirming": {
+      "heading": "Confirmando a sua inscrição...",
+      "body": "Só um instante. Não feche esta página."
+    },
+    "expired": {
+      "heading": "Este link expirou",
+      "body": "O link de confirmação vale por 48 horas, e este já passou do prazo. Inscreva-se de novo e enviamos outro na hora.",
+      "cta": "Inscrever-se de novo"
+    },
+    "invalid": {
+      "heading": "Este link não vale mais",
+      "body": "O link está incompleto ou já foi usado. Se a sua inscrição ainda não está ativa, inscreva-se de novo.",
+      "cta": "Inscrever-se de novo"
+    },
+    "error": {
+      "heading": "Não foi possível confirmar agora",
+      "body": "Algo saiu errado do nosso lado. Abra o link do e-mail de novo em alguns instantes.",
+      "cta": "Ir para a inscrição"
+    }
   }
 }
