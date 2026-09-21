@@ -56,7 +56,7 @@ export const fetchArticle = (url: string) =>
 export const readPage = createTool({
   id: "read_page",
   description: "Lê uma página de notícia e devolve título, texto principal, data de publicação e URL canônica.",
-  inputSchema: z.object({ url: z.string().url() }),
+  inputSchema: z.object({ url: z.url() }),
   outputSchema: extractedArticleSchema,
   // Promise boundary: Mastra calls the tool, the effect runs here.
   execute: ({ url }) => Effect.runPromise(fetchArticle(url)),

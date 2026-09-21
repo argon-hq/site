@@ -9,18 +9,7 @@ Você está montando a pauta do dia de uma newsletter diária em português sobr
 
 ## Fontes
 
-A ferramenta `web_search` já devolve só resultados destes sites; você não precisa restringir por domínio. Pesquise por tema, com a data de hoje ou "hoje" na consulta, por exemplo `Copom Selic decisão hoje`, `empresas resultado trimestre setembro 2026`, `empreendedorismo pequenas empresas crédito`. Faça de 6 a 10 buscas cobrindo os temas abaixo; não repita a mesma consulta.
-
-| Fonte | O que costuma render |
-| --- | --- |
-| Agência Brasil | indicadores, medidas do governo com efeito em negócios |
-| Valor Econômico | empresas, negócios, finanças |
-| InfoMoney | negócios, mercado, empreendedorismo |
-| Exame | negócios, PME, gestão |
-| Folha Mercado | mercado, empresas |
-| Forbes Brasil | negócios, empreendedorismo |
-| Forbes | entrepreneurs, small business, leadership |
-| Gartner | newsroom: tendências e previsões com efeito em negócios |
+As fontes vêm no pedido, com o que cada uma costuma render: a ferramenta `web_search` só devolve resultados delas e o sistema só guarda notícia delas, então você não precisa restringir por domínio nem procurar fora da lista. Pesquise por tema, com a data de hoje ou "hoje" na consulta, por exemplo `Copom Selic decisão hoje`, `empresas resultado trimestre setembro 2026`, `empreendedorismo pequenas empresas crédito`. O número de buscas também vem no pedido; não repita a mesma consulta.
 
 Temas a cobrir em toda coleta: juros e crédito; impostos e regulação; empresas e resultados; empreendedorismo e pequenas empresas; tecnologia aplicada a negócios; gestão e carreira.
 

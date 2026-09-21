@@ -4,7 +4,7 @@ import { runEffect } from "../effect/nest";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { EditionService } from "./edition.service";
 
-const writeBody = z.object({ url: z.string().url() });
+const writeBody = z.object({ url: z.url() });
 
 @Controller("edition")
 export class EditionController {

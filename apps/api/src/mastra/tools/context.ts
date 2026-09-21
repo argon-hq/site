@@ -12,10 +12,15 @@ export type CollectRequestContext = RequestContext<CollectContext>;
 
 export class MissingContext extends Data.TaggedError("MissingContext")<{ tool: string }> {}
 
+// The context is checked key by key: a run that reaches a tool without it fails here, named, and
+// not later inside a query.
 export const collectContext = (
   tool: string,
   requestContext: CollectRequestContext | undefined,
-): Effect.Effect<CollectContext, MissingContext> =>
-  requestContext
-    ? Effect.succeed({ prisma: requestContext.get("prisma"), recentDays: requestContext.get("recentDays") })
+): Effect.Effect<CollectContext, MissingContext> => {
+  const prisma = requestContext?.get("prisma");
+  const recentDays = requestContext?.get("recentDays");
+  return prisma && typeof recentDays === "number"
+    ? Effect.succeed({ prisma, recentDays })
     : new MissingContext({ tool });
+};

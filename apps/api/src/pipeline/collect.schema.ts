@@ -3,7 +3,7 @@ import { z } from "zod";
 // What the Editor answers at the end of the collection step. The database is the source of truth
 // for what was saved; this is the agent's own account of the run.
 export const candidateSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   sourceName: z.string().min(1),
   title: z.string().min(1),
   score: z.number().min(0).max(5),

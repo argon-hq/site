@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalize, isAllowedDomain, windowHours } from "./rules";
+import { ALLOWED_DOMAINS, canonicalize, isAllowedDomain, SOURCES, windowHours } from "./rules";
 
 describe("collection rules", () => {
   it("allows only the listed domains and their subdomains", () => {
@@ -9,8 +9,19 @@ describe("collection rules", () => {
     expect(isAllowedDomain("https://g1.globo.com/economia")).toBe(false);
   });
 
+  it("keeps one list of sources for the allowlist and the prompt", () => {
+    expect(ALLOWED_DOMAINS).toEqual(SOURCES.map((s) => s.domain));
+    expect(SOURCES.every((s) => s.name && s.covers)).toBe(true);
+  });
+
   it("canonicalizes tracking noise away", () => {
     expect(canonicalize("https://exame.com/negocios/a/?utm_source=x&id=2#top")).toBe("https://exame.com/negocios/a?id=2");
+  });
+
+  it("gives the same key to the same article reached by different links", () => {
+    const key = "https://exame.com/negocios/a?id=2&p=1";
+    expect(canonicalize("https://www.Exame.com/negocios/a?p=1&id=2")).toBe(key);
+    expect(canonicalize("https://exame.com/negocios/a/?id=2&p=1&fbclid=z")).toBe(key);
   });
 
   it("opens a 48h window on Mondays, 24h otherwise", () => {

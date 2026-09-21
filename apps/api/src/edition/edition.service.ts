@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { MastraService } from "@mastra/nestjs";
 import { Data, Effect } from "effect";
+import { twoAttempts } from "../mastra/attempts";
 import { writtenEditionSchema, type WrittenEdition } from "../mastra/schemas/edition";
 import { fetchArticle } from "../mastra/tools/read-page";
 
@@ -36,21 +37,14 @@ export class EditionService {
         "--- fim ---",
       ].join("\n");
 
-      const write = (text: string) =>
-        Effect.tryPromise({
-          try: () => editor.generate(text, { structuredOutput: { schema: writtenEditionSchema } }),
-          catch: (error) => new WriteFailed({ reason: String(error) }),
-        });
-
-      // Two attempts per item, as decided in the architecture: the second one carries the validation error.
-      const result = yield* write(prompt).pipe(
-        Effect.catchTag("WriteFailed", (rejected) =>
-          Effect.sync(() => this.logger.warn({ msg: "first attempt rejected, retrying", reason: rejected.reason })).pipe(
-            Effect.andThen(
-              write(`${prompt}\n\nA tentativa anterior foi rejeitada: ${rejected.reason.slice(0, 400)}. Corrija e responda de novo.`),
-            ),
-          ),
-        ),
+      const result = yield* twoAttempts(
+        prompt,
+        (text) =>
+          Effect.tryPromise({
+            try: () => editor.generate(text, { structuredOutput: { schema: writtenEditionSchema } }),
+            catch: (error) => new WriteFailed({ reason: String(error) }),
+          }),
+        (reason) => this.logger.warn({ msg: "first attempt rejected, retrying", reason }),
       );
       this.logger.log({ msg: "edition written", subject: result.object.subject, usage: result.usage });
 
