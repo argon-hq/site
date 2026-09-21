@@ -1,5 +1,5 @@
 {
-  "name": "@argon/api",
+  "name": "api",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -21,6 +21,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "email:preview": "tsx src/email/preview.ts",
+    "email:send": "tsx scripts/send-preview.ts",
     "email:icons": "tsx scripts/build-email-icons.ts"
   },
   "dependencies": {
@@ -38,10 +39,12 @@
     "dotenv": "^17.4.2",
     "effect": "^3.22.2",
     "linkedom": "^0.18.13",
+    "nodemailer": "^10.0.10",
     "prisma": "7.10.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.28.1",
     "rxjs": "^7.8.2",
     "zod": "^4.6.5"
   },
@@ -52,6 +55,7 @@
     "@nestjs/testing": "^11.2.5",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.43",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.39.5",

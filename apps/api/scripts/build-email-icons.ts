@@ -1,5 +1,8 @@
 // Generates the PNGs of the social icons from Font Awesome Free (brands).
-// Usage: pnpm email:icons  →  public/email/{linkedin,instagram,youtube}.png
+// Usage: pnpm email:icons  →  apps/web/public/email/{linkedin,instagram,youtube}.png
+//
+// They live in the site, not here: `asset_base_url` points at the site's domain, which is what
+// serves static files in every environment. The API has no static route and is on another host.
 // Icons: Font Awesome Free 7, CC BY 4.0 (https://fontawesome.com/license/free). The Argon
 // logo is exported from Figma and does not go through here.
 
@@ -8,7 +11,7 @@ import path from "node:path";
 import { faInstagram, faLinkedinIn, faYoutube, type IconDefinition } from "@fortawesome/free-brands-svg-icons";
 import sharp from "sharp";
 
-const OUT_DIR = path.resolve("public/email");
+const OUT_DIR = path.resolve("../web/public/email");
 const SIZE = 40; // 2x for the 20px slot in the template
 const COLOR = "#ffffff";
 

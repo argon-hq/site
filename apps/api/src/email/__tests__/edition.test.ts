@@ -1,7 +1,7 @@
 import { Effect, Either } from "effect";
 import { describe, expect, it } from "vitest";
 import { buildEdition } from "../edition/build";
-import { TEXT_WIDTH, wrap } from "../edition/text";
+import { TEXT_WIDTH, wrap } from "../text";
 import { EditionInvalidError } from "../errors";
 import { editionEdgeFixture } from "../fixtures/edition-edge";
 import { editionFixture } from "../fixtures/edition";

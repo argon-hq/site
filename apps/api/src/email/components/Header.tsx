@@ -1,9 +1,10 @@
 import { Column, Row, Section, Text } from "@react-email/components";
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import * as styles from "./styles";
 
-// Brand on the left, edition date on the right, over the dark band.
-export function Header({ dateLabel }: { dateLabel: string }) {
+// Brand on the left, over the dark band. `dateLabel` on the right belongs to the edition; a
+// transactional e-mail simply leaves it out.
+export function Header({ dateLabel }: { dateLabel?: string }) {
   return (
     <Section className="pad" style={styles.header}>
       <Row>
@@ -16,9 +17,11 @@ export function Header({ dateLabel }: { dateLabel: string }) {
             </Column>
           </Row>
         </Column>
-        <Column align="right" style={styles.headerDate}>
-          {copy.header.edition} &middot; {dateLabel}
-        </Column>
+        {dateLabel && (
+          <Column align="right" style={styles.headerDate}>
+            {copy.header.edition} &middot; {dateLabel}
+          </Column>
+        )}
       </Row>
     </Section>
   );
