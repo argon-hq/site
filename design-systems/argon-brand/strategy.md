@@ -116,6 +116,9 @@ dividido em três peças pelo recorte do A.
 O argônio tem três camadas de elétrons (2 · 8 · 8), e a última está completa, o que o torna
 estável. É uma leitura possível para o número três, _a validar_.
 
+A pedido, os esboços 1, 2, 5 e 9 foram passados a limpo com a maior fidelidade possível, como
+variações 10 (Gancho), 11 (Lâmina), 12 (Arco longo) e 13 (Gesto).
+
 ## 5. Recomendação
 
 **Variação 4 — Quatro traços.** Um vértice solto no topo, duas pernas e uma barra.
