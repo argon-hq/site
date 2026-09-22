@@ -22,9 +22,10 @@
     document.querySelectorAll(".js-mark use").forEach(function (use) {
       use.setAttribute("href", "#" + id);
     });
-    // Abaixo de 24 px a variação 4 usa a versão de tela pequena.
+    // Abaixo de 24 px, usa a versão de tela pequena quando ela existe (m4s, m9s).
+    var small = document.getElementById(id + "s") ? id + "s" : id;
     document.querySelectorAll(".js-mark-small use").forEach(function (use) {
-      use.setAttribute("href", "#" + (id === "m4" ? "m4s" : id));
+      use.setAttribute("href", "#" + small);
     });
     document.querySelectorAll(".js-try").forEach(function (btn) {
       btn.setAttribute("aria-pressed", String(btn.dataset.mark === id));
