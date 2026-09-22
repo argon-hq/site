@@ -1,4 +1,4 @@
-// Hard rules of the collection step. The agent judges inside these limits; it never changes them.
+// Hard rules of the edition steps. The agent judges inside these limits; it never changes them.
 
 // The newsletter's sources. `domain` is the allowlist the search and the persistence enforce;
 // `name` and `covers` go into the step prompt, so what the agent reads and what the code accepts
@@ -51,4 +51,10 @@ export function windowHours(date: Date): number {
 
 export function windowStart(date: Date): Date {
   return new Date(date.getTime() - windowHours(date) * 60 * 60 * 1000);
+}
+
+// The edition's calendar day in São Paulo, in the shape the DATE column stores: midnight UTC.
+export function editionDate(date: Date): Date {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date);
+  return new Date(`${day}T00:00:00Z`);
 }
