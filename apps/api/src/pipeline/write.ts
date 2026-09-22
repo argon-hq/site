@@ -31,15 +31,35 @@ const db = <A>(run: () => Promise<A>) =>
 
 // Today's edition, created on the first run of the day. Running the step again reuses the row; one
 // already on its way out is never rewritten, and the database freezes a sent one anyway.
+// `alreadyWritten` says whether an earlier run of the day left a complete edition here, which
+// decides what a later, thinner run is allowed to do to it.
 export const openEdition = (prisma: PrismaClient, date: Date) =>
   db(() =>
-    prisma.edition.upsert({ where: { date }, create: { date }, update: {}, select: { id: true, status: true } }),
+    prisma.edition.upsert({
+      where: { date },
+      create: { date },
+      update: {},
+      select: { id: true, status: true, title: true, _count: { select: { articles: true } } },
+    }),
   ).pipe(
     Effect.filterOrFail(
       (edition) => edition.status !== "sending" && edition.status !== "sent",
       (edition) => new WriteDbFailed({ reason: `edition ${date.toISOString().slice(0, 10)} is already ${edition.status}` }),
     ),
+    Effect.map((edition) => ({
+      id: edition.id,
+      status: edition.status,
+      alreadyWritten: edition.title !== null && edition._count.articles > 0,
+    })),
   );
+
+// What a run is allowed to do when it wrote fewer items than the minimum. An edition an earlier run
+// already completed is kept, not downgraded: a thin run must never destroy a good edition, and a
+// `skipped` edition that still carries a headline and articles would lie about its own state.
+export function belowMinimum(p: { written: number; min: number; alreadyWritten: boolean }): "enough" | "skip" | "keep_previous" {
+  if (p.written >= p.min) return "enough";
+  return p.alreadyWritten ? "keep_previous" : "skip";
+}
 
 // What the collection left ready to write: inside the window, above the cutoff, with text, and
 // either unattached or already part of this edition — so a second run rewrites the same set.

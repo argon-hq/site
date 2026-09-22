@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
 import { BODY_MAX, SUBJECT_MAX, type WrittenItem } from "../mastra/schemas/edition";
 import {
+  belowMinimum,
   headerPrompt,
   itemPrompt,
   ItemFailed,
@@ -83,17 +84,46 @@ describe("prompts", () => {
 });
 
 describe("openEdition", () => {
-  const edition = (status: string) =>
-    ({ edition: { upsert: vi.fn(async () => ({ id: "e1", status })) } }) as unknown as PrismaClient;
+  const edition = (status: string, title: string | null = null, articles = 0) =>
+    ({
+      edition: { upsert: vi.fn(async () => ({ id: "e1", status, title, _count: { articles } })) },
+    }) as unknown as PrismaClient;
+  const day = new Date("2026-09-22T00:00:00Z");
 
-  it("reuses the row of the day", async () => {
-    const result = await Effect.runPromise(openEdition(edition("generating"), new Date("2026-09-22T00:00:00Z")));
-    expect(result).toEqual({ id: "e1", status: "generating" });
+  it("reuses the row of the day, empty", async () => {
+    const result = await Effect.runPromise(openEdition(edition("generating"), day));
+    expect(result).toEqual({ id: "e1", status: "generating", alreadyWritten: false });
+  });
+
+  it("reports an edition an earlier run already wrote", async () => {
+    const result = await Effect.runPromise(openEdition(edition("generating", "Manhã", 4), day));
+    expect(result.alreadyWritten).toBe(true);
+  });
+
+  it("does not count a title with no articles as a written edition", async () => {
+    const result = await Effect.runPromise(openEdition(edition("skipped", "Manhã", 0), day));
+    expect(result.alreadyWritten).toBe(false);
   });
 
   it("refuses to rewrite an edition already on its way out", async () => {
-    const exit = await Effect.runPromiseExit(openEdition(edition("sent"), new Date("2026-09-22T00:00:00Z")));
+    const exit = await Effect.runPromiseExit(openEdition(edition("sent"), day));
     expect(Exit.isFailure(exit)).toBe(true);
+  });
+});
+
+describe("belowMinimum", () => {
+  it("lets a run with enough news through", () => {
+    expect(belowMinimum({ written: 3, min: 3, alreadyWritten: false })).toBe("enough");
+  });
+
+  it("skips the day when nothing was written before", () => {
+    expect(belowMinimum({ written: 2, min: 3, alreadyWritten: false })).toBe("skip");
+  });
+
+  it("keeps an edition an earlier run wrote instead of downgrading it", () => {
+    // A thin second run must not turn a complete edition into a `skipped` one that still carries
+    // its headline and articles.
+    expect(belowMinimum({ written: 1, min: 3, alreadyWritten: true })).toBe("keep_previous");
   });
 });
 

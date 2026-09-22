@@ -13,6 +13,7 @@ import { OwnerAlert } from "./owner-alert";
 import { persistCandidate, type Outcome } from "./persist";
 import { editionDate, MAX_SEARCHES, MAX_STEPS, MIN_SEARCHES, RECENT_DAYS, SOURCES, windowHours, windowStart } from "./rules";
 import {
+  belowMinimum,
   ItemFailed,
   openEdition,
   saveEdition,
@@ -197,12 +198,20 @@ export class PipelineService {
       });
 
       // Better no edition than a weak one: below the minimum nothing is written and the owners hear
-      // about it. This is an outcome of the step, not a failure of it.
-      if (written.length < settings.min_articles) {
+      // about it. This is an outcome of the step, not a failure of it — unless an earlier run of the
+      // day already wrote the edition, and then the thin run fails and leaves that one alone.
+      const short = `ficou com ${written.length} notícia(s) válida(s), abaixo do mínimo de ${settings.min_articles}`;
+      const outcome = belowMinimum({ written: written.length, min: settings.min_articles, alreadyWritten: edition.alreadyWritten });
+
+      if (outcome === "keep_previous") {
+        return yield* new WriteFailed({
+          reason: `edição ${day} já estava escrita e a rodada de agora ${short}; a edição anterior continua valendo`,
+        });
+      }
+      if (outcome === "skip") {
         yield* skipEdition(this.prisma, edition.id).pipe(Effect.mapError(failed));
-        const reason = `edição ${day} ficou com ${written.length} notícia(s) válida(s), abaixo do mínimo de ${settings.min_articles}`;
         this.logger.warn({ msg: "edition skipped", date: day, written: written.length, min: settings.min_articles });
-        yield* this.alert.send("write", reason);
+        yield* this.alert.send("write", `edição ${day} ${short}`);
         return report("skipped", null, written.map((item) => item.usage));
       }
 
