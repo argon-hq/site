@@ -156,3 +156,11 @@ model Setting {
 
   @@map("setting")
 }
+
+// Links already evaluated by the collector, saved or not, so a later run does not visit them again.
+model SeenUrl {
+  url    String   @id
+  seenAt DateTime @default(now()) @map("seen_at") @db.Timestamptz
+
+  @@map("seen_url")
+}
