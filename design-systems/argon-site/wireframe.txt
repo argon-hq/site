@@ -1,0 +1,68 @@
+Argon — home institucional (brief, format=ascii)
+Fonte: brief. Consultoria de negócios; newsletter diária agora; eventos da região depois.
+
++------------------------------------------------------------------------------+
+| nav                                                                          |
+| [ico:logo] [t1: argon]   [lnk: Consultoria] [lnk: Newsletter] [lnk: Eventos] |
+|                                                  [btn: Assinar a newsletter] |
++------------------------------------------------------------------------------+
+| hero                                                                         |
+| [t3: Consultoria de negócios]                  +---------------------------+ |
+| [h1: Clareza para decidir.]                    | card                      | |
+| [t2: A Argon lê o mercado todos os dias e]     | [t3: Edição 128 · terça]  | |
+| [t2: ajuda empresas a transformar informação]  | [h3: O que esperar do     | |
+| [t2: em decisão.]                              |      ecossistema...]      | |
+| [btn: Assinar a newsletter] [btn2: Conhecer]   | [t2: As principais ...]   | |
+|                                                | [h3: Frameworks de foco]  | |
+|                                                | [t3: Leitura de 5 min]    | |
+|                                                +---------------------------+ |
++------------------------------------------------------------------------------+
+| section                                                                      |
+| [t3: Newsletter]                                                             |
+| [h2: Notícias de negócios, sem ruído.]                                       |
+| [t2: Um resumo curto do que importa para quem empreende ...]                 |
+| +--------------------------------------------------------------------------+ |
+| | form                                                                     | |
+| | [in: Coloque o seu melhor e-mail]              [btn: Inscreva-se]        | |
+| | [t3: Li e aceito a política de privacidade ...]                          | |
+| +--------------------------------------------------------------------------+ |
+| [t3: Segunda a sábado] [t3: Às 7h] [t3: Menos de 5 minutos]                  |
++------------------------------------------------------------------------------+
+| section                                                                      |
+| [t3: Consultoria]                                                            |
+| [h2: Três passos, do dado à decisão.]                                        |
+| +----------------------+ +----------------------+ +----------------------+   |
+| | card2                | | card2                | | card2                |   |
+| | [t3: 1]              | | [t3: 2]              | | [t3: 3]              |   |
+| | [h3: Análise]        | | [h3: Estratégia]     | | [h3: Execução]       |   |
+| | [t2: ...]            | | [t2: ...]            | | [t2: ...]            |   |
+| +----------------------+ +----------------------+ +----------------------+   |
+| [btn2: Falar com a Argon]                                                    |
++------------------------------------------------------------------------------+
+| section                                                                      |
+| [t3: Em breve]                                                               |
+| [h2: Eventos da região]                                                      |
+| [t2: A agenda de negócios da região, num lugar só.]                          |
+| +--------------------------------------------------------------------------+ |
+| | rail                                                                     | |
+| | [t3: 14 out] [h3: Café de negócios]              [t3: Centro · exemplo]  | |
+| | [t3: 22 out] [h3: Encontro de gestores]          [t3: Centro · exemplo]  | |
+| | [t3: 05 nov] [h3: Painel: crédito para PMEs]     [t3: Online · exemplo]  | |
+| +--------------------------------------------------------------------------+ |
+| [lnk: Quero ser avisado]                                                     |
++------------------------------------------------------------------------------+
+| nav                                                                          |
+| [ico:logo] [t1: argon]  [lnk: Política de privacidade]                       |
+| [t3: Argon · Business newsletter © 2026. Todos os direitos reservados.]      |
++------------------------------------------------------------------------------+
+
+Plano de implementação
+| Região            | Etapa | Técnica                                              |
+|-------------------|-------|------------------------------------------------------|
+| Fundo             | 2     | Cor sólida (token --background), sem imagem          |
+| nav, hero, card   | 3     | HTML/CSS; Geist e Geist Mono definidas antes         |
+| section/form      | 3     | HTML/CSS; formulário estático, sem envio             |
+| card2, rail       | 3     | HTML/CSS                                             |
+| [ico:logo]        | 3     | SVG inline da marca recomendada (variação 4)         |
+| Assets restantes  | —     | Não há: etapa 4 omitida                              |
+| Tela completa     | 5     | Revisão em desktop e 375 px, claro e escuro          |
