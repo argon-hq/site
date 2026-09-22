@@ -28,18 +28,12 @@ export const writtenItemSchema = z.object({
   body: clean(BODY_MAX),
 });
 
-// Writer output for the whole edition.
-export const writtenEditionSchema = z.object({
+// Writer output for the edition header. The items are written one at a time, so the header is a
+// generation of its own, over the headlines that were approved.
+export const editionHeaderSchema = z.object({
   title: clean(80),
   subject: clean(SUBJECT_MAX),
-  items: z.array(writtenItemSchema).min(1),
 });
 
 export type WrittenItem = z.infer<typeof writtenItemSchema>;
-export type WrittenEdition = z.infer<typeof writtenEditionSchema>;
-
-// Writer output for the edition header. The items are written one by one, so the header is a
-// generation of its own, over the headlines that were approved.
-export const editionHeaderSchema = writtenEditionSchema.pick({ title: true, subject: true });
-
 export type EditionHeader = z.infer<typeof editionHeaderSchema>;

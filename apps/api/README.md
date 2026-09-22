@@ -15,7 +15,6 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   alert to the owners — better no edition than a weak one; but a thin run never downgrades an edition an earlier run
   of the same day already wrote (`belowMinimum`): it fails instead, and the complete edition stands. The skill holds
   the craft; categories and lengths travel from the schema into the step prompt, never into the skill.
-- `src/edition/`: `POST /edition/write { url }` runs the Editor on one article, through the same `write` skill. Debug route, apart from the edition of the day.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -102,10 +101,6 @@ curl -X POST http://localhost:3001/subscriber/confirm -H "x-internal-secret: $IN
 
 ```bash
 curl -X POST http://localhost:3001/subscriber/unsubscribe -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"token":"<unsubscribe token>"}'
-```
-
-```bash
-curl -X POST http://localhost:3001/edition/write -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"url":"https://agenciabrasil.ebc.com.br/..."}'
 ```
 
 ```bash
