@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED_DOMAINS, canonicalize, isAllowedDomain, SOURCES, windowHours } from "./rules";
+import { ALLOWED_DOMAINS, canonicalize, editionDate, isAllowedDomain, SOURCES, windowHours } from "./rules";
 
 describe("collection rules", () => {
   it("allows only the listed domains and their subdomains", () => {
@@ -28,5 +28,11 @@ describe("collection rules", () => {
     expect(windowHours(new Date("2026-09-21T12:00:00-03:00"))).toBe(48); // Monday
     expect(windowHours(new Date("2026-09-22T12:00:00-03:00"))).toBe(24);
     expect(windowHours(new Date("2026-09-21T01:00:00Z"))).toBe(24); // still Sunday in São Paulo
+  });
+
+  it("dates the edition by the São Paulo calendar day", () => {
+    expect(editionDate(new Date("2026-09-22T08:30:00Z")).toISOString()).toBe("2026-09-22T00:00:00.000Z");
+    // 21:00 in São Paulo, already the 23rd in UTC: the edition is still the 22nd.
+    expect(editionDate(new Date("2026-09-23T00:00:00Z")).toISOString()).toBe("2026-09-22T00:00:00.000Z");
   });
 });

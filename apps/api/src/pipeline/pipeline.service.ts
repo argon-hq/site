@@ -2,16 +2,32 @@ import { Injectable, Logger } from "@nestjs/common";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
+import type { z } from "zod";
 import { twoAttempts } from "../mastra/attempts";
+import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { CollectContext } from "../mastra/tools/context";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { collectResultSchema, type CollectResult } from "./collect.schema";
 import { OwnerAlert } from "./owner-alert";
 import { persistCandidate, type Outcome } from "./persist";
-import { MAX_SEARCHES, MAX_STEPS, MIN_SEARCHES, RECENT_DAYS, SOURCES, windowHours, windowStart } from "./rules";
+import { editionDate, MAX_SEARCHES, MAX_STEPS, MIN_SEARCHES, RECENT_DAYS, SOURCES, windowHours, windowStart } from "./rules";
+import {
+  ItemFailed,
+  openEdition,
+  saveEdition,
+  selectCandidates,
+  skipEdition,
+  sumUsage,
+  writeHeader,
+  writeItem,
+  type Generate,
+  type ItemResult,
+  type WrittenResult,
+} from "./write";
 
 export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
+export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
 
 export type CollectReport = {
   date: string;
@@ -23,6 +39,22 @@ export type CollectReport = {
   outcomes: Outcome[];
   saved: number;
   usage: unknown;
+  durationMs: number;
+};
+
+export type WriteReport = {
+  date: string;
+  editionId: string;
+  status: "written" | "skipped";
+  since: string;
+  cutoff: number;
+  minArticles: number;
+  maxArticles: number;
+  header: EditionHeader | null;
+  items: ItemResult[];
+  written: number;
+  rejected: number;
+  usage: Record<string, number>;
   durationMs: number;
 };
 
@@ -100,6 +132,107 @@ export class PipelineService {
       Effect.tapError((e) =>
         Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason })).pipe(
           Effect.andThen(this.alert.send("collect", e.reason)),
+        ),
+      ),
+    );
+  }
+
+  // Writing step: the Editor loads the `write` skill and writes one article at a time, then the
+  // edition header over what was approved. Selection happened in the collection step; this one
+  // turns the stored text into what the e-mail carries.
+  write(now = new Date()): Effect.Effect<WriteReport, WriteFailed> {
+    return Effect.gen(this, function* () {
+      const startedAt = Date.now();
+      const settings = yield* Effect.tryPromise({
+        try: () => this.settings.load(),
+        catch: (error) => new WriteFailed({ reason: `settings: ${String(error)}` }),
+      });
+      const date = editionDate(now);
+      const day = date.toISOString().slice(0, 10);
+      const since = windowStart(now);
+      const failed = (error: { reason: string }) => new WriteFailed({ reason: error.reason });
+
+      const edition = yield* openEdition(this.prisma, date).pipe(Effect.mapError(failed));
+      const candidates = yield* selectCandidates(this.prisma, {
+        editionId: edition.id,
+        since,
+        cutoff: settings.score_cutoff,
+        max: settings.max_articles,
+      }).pipe(Effect.mapError(failed));
+      this.logger.log({ msg: "write started", date: day, edition: edition.id, candidates: candidates.length });
+
+      // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
+      // the second attempt can quote what the first got wrong.
+      const editor = this.mastra.getAgent("editor");
+      const generating =
+        <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
+        (text) =>
+          Effect.tryPromise({
+            try: async () => {
+              const generated = await editor.generate(text, { structuredOutput: { schema } });
+              return { object: generated.object as z.infer<S>, usage: generated.usage };
+            },
+            catch: (error) => new ItemFailed({ reason: String(error) }),
+          });
+
+      const items = yield* Effect.forEach(candidates, (candidate) => writeItem(candidate, generating(writtenItemSchema), this.logger), {
+        concurrency: 3,
+      });
+      const written = items.filter((item): item is WrittenResult => item.outcome === "written");
+
+      const report = (status: WriteReport["status"], header: EditionHeader | null, usage: unknown[]): WriteReport => ({
+        date: day,
+        editionId: edition.id,
+        status,
+        since: since.toISOString(),
+        cutoff: settings.score_cutoff,
+        minArticles: settings.min_articles,
+        maxArticles: settings.max_articles,
+        header,
+        items,
+        written: written.length,
+        rejected: items.length - written.length,
+        usage: sumUsage(usage),
+        durationMs: Date.now() - startedAt,
+      });
+
+      // Better no edition than a weak one: below the minimum nothing is written and the owners hear
+      // about it. This is an outcome of the step, not a failure of it.
+      if (written.length < settings.min_articles) {
+        yield* skipEdition(this.prisma, edition.id).pipe(Effect.mapError(failed));
+        const reason = `edição ${day} ficou com ${written.length} notícia(s) válida(s), abaixo do mínimo de ${settings.min_articles}`;
+        this.logger.warn({ msg: "edition skipped", date: day, written: written.length, min: settings.min_articles });
+        yield* this.alert.send("write", reason);
+        return report("skipped", null, written.map((item) => item.usage));
+      }
+
+      const header = yield* writeHeader(
+        written.map((item) => item.item),
+        generating(editionHeaderSchema),
+        this.logger,
+      ).pipe(Effect.mapError(failed));
+
+      yield* saveEdition(this.prisma, {
+        editionId: edition.id,
+        header: header.object,
+        written: written.map(({ id, item }) => ({ id, item })),
+      }).pipe(Effect.mapError(failed));
+
+      const done = report("written", header.object, [...written.map((item) => item.usage), header.usage]);
+      this.logger.log({
+        msg: "write finished",
+        date: day,
+        subject: done.header?.subject,
+        written: done.written,
+        rejected: done.rejected,
+        durationMs: done.durationMs,
+        usage: done.usage,
+      });
+      return done;
+    }).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason })).pipe(
+          Effect.andThen(this.alert.send("write", error.reason)),
         ),
       ),
     );

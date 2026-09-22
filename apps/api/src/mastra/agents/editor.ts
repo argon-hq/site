@@ -17,5 +17,5 @@ export const editor = new Agent({
   instructions: editorInstructions,
   model: modelFor("editor"),
   tools: { web_search: webSearch, read_page: readPage, recent_articles: recentArticles },
-  skills: [path.join(skillsDir, "collect")],
+  skills: [path.join(skillsDir, "collect"), path.join(skillsDir, "write")],
 });

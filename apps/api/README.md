@@ -6,7 +6,15 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 
 - `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step, copied to `dist` by nest-cli assets), `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
 - `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`), and a step that fails mails the `owner_emails` from the settings (`owner-alert.ts`). Errors, retries and outcomes use Effect.
-- `src/edition/`: `POST /edition/write { url }` runs the Editor on one article (writing rules only).
+  `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
+  São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
+  `write` skill once per article — two attempts each, the second carrying the validation error. An article rejected
+  twice leaves the edition and the others go on; the header (title and subject) is a generation of its own over what
+  was approved. Saving is one transaction that detaches whatever an earlier run left attached, so the step can run
+  again without growing the edition. Fewer than `min_articles` written and the edition becomes `skipped` with an
+  alert to the owners — better no edition than a weak one. The skill holds the craft; categories and lengths travel
+  from the schema into the step prompt, never into the skill.
+- `src/edition/`: `POST /edition/write { url }` runs the Editor on one article, through the same `write` skill. Debug route, apart from the edition of the day.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -97,4 +105,8 @@ curl -X POST http://localhost:3001/subscriber/unsubscribe -H "x-internal-secret:
 
 ```bash
 curl -X POST http://localhost:3001/edition/write -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"url":"https://agenciabrasil.ebc.com.br/..."}'
+```
+
+```bash
+curl -X POST http://localhost:3001/pipeline/write -H "x-internal-secret: $INTERNAL_API_SECRET"
 ```

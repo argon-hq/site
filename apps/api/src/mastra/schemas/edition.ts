@@ -37,3 +37,9 @@ export const writtenEditionSchema = z.object({
 
 export type WrittenItem = z.infer<typeof writtenItemSchema>;
 export type WrittenEdition = z.infer<typeof writtenEditionSchema>;
+
+// Writer output for the edition header. The items are written one by one, so the header is a
+// generation of its own, over the headlines that were approved.
+export const editionHeaderSchema = writtenEditionSchema.pick({ title: true, subject: true });
+
+export type EditionHeader = z.infer<typeof editionHeaderSchema>;

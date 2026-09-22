@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { MastraService } from "@mastra/nestjs";
 import { Data, Effect } from "effect";
 import { twoAttempts } from "../mastra/attempts";
-import { writtenEditionSchema, type WrittenEdition } from "../mastra/schemas/edition";
+import { BODY_MAX, CATEGORIES, SUBJECT_MAX, writtenEditionSchema, type WrittenEdition } from "../mastra/schemas/edition";
 import { fetchArticle } from "../mastra/tools/read-page";
 
 export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
@@ -19,7 +19,8 @@ export class EditionService {
 
   constructor(private readonly mastra: MastraService) {}
 
-  // Minimal pipeline: one article, the Editor, structured output.
+  // One article, end to end: the Editor loads the same `write` skill the pipeline step uses.
+  // Debug route, kept apart from the edition of the day.
   writeFromUrl(url: string): Effect.Effect<WriteResult, WriteFailed> {
     return Effect.gen(this, function* () {
       const article = yield* fetchArticle(url).pipe(
@@ -29,7 +30,10 @@ export class EditionService {
 
       const editor = this.mastra.getAgent("editor");
       const prompt = [
+        'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
         "Escreva a edição de hoje com a única notícia abaixo: exatamente um item.",
+        `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
+        `Corpo: até ${BODY_MAX} caracteres; assunto do e-mail: até ${SUBJECT_MAX}.`,
         `Fonte: ${article.siteName ?? new URL(article.canonicalUrl).hostname}`,
         `Título original: ${article.originalTitle}`,
         "--- notícia ---",
