@@ -220,8 +220,61 @@ main { max-width: var(--max); margin-inline: auto; }
 .btn-ghost:hover { color: var(--muted); border-color: var(--muted); }
 .btn-ghost[aria-pressed="true"] { font-weight: 600; }
 
-.sketch { display: grid; gap: 8px; max-width: 360px; }
-.sketch img { border: 1px solid var(--rule); background: #fff; }
+/* Rodada 1b: leitura dos esboços */
+.reading { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(24px, 4vw, 56px); align-items: start; }
+.reading__fig { display: grid; gap: 8px; }
+.reading__img { position: relative; border: 1px solid var(--rule); background: #fff; }
+.pin {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  background: var(--fixed-ink);
+  color: var(--fixed-paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+/* Posições em % da imagem original (1280 × 1105), ao lado de cada desenho. */
+.pin--1 { left: 25%; top: 8.1%; }
+.pin--2 { left: 64.8%; top: 10%; }
+.pin--3 { left: 35.5%; top: 29%; }
+.pin--4 { left: 75%; top: 27.1%; }
+.pin--5 { left: 10.9%; top: 40.7%; }
+.pin--6 { left: 57%; top: 38.5%; }
+.pin--7 { left: 31.3%; top: 57%; }
+.pin--8 { left: 54.7%; top: 65.2%; }
+.pin--9 { left: 36.7%; top: 89.1%; }
+
+.reading__notes { display: grid; gap: 28px; }
+.reading__stat { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--rule); }
+.reading__stat p { color: var(--ink-2); }
+.reading__num { font-size: clamp(3.5rem, 7vw, 5rem); font-weight: 500; letter-spacing: -0.04em; line-height: 0.9; color: var(--ink) !important; font-variant-numeric: tabular-nums; }
+.reading__num span { color: var(--muted); }
+.families { display: grid; gap: 18px; margin: 0; }
+.families div { display: grid; gap: 4px; }
+.families dt { font-weight: 600; }
+.families dt .mono { margin-left: 8px; font-weight: 400; color: var(--muted); }
+.families dd { margin: 0; color: var(--ink-2); }
+.insights { display: grid; gap: 12px; margin: 0; padding: 20px 0 0; list-style: none; border-top: 1px solid var(--rule); }
+.insights li { color: var(--ink-2); }
+.insights strong { color: var(--ink); }
+
+/* Rodada 1b: esboço → vetor */
+.fresh { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(24px, 3vw, 40px); }
+.fresh__item { display: grid; gap: 12px; align-content: start; }
+.fresh__item > p:not(.variant__tags) { color: var(--ink-2); font-size: 0.9375rem; }
+.fresh__item .variant__tags { color: var(--muted); }
+.fresh__pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; margin-bottom: 8px; }
+.fresh__stage { display: grid; gap: 6px; justify-items: center; padding: 14px 10px 10px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
+.fresh__stage figcaption { color: var(--muted); font-size: 0.6875rem; }
+.fresh__stage--sketch { border-style: dashed; color: var(--ink-2); }
+.fresh__mark { width: 100%; max-width: 120px; height: auto; aspect-ratio: 1; overflow: visible; }
+.fresh__arrow { color: var(--muted); }
 
 /* Sistema */
 .system { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -436,6 +489,8 @@ main { max-width: var(--max); margin-inline: auto; }
 /* Responsivo */
 @media (max-width: 960px) {
   .hero { grid-template-columns: minmax(0, 1fr); }
+  .reading { grid-template-columns: minmax(0, 1fr); }
+  .fresh { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
   .variants { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .donts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mock { grid-column: span 6; }
@@ -454,6 +509,7 @@ main { max-width: var(--max); margin-inline: auto; }
   .minsize { grid-template-columns: minmax(0, 1fr); }
   .picker { flex-wrap: wrap; }
   .top { position: static; }
+  .pin { width: 20px; height: 20px; margin: -10px 0 0 -10px; font-size: 10px; }
 }
 
 /* Amostras fixas em tinta precisam de contorno quando o fundo da página também é escuro. */

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — m9-tres-partes</title>
+  <defs><mask id="argon-mask-10" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="6" y="6" width="52" height="52" fill="#fff"/><g fill="none" stroke="#000" stroke-width="5" stroke-linejoin="miter" stroke-miterlimit="8"><path d="M9.5 64.4 32 6 54.5 64.4"/><path d="M18.9 40H36"/></g></mask></defs>
+  <rect x="6" y="6" width="52" height="52" fill="currentColor" mask="url(#argon-mask-10)"/>
+</svg>

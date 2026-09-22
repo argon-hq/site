@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — m7-convergencia</title>
+  <defs><clipPath id="argon-clip-8"><rect width="64" height="56"/></clipPath></defs>
+  <g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-8)"><path d="M6.9 62 34 10 56.6 62"/><path d="M3 35Q43.6 32 55.8 60" stroke-linecap="butt"/></g>
+</svg>

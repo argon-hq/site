@@ -106,6 +106,16 @@ A rodada 1 é **monocromática**: a forma precisa funcionar sem cor. Propostas p
 - **Semelhança**: todos os traços têm a mesma espessura, então o conjunto se lê como um só.
 - **Proximidade**: os espaços entre as partes são pequenos o bastante para agrupá-las.
 
+## 4b. Leitura dos esboços (rodada 1b)
+
+Em 6 dos 9 esboços, a barra do A não atravessa a letra: ela desce ou faz curva e encontra uma
+perna no chão. O ápice tende para a direita, e isso dá movimento. Esses dois gestos originaram as
+variações 7 (Convergência) e 8 (Raiz). A variação 9 (Três partes) é uma proposta nova: um bloco
+dividido em três peças pelo recorte do A.
+
+O argônio tem três camadas de elétrons (2 · 8 · 8), e a última está completa, o que o torna
+estável. É uma leitura possível para o número três, _a validar_.
+
 ## 5. Recomendação
 
 **Variação 4 — Quatro traços.** Um vértice solto no topo, duas pernas e uma barra.
