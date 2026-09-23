@@ -136,6 +136,23 @@ a { color: inherit; }
 .lockup--wm { font-size: 72px; }
 .dont--gap .wm { height: 11px; }
 
+/* Logotipo integrado (rodada 1e): o símbolo é o A e o nome segue com RGON.
+   Altura das letras = 0,62 em. Símbolo = 64/55 dessa altura; RGON = 44/40; bases alinhadas. */
+.lockup--int { display: inline-flex; align-items: flex-end; gap: 0; }
+.lockup--int .mark { width: 0.722em; height: 0.722em; margin: 0; }
+.lockup--int .rgon { display: block; height: 0.682em; width: auto; aspect-ratio: 208 / 44; margin: 0 0 0.037em 0.2em; flex: none; overflow: visible; }
+.lockup--v .lockup--int { font-size: 0.8em; }
+.lockup--v .lockup--int .mark { width: 0.722em; height: 0.722em; }
+.top__brand .lockup--int { font-size: 30px; }
+.top__brand .lockup--int .mark { width: 0.722em; height: 0.722em; }
+.dont__stage .lockup--int.dont--gap { font-size: 22px; gap: 0; }
+.dont__stage .lockup--int.dont--gap .mark { width: 0.722em; height: 0.722em; }
+.dont--gap .rgon { margin-left: 1.3em; }
+.dont--double { display: flex; align-items: flex-end; gap: 4px; color: var(--ink); }
+.dont--double .mark { width: 16px; height: 16px; }
+.dont--double .wm { height: 10px; }
+.chosen__int { font-size: clamp(56px, 10vw, 112px); color: var(--ink); }
+
 /* Direção escolhida (rodada 1d) */
 .chosen {
   display: grid;
@@ -407,7 +424,7 @@ main { max-width: var(--max); margin-inline: auto; }
 .minsize > div { display: grid; justify-items: center; gap: 12px; color: var(--muted); }
 .minsize .mark--16 { color: var(--ink); }
 
-.donts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.donts { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
 .dont { display: grid; gap: 8px; align-content: start; font-size: 0.875rem; color: var(--ink-2); }
 .dont__stage {
   position: relative;
@@ -548,7 +565,7 @@ main { max-width: var(--max); margin-inline: auto; }
   .fresh { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
   .clean { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
   .variants { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .donts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .donts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .mock { grid-column: span 6; }
   .mock--cards, .mock--mail { grid-column: span 12; }
   .top__meta { display: none; }
