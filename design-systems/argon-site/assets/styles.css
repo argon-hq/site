@@ -74,10 +74,12 @@ ol, ul { padding: 0; list-style: none; }
 .lnk--under { justify-self: start; text-decoration: underline; text-underline-offset: 4px; }
 
 /* Logo */
-.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
-/* Símbolo m14 a partir de 32 px; abaixo disso, a versão de traço constante (m14s). */
-.logo__mark { width: 32px; height: 32px; }
-.logo__wm { display: block; height: 16px; width: auto; aspect-ratio: 264 / 44; }
+/* Logotipo integrado: o símbolo é o A e o nome segue com RGON.
+   Altura das letras = 1 em. Símbolo = 64/55 em; RGON = 44/40 em; bases alinhadas.
+   Símbolo m14 a partir de 32 px; abaixo disso, a versão de traço constante (m14s). */
+.logo { display: inline-flex; align-items: flex-end; text-decoration: none; font-size: 28px; }
+.logo__mark { width: 1.164em; height: 1.164em; flex: none; }
+.logo__rgon { display: block; height: 1.1em; width: auto; aspect-ratio: 208 / 44; margin: 0 0 0.059em 0.32em; flex: none; }
 
 /* nav */
 .nav {
@@ -163,8 +165,7 @@ main { max-width: var(--max); margin-inline: auto; }
   margin-inline: auto;
   padding-block: 40px 56px;
 }
-.foot .logo__wm { height: 13px; }
-.foot .logo__mark { width: 20px; height: 20px; }
+.foot .logo { font-size: 17px; }
 .foot__rights { flex-basis: 100%; text-transform: none; letter-spacing: 0.02em; }
 
 @media (max-width: 860px) {
