@@ -127,9 +127,6 @@ clichê "A com swoosh" é a folga no cruzamento e a perna direita que para antes
 detalhes devem ser mantidos. Abaixo de 32 px, usa-se a versão de traço constante. A leitura
 "conexão, rede, tecnologia" é diferente da de "consultoria séria" e está _a validar_.
 
-O símbolo é o A do nome. Na logo completa, ele entra no lugar da letra e o nome se completa com RGON,
-para nunca ler "A ARGON". Sem o símbolo, o nome se escreve ARGON, com o A sem barra.
-
 ## 5. Recomendação
 
 **Atualização (rodada 1d):** a direção escolhida (variação 14 + ARGON) substitui a recomendação da
