@@ -13,6 +13,7 @@ import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/
 import { buildReason, loadEdition, saveBuilt } from "./build";
 import { agentCollect, fixtureCollect } from "./collect-source";
 import type { CollectResult } from "./collect.schema";
+import { generateStructured } from "./generate";
 import { OwnerAlert } from "./owner-alert";
 import { persistCandidate, type Outcome } from "./persist";
 import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
@@ -189,15 +190,16 @@ export class PipelineService {
       this.logger.log({ msg: "write started", mode, date: day, edition: edition.id, candidates: candidates.length });
 
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
-      // the second attempt can quote what the first got wrong.
+      // the second attempt can quote what the first got wrong. Writing loads its skill through the
+      // `skill` tool, so it works and takes shape in two calls, the same as the collection.
       const editor = this.mastra.getAgent("editor");
       const generating =
         <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
         (text) =>
           Effect.tryPromise({
             try: async () => {
-              const generated = await editor.generate(text, { structuredOutput: { schema } });
-              return { object: generated.object as z.infer<S>, usage: generated.usage };
+              const generated = await generateStructured(editor, text, { schema });
+              return { object: generated.object, usage: generated.usage };
             },
             catch: (error) => new ItemFailed({ reason: String(error) }),
           });

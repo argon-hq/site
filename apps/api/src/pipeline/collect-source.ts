@@ -8,6 +8,7 @@ import type { CollectContext } from "../mastra/tools/context";
 import type { PrismaClient } from "../generated/prisma/client";
 import { collectResultSchema, type CollectResult } from "./collect.schema";
 import { fixtureNews } from "./fixtures/news";
+import { generateStructured } from "./generate";
 import type { ReadPage } from "./persist";
 import type { Profile } from "./profile";
 import { canonicalize, RECENT_DAYS, SOURCES } from "./rules";
@@ -46,9 +47,11 @@ export const agentCollect = (deps: {
         collectPrompt({ ...run, profile }),
         (text) =>
           Effect.tryPromise({
+            // Two calls, not one: see `generateStructured`. Asking for the schema while the agent
+            // still has searching to do ends the step on an empty answer.
             try: () =>
-              editor.generate(text, {
-                structuredOutput: { schema: collectResultSchema },
+              generateStructured(editor, text, {
+                schema: collectResultSchema,
                 requestContext,
                 maxSteps: profile.maxSteps,
               }),
@@ -57,15 +60,14 @@ export const agentCollect = (deps: {
         (reason) => logger.warn({ msg: "first attempt rejected, retrying", reason }),
       );
 
-      const toolCalls = (generated.toolCalls ?? []).map((call) => call.payload?.toolName ?? "?");
       logger.log({
         msg: "editor finished",
-        steps: generated.steps?.length ?? null,
-        toolCalls: countBy(toolCalls),
+        steps: generated.steps,
+        toolCalls: countBy(generated.toolCalls),
         evaluated: generated.object.candidates.length,
       });
 
-      return { result: generated.object, usage: generated.usage ?? null, read: fetchArticle };
+      return { result: generated.object, usage: generated.usage, read: fetchArticle };
     });
 };
 
@@ -105,7 +107,11 @@ export function collectPrompt(p: CollectRun & { profile: Profile }): string {
     `Buscas: de ${p.profile.minSearches} a ${p.profile.maxSearches}, sem repetir a mesma consulta.`,
     "Fontes disponíveis na busca, e as únicas que o sistema guarda:",
     ...SOURCES.map((source) => `- ${source.name} (${source.domain}): ${source.covers}`),
-    "No fim, responda no formato pedido com todas as notícias lidas, inclusive as abaixo do corte.",
+    // A fase de trabalho responde em prosa, sem o schema à vista, então o pedido diz por extenso o
+    // que a resposta precisa conter para a segunda chamada conseguir dar forma a ela.
+    "No fim, liste todas as notícias lidas, inclusive as abaixo do corte, da nota maior para a menor,",
+    "cada uma com a URL exata da página lida, a fonte, o título, a nota e a justificativa de uma frase.",
+    "Diga também quantos resultados você descartou sem ler e o que não rendeu.",
   ].join("\n");
 }
 
