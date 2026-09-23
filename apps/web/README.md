@@ -20,8 +20,12 @@ pnpm install
 pnpm dev
 ```
 
-Abre em `http://localhost:3000`. Os mesmos scripts valem para `pnpm build`, `pnpm lint` e
+Abre em `https://localhost:3000`. Os mesmos scripts valem para `pnpm build`, `pnpm lint` e
 `pnpm check-types`.
+
+O certificado sai do `pnpm certs`, que o `pnpm dev` chama sozinho e refaz quando vence. Como a
+autoridade é nossa, o navegador avisa na primeira visita — importar `certs/rootCA.pem` resolve de
+vez. O README da raiz conta por que o site local é https.
 
 Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 
