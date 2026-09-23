@@ -4,7 +4,7 @@ import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
 import { fetchArticle, type FetchFailed, type PageUnreadable } from "../mastra/tools/read-page";
 import type { Candidate } from "./collect.schema";
-import { canonicalize, isAllowedDomain, MAX_TEXT_CHARS } from "./rules";
+import { canonicalize, isAllowedDomain } from "./rules";
 
 export type Outcome =
   | { outcome: "saved"; url: string; publishedAt: string | null }
@@ -12,7 +12,7 @@ export type Outcome =
   | { outcome: "below_cutoff"; url: string }
   | { outcome: "rejected"; url: string; reason: string };
 
-export type PersistContext = { prisma: PrismaClient; since: Date; cutoff: number; logger: LoggerService };
+export type PersistContext = { prisma: PrismaClient; since: Date; cutoff: number; maxTextChars: number; logger: LoggerService };
 export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable>;
 
 class Rejected extends Data.TaggedError("Rejected")<{ url: string; reason: string }> {}
@@ -65,7 +65,7 @@ const persist = (candidate: Candidate, ctx: PersistContext, read: ReadPage) =>
           canonicalUrl: canonical,
           sourceName: candidate.sourceName,
           originalTitle: page.originalTitle || candidate.title,
-          extractedText: page.extractedText.slice(0, MAX_TEXT_CHARS),
+          extractedText: page.extractedText.slice(0, ctx.maxTextChars),
           publishedAt,
           score: candidate.score,
           scoreDetails: { rationale: candidate.rationale },

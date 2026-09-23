@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ALLOWED_DOMAINS, MAX_SEARCHES } from "../../pipeline/rules";
+import { PROFILE } from "../../pipeline/profile";
+import { ALLOWED_DOMAINS } from "../../pipeline/rules";
 
 // Anthropic's server-side web search, restricted to the newsletter's sources. Mastra forwards the
 // provider-defined tool to the model; the allowlist and the number of searches are applied by
@@ -9,7 +10,7 @@ export const webSearch = {
   id: "anthropic.web_search_20250305" as const,
   name: "web_search",
   args: {
-    maxUses: MAX_SEARCHES,
+    maxUses: PROFILE.maxSearches,
     allowedDomains: [...ALLOWED_DOMAINS],
     userLocation: { type: "approximate", country: "BR", timezone: "America/Sao_Paulo" },
   },

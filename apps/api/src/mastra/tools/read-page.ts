@@ -3,7 +3,7 @@ import { Readability } from "@mozilla/readability";
 import { Data, Effect, Schedule } from "effect";
 import { parseHTML } from "linkedom";
 import { z } from "zod";
-import { MAX_TEXT_CHARS } from "../../pipeline/rules";
+import { PROFILE } from "../../pipeline/profile";
 import { extractedArticleSchema, type ExtractedArticle } from "../schemas/article";
 
 // Hard rules live here, not in the prompt.
@@ -40,7 +40,7 @@ const fetchOnce = (url: string): Effect.Effect<ExtractedArticle, FetchFailed | P
     return {
       canonicalUrl: new URL(canonical, response.url).toString(),
       originalTitle: article.title?.trim() || document.title.trim(),
-      extractedText: article.textContent.replace(/\s+\n/g, "\n").trim().slice(0, MAX_TEXT_CHARS),
+      extractedText: article.textContent.replace(/\s+\n/g, "\n").trim().slice(0, PROFILE.maxTextChars),
       siteName: article.siteName ?? null,
       publishedAt: published,
     };

@@ -45,7 +45,7 @@ type Step = { execute: (args: unknown) => Promise<EditionRun>; retries?: number 
 const execute = (step: unknown, inputData: EditionRun, pipeline = steps()): Promise<EditionRun> =>
   (step as Step).execute({ inputData, requestContext: contextOf(pipeline) });
 
-const today = (over: Partial<EditionRun> = {}): EditionRun => ({ date: runDate(new Date()), ...over });
+const today = (over: Partial<EditionRun> = {}): EditionRun => ({ date: runDate(new Date()), mode: "live", ...over });
 
 describe("the edition steps", () => {
   it("folds the collection into the run", async () => {
@@ -108,7 +108,7 @@ describe("the edition steps", () => {
   });
 
   it("refuses a run for another day, because the steps read the real clock", async () => {
-    await expect(execute(collectStep, { date: "2020-01-01" })).rejects.toThrow("run is for 2020-01-01");
+    await expect(execute(collectStep, { date: "2020-01-01", mode: "live" })).rejects.toThrow("run is for 2020-01-01");
   });
 
   it("tries a failed step again before giving up", () => {

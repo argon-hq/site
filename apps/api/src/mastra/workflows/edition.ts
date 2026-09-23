@@ -35,6 +35,9 @@ const buildSummary = z.object({
 
 export const editionRunSchema = z.object({
   date: z.string(),
+  // What this run pays for: `live` calls the model, `mock` works over the fixture. It travels with
+  // the run so the Studio and the snapshot say later which one it was.
+  mode: z.enum(["live", "mock"]),
   collect: collectSummary.optional(),
   write: writeSummary.optional(),
   build: buildSummary.optional(),
@@ -58,7 +61,7 @@ const forToday = (date: string): Effect.Effect<void, StaleRun> => {
 // again — the services speak Effect and never throw, so the conversion happens here, once.
 const stepOf = <A>(
   id: string,
-  run: (pipeline: EditionSteps) => Effect.Effect<A, { reason: string }>,
+  run: (pipeline: EditionSteps, input: EditionRun) => Effect.Effect<A, { reason: string }>,
   fold: (previous: EditionRun, report: A) => EditionRun,
   skip?: (previous: EditionRun) => boolean,
 ) =>
@@ -73,7 +76,7 @@ const stepOf = <A>(
       const exit = await Effect.runPromiseExit(
         editionContext(id, requestContext as EditionRequestContext).pipe(
           Effect.tap(() => forToday(inputData.date)),
-          Effect.flatMap(({ pipeline }) => run(pipeline)),
+          Effect.flatMap(({ pipeline }) => run(pipeline, inputData)),
           Effect.map((report) => fold(inputData, report)),
         ),
       );
@@ -84,7 +87,7 @@ const stepOf = <A>(
 
 export const collectStep = stepOf(
   "collect",
-  (pipeline) => pipeline.collect(),
+  (pipeline, run) => pipeline.collect({ mode: run.mode }),
   (previous, report) => ({
     ...previous,
     collect: {
@@ -98,7 +101,7 @@ export const collectStep = stepOf(
 
 export const writeStep = stepOf(
   "write",
-  (pipeline) => pipeline.write(),
+  (pipeline, run) => pipeline.write({ mode: run.mode }),
   (previous, report) => ({
     ...previous,
     write: {
@@ -116,7 +119,7 @@ export const writeStep = stepOf(
 // would fail the validation and alert the owners over an outcome that is not a failure.
 export const buildStep = stepOf(
   "build",
-  (pipeline) => pipeline.build(),
+  (pipeline, run) => pipeline.build({ mode: run.mode }),
   (previous, report) => ({
     ...previous,
     build: {

@@ -1,14 +1,18 @@
 import { z } from "zod";
+import { PROFILE } from "../pipeline/profile";
 
 // Single source of truth for setting names, types and defaults.
 // A key with a default needs no row in the table; keys without one are seeded by migration and adjusted per environment.
+// The three that shape the edition take their default from the environment's profile, so lab and a
+// development machine accept a weaker edition than production without anyone setting a row first. A
+// row still wins: it is how an environment says something other than what the profile assumed.
 // Secrets and infrastructure (DATABASE_URL, API keys) never live here: they come from the environment.
 export const settingsSchema = z.object({
   // Operation
   sending_paused: z.boolean().default(false), // kill switch, re-read right before sending
-  min_articles: z.number().int().min(1).default(3),
-  max_articles: z.number().int().min(1).default(6),
-  score_cutoff: z.number().min(0).max(5).default(3),
+  min_articles: z.number().int().min(1).default(PROFILE.minArticles),
+  max_articles: z.number().int().min(1).default(PROFILE.maxArticles),
+  score_cutoff: z.number().min(0).max(5).default(PROFILE.scoreCutoff),
   owner_emails: z.array(z.email()).default([]), // alerted when the pipeline fails
   policy_version: z.string().default(""), // recorded with each consent
 

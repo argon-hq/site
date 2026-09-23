@@ -35,6 +35,17 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   A failure mails the `owner_emails` from the settings (`owner-alert.ts`) **once**: the alert lives at the boundaries —
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.
+  `profile.ts` is what an environment is willing to pay: `ARGON_ENV` (`local | lab | dev | prod`) picks one row of a
+  table in code — the model, how far the agent may search, how long the text may be, and the defaults for the cutoff and
+  the article bounds. Production runs the agent on Sonnet; dev runs it on Haiku, searching and reading less and accepting
+  a weaker edition; lab and a development machine run **over a fixture**, with no model and no search at all. The dials
+  are not rules: what an edition may contain stays in `rules.ts` and is the same everywhere. `POST /pipeline/run
+  {"mode":"live"}` pays for a real run in lab or locally without a deploy, and production refuses `mock` whoever asks.
+  A mocked run swaps only where the news comes from (`collect-source.ts`) and who writes it (`write-mock.ts`); the
+  allowlist, the window, the cutoff, the duplicate check, the schemas and the transaction are the same code either way,
+  so what it proves is the pipeline. The fixture's links (`fixtures/news.ts`) carry the day's date so each run collects
+  fresh news instead of finding only duplicates — they are not real pages, so the lab edition's links do not open, and
+  the text says in every article that it is invented.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason. `failureReason(cause)` is what both boundaries, the route and the workflow step, use to say what went wrong.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -61,7 +72,11 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
 - Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
 - `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
-- `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
+- `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; what shapes
+  the edition — `score_cutoff`, `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
+  needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
+  something other than what the profile assumed, and `PATCH /settings { key, value }` is how it is written (`GET
+  /settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
 - `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (links the collector already evaluated). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
 
 ## Run

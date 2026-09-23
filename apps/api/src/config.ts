@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deploymentSchema } from "./pipeline/profile";
 
 // Environment is the only configuration source; in AWS it comes from Parameter Store.
 const schema = z.object({
@@ -12,6 +13,13 @@ const schema = z.object({
   // The internal clock: 5h30 generation, Monday to Saturday. Off by default, so a machine that only
   // runs the API for a while never wakes the agents up on its own; the run stays one POST away.
   SCHEDULER_ENABLED: z.stringbool().default(false),
+
+  // Which environment this is. The value decides how much a run may cost — the model, how far the
+  // agent may search and whether it runs at all or over a fixture (see pipeline/profile.ts). Nothing
+  // reads it from here: the profile resolves it, and this entry is what refuses an unknown value and
+  // what demands one in production, where falling back to the mocked profile would mail a fake
+  // edition to real subscribers. The deploy writes it, so it cannot disagree with where it landed.
+  ARGON_ENV: deploymentSchema.optional(),
 
   // Where the two halves answer from. They go into the links of every e-mail, so they are absolute
   // and per environment: the site serves the unsubscribe page, the API the one-click endpoint.
@@ -28,6 +36,11 @@ const schema = z.object({
   .refine((c) => c.MAIL_TRANSPORT !== "resend" || Boolean(c.RESEND_API_KEY), {
     message: "RESEND_API_KEY is required when MAIL_TRANSPORT=resend",
     path: ["RESEND_API_KEY"],
+  })
+  // A development machine is `local` by default; a container has to say where it is.
+  .refine((c) => c.NODE_ENV !== "production" || c.ARGON_ENV !== undefined, {
+    message: "ARGON_ENV is required in production",
+    path: ["ARGON_ENV"],
   });
 
 export type Config = z.infer<typeof schema>;

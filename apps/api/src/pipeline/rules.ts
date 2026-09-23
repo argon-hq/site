@@ -1,4 +1,5 @@
-// Hard rules of the edition steps. The agent judges inside these limits; it never changes them.
+// Hard rules of the edition steps. The agent judges inside these limits; it never changes them,
+// and they are the same in every environment — what changes with the environment is in `profile.ts`.
 
 // The newsletter's sources. `domain` is the allowlist the search and the persistence enforce;
 // `name` and `covers` go into the step prompt, so what the agent reads and what the code accepts
@@ -17,12 +18,9 @@ export const SOURCES = [
 export const ALLOWED_DOMAINS = SOURCES.map((source) => source.domain);
 
 export const RECENT_DAYS = 3; // how far back the agent sees what was already covered
-export const MAX_TEXT_CHARS = 12_000;
 
-// One collection run: how much the agent may search and how many turns it gets in total.
-export const MIN_SEARCHES = 6; // enough to cover every theme
-export const MAX_SEARCHES = 12; // enforced by the provider tool, not by the prompt
-export const MAX_STEPS = 60; // searches, page reads and the final answer
+// How much a run may search, how long its text may be and how many turns it gets are not rules:
+// they are what an environment is willing to pay. They live in `profile.ts`.
 
 const TRACKING_PARAMS = /^(utm_|fbclid|gclid|ref$)/;
 
