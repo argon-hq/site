@@ -35,22 +35,26 @@
     <symbol id="s11" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M9.6 56.4 45.2 10.4Q48 35 55.8 55.4"/><path d="M10.8 55.2 44.6 11.4"/><path d="M37.4 31.2 55.2 55.8"/><path d="M38.2 32.6 54.2 54"/></g></symbol>
     <symbol id="s12" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M15.2 34.6Q20.4 21.6 28.4 10.6 42 34 54.4 55.4"/><path d="M4.2 18.6Q36.6 24 54.6 55.8"/><path d="M5.4 17.4Q35.2 22.6 53.4 54.2"/></g></symbol>
     <symbol id="s13" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M21.6 8.6 6.4 55.4 39.6 27.4 57.2 55.2"/><path d="M20.8 10.2 7.6 53.4"/></g></symbol>
+    <symbol id="m14" viewBox="0 0 64 64"><defs><mask id="argon-mask-16" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M1.8 27.6Q31.6 14.2 58.6 55.4A1.75 1.75 0 0 1 55.8 57.2Q29.5 18.6 1.8 27.6Z" fill="#000" stroke="#000" stroke-width="3.2" stroke-linejoin="round"/></mask></defs><g fill="currentColor"><g mask="url(#argon-mask-16)"><path d="M7.8 58 31.4 3 31.8 10.2 28.4 21.5Z"/><path d="M31.4 3 52.9 46 48 46 31.8 10.2Z"/></g><path d="M1.8 27.6Q31.6 14.2 58.6 55.4A1.75 1.75 0 0 1 55.8 57.2Q29.5 18.6 1.8 27.6Z"/></g></symbol>
+    <symbol id="m14s" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-17"><rect width="64" height="58"/></clipPath><mask id="argon-mask-17" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M1.2 28Q31.6 13.6 59 58.5" fill="none" stroke="#000" stroke-width="12"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linejoin="miter" clip-path="url(#argon-clip-17)"><path d="M6.3 62 31.4 7.5 51 50" mask="url(#argon-mask-17)"/><path d="M1.2 28Q31.6 13.6 59 58.5"/></g></symbol>
+    <symbol id="wm" viewBox="0 8 264 44"><g fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="miter" stroke-miterlimit="10"><path d="M4 50 21 10 38 50"/><path d="M58 50V10H73A10 10 0 0 1 73 30H58M71 30 86 50"/><path d="M145.3 17.1A20.5 20.5 0 1 0 150.5 30H133"/><circle cx="190" cy="30" r="20.5"/><path d="M230 50V10L262 50V10"/></g></symbol>
   </svg>
 
   <header class="top">
     <a class="top__brand" href="#inicio" aria-label="Argon, início">
-      <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
-      <span class="wordmark">argon</span>
+      <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+      <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
     </a>
-    <span class="top__meta mono">Identidade visual · rascunho, rodada 1c · setembro de 2026</span>
+    <span class="top__meta mono">Identidade visual · rascunho, rodada 1d · setembro de 2026</span>
     <div class="top__actions">
       <label class="picker" for="mark-picker">
         <span class="mono">Marca em teste</span>
         <select id="mark-picker" class="js-picker">
+          <option value="m14" selected>14 · Conexão (escolhida)</option>
           <option value="m1">1 · Três traços, barra ancorada</option>
           <option value="m2">2 · Três lâminas</option>
           <option value="m3">3 · Três traços, barra solta</option>
-          <option value="m4" selected>4 · Quatro traços (recomendada)</option>
+          <option value="m4">4 · Quatro traços (recomendada na rodada 1)</option>
           <option value="m5">5 · Ponte com o esboço</option>
           <option value="m6">6 · Gesto único</option>
           <option value="m7">7 · Convergência</option>
@@ -69,10 +73,86 @@
   </header>
 
   <main id="inicio">
+    <section class="chosen" aria-labelledby="chosen-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Direção escolhida · rodada 1d</p>
+        <h1 id="chosen-title" class="h1">Um A atravessado por um traço.</h1>
+        <p class="lead">O arco nasce fora da letra, corta a perna esquerda com uma folga e desce até o chão à direita. É o gesto de seis dos seus nove esboços, agora com o nome em linha fina e o A sem barra.</p>
+        <dl class="specs">
+          <div><dt class="mono">Símbolo</dt><dd>3 formas</dd></div>
+          <div><dt class="mono">Folga</dt><dd>3,2 u</dd></div>
+          <div><dt class="mono">Nome</dt><dd>traço 3,5 u</dd></div>
+          <div><dt class="mono">Tela pequena</dt><dd>&lt; 32 px</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark" role="img" aria-label="Símbolo da Argon"><use href="#m14"/></svg>
+        <svg class="wm chosen__wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="chosen-sys-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Direção escolhida</p>
+        <h2 id="chosen-sys-title" class="h2">Símbolo, nome e as formas de assinar</h2>
+        <p class="section__lead">Da referência que vocês trouxeram ao vetor no grid, e as versões que a marca vai usar no dia a dia.</p>
+      </div>
+      <div class="chosen__refs">
+        <figure class="chosen__ref">
+          <div class="chosen__pair">
+            <img src="reference-symbol.png" alt="Referência: A desenhado a lápis com um traço em arco que corta a perna esquerda" width="722" height="456">
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <div class="chosen__vec"><svg class="chosen__vec-mark" aria-hidden="true"><use href="#m14"/></svg></div>
+          </div>
+          <figcaption class="mono caption">Símbolo · formas preenchidas, folga feita por máscara, transparente sobre qualquer fundo</figcaption>
+        </figure>
+        <figure class="chosen__ref">
+          <div class="chosen__pair">
+            <img src="reference-wordmark.png" alt="Referência: ARGON em caixa alta, traço fino, A sem barra" width="622" height="266">
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <div class="chosen__vec"><svg class="wm chosen__vec-wm" aria-hidden="true"><use href="#wm"/></svg></div>
+          </div>
+          <figcaption class="mono caption">Nome · letras desenhadas no grid, sem fonte</figcaption>
+        </figure>
+      </div>
+      <div class="chosen__grid">
+        <figure class="system__cell system__cell--wide">
+          <div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Horizontal</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="lockup lockup--v"><svg class="mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Vertical</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="lockup lockup--h lockup--wm"><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Só o nome</figcaption>
+        </figure>
+        <figure class="system__cell system__cell--ink">
+          <div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Negativa</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="chosen__sizes">
+            <div><svg class="mark mark--64" aria-hidden="true"><use href="#m14"/></svg><span class="mono">64</span></div>
+            <div><svg class="mark mark--32" aria-hidden="true"><use href="#m14"/></svg><span class="mono">32</span></div>
+            <div><svg class="mark chosen__24" aria-hidden="true"><use href="#m14s"/></svg><span class="mono">24</span></div>
+            <div><svg class="mark mark--16" aria-hidden="true"><use href="#m14s"/></svg><span class="mono">16</span></div>
+          </div>
+          <figcaption class="mono caption">Abaixo de 32 px, traço constante</figcaption>
+        </figure>
+      </div>
+      <ul class="insights chosen__notes">
+        <li><strong>O que torna o traço de vocês.</strong> Um arco sobre o A é comum no mercado. O que separa este é a folga no cruzamento e a perna direita que para antes do chão. Esses detalhes não devem ser simplificados em versões futuras.</li>
+        <li><strong>Tamanho pequeno.</strong> O contraste entre grosso e fino some abaixo de 32 px, então favicon e avatares usam a versão de traço constante.</li>
+        <li><strong>Mensagem.</strong> “Conexão, rede, tecnologia” é uma leitura diferente de “consultoria séria”. Vale confirmar entre vocês qual das duas a Argon quer passar primeiro; o desenho funciona para as duas.</li>
+      </ul>
+    </section>
+
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero__copy">
-        <p class="eyebrow mono">Recomendação</p>
-        <h1 id="hero-title" class="h1">Um A que se completa no olhar de quem vê.</h1>
+        <p class="eyebrow mono">Recomendação da rodada 1 · variação 4</p>
+        <h2 id="hero-title" class="h1">Um A que se completa no olhar de quem vê.</h2>
         <p class="lead">Quatro traços, espessura única, nenhum ornamento. O vértice se solta do corpo e deixa um respiro: é o ponto de vista de quem enxerga o todo antes de agir. A forma é pública; o significado completo fica com os sócios.</p>
         <dl class="specs">
           <div><dt class="mono">Grid</dt><dd>64 × 64 u</dd></div>
@@ -213,7 +293,7 @@
           <button class="btn-ghost js-try" type="button" data-mark="m9">Testar nas aplicações</button>
         </article>
       </div>
-      <p class="note">Da rodada 1b, a 9 é a mais forte como marca e a 7 é a mais fiel ao seu gesto. A recomendação da página continua sendo a 4 até vocês escolherem.</p>
+      <p class="note">Da rodada 1b, a 9 é a mais forte como marca e a 7 é a mais fiel ao seu gesto. A direção escolhida agora é a 14, no topo da página.</p>
     </section>
 
     <section class="section" aria-labelledby="clean-title">
@@ -316,7 +396,7 @@
         <article class="variant variant--pick">
           <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m4"/></svg></div>
           <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m4s"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m4"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m4"/></svg></div>
-          <h3 class="h3"><span class="mono num">4</span> Quatro traços <span class="pill mono">Recomendada</span></h3>
+          <h3 class="h3"><span class="mono num">4</span> Quatro traços <span class="pill mono">Rodada 1</span></h3>
           <p class="variant__tags mono">4 traços · fechamento, continuidade</p>
           <p>Um corte horizontal solta o vértice. É a forma mais própria das seis. Em 16 px usa a versão de tela pequena, com traço mais grosso.</p>
           <button class="btn-ghost js-try" type="button" data-mark="m4">Testar nas aplicações</button>
@@ -373,35 +453,35 @@
       <div class="system">
         <figure class="system__cell system__cell--wide">
           <div class="lockup lockup--h">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
-            <span class="wordmark">argon</span>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
           </div>
           <figcaption class="mono caption">Principal · horizontal</figcaption>
         </figure>
         <figure class="system__cell">
           <div class="lockup lockup--v">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
-            <span class="wordmark">argon</span>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
           </div>
           <figcaption class="mono caption">Vertical</figcaption>
         </figure>
         <figure class="system__cell">
           <div class="tile">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
           </div>
           <figcaption class="mono caption">Ícone · monograma</figcaption>
         </figure>
         <figure class="system__cell system__cell--ink">
           <div class="lockup lockup--h">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
-            <span class="wordmark">argon</span>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
           </div>
           <figcaption class="mono caption">Negativa</figcaption>
         </figure>
         <figure class="system__cell system__cell--paper">
           <div class="lockup lockup--h">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
-            <span class="wordmark">argon</span>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
           </div>
           <figcaption class="mono caption">Positiva</figcaption>
         </figure>
@@ -417,21 +497,28 @@
       <div class="type">
         <figure class="type__row">
           <div class="lockup lockup--h type__sample">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
-            <span class="wordmark">argon</span>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
           </div>
-          <figcaption><strong>Geist</strong> <span class="pill mono">Recomendada</span><br>Grotesca técnica e neutra. Já é a fonte do site, então a marca e o produto falam igual.</figcaption>
+          <figcaption><strong>ARGON desenhado</strong> <span class="pill mono">Escolhida</span><br>Letras construídas no grid: traço fino e constante, caixa alta, espaçamento largo e o A sem barra, que repete o símbolo. Não depende de fonte instalada.</figcaption>
         </figure>
         <figure class="type__row">
           <div class="lockup lockup--h type__sample">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
+            <span class="wordmark">argon</span>
+          </div>
+          <figcaption><strong>Geist</strong><br>Grotesca técnica e neutra. Continua como fonte de texto do site; o nome passa a usar o ARGON desenhado.</figcaption>
+        </figure>
+        <figure class="type__row">
+          <div class="lockup lockup--h type__sample">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
             <span class="wordmark wordmark--outfit">argon</span>
           </div>
           <figcaption><strong>Outfit</strong><br>Geométrica, de círculos perfeitos. É mais amigável e combina com o grid da marca, mas é mais leve em seriedade.</figcaption>
         </figure>
         <figure class="type__row">
           <div class="lockup lockup--h type__sample">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
             <span class="wordmark wordmark--serif">argon</span>
           </div>
           <figcaption><strong>Newsreader</strong><br>Serifa editorial. Aproxima a Argon de um jornal de negócios. Contrasta com o símbolo geométrico, o que pode ser qualidade ou ruído.</figcaption>
@@ -489,15 +576,15 @@
         <figure class="manual__cell">
           <div class="clear">
             <div class="clear__zone">
-              <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
+              <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
             </div>
           </div>
           <figcaption><strong>Área de proteção.</strong> Três espessuras de traço (3 t) em volta do símbolo. Nenhum texto ou elemento entra nessa área.</figcaption>
         </figure>
         <figure class="manual__cell">
           <div class="minsize">
-            <div><svg class="mark mark--16" aria-hidden="true"><use href="#m4s"/></svg><span class="mono">16 px · 5 mm</span></div>
-            <div><div class="lockup lockup--h lockup--min"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg><span class="wordmark">argon</span></div><span class="mono">80 px · 22 mm</span></div>
+            <div><svg class="mark mark--16 js-mark-small" aria-hidden="true"><use href="#m14s"/></svg><span class="mono">16 px · 5 mm</span></div>
+            <div><div class="lockup lockup--h lockup--min"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">80 px · 22 mm</span></div>
           </div>
           <figcaption><strong>Tamanho mínimo.</strong> Símbolo com 16 px (5 mm impresso); abaixo de 24 px, use a versão de tela pequena. Horizontal com 80 px de largura (22 mm).</figcaption>
         </figure>
@@ -508,8 +595,8 @@
         <figure class="dont"><div class="dont__stage"><svg class="mark dont--rotate js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Rotacionar</figcaption></figure>
         <figure class="dont"><div class="dont__stage"><svg class="mark dont--shadow js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Aplicar sombra ou efeito</figcaption></figure>
         <figure class="dont"><div class="dont__stage"><svg class="mark dont--color js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Cor fora da paleta</figcaption></figure>
-        <figure class="dont"><div class="dont__stage dont__stage--low"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Fundo sem contraste</figcaption></figure>
-        <figure class="dont"><div class="dont__stage"><div class="dont--gap"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg><span class="wordmark">argon</span></div></div><figcaption>Alterar a distância entre símbolo e nome</figcaption></figure>
+        <figure class="dont"><div class="dont__stage dont__stage--low"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg></div><figcaption>Fundo sem contraste</figcaption></figure>
+        <figure class="dont"><div class="dont__stage"><div class="dont--gap"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div></div><figcaption>Alterar a distância entre símbolo e nome</figcaption></figure>
       </div>
     </section>
 
@@ -523,10 +610,10 @@
       <div class="mocks">
         <figure class="mock mock--cards">
           <div class="card-front">
-            <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
+            <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
           </div>
           <div class="card-back">
-            <div class="lockup lockup--h lockup--xs"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg><span class="wordmark">argon</span></div>
+            <div class="lockup lockup--h lockup--xs"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
             <div class="card-back__who">
               <strong>Nome Sobrenome</strong>
               <span>Sócio-fundador</span>
@@ -540,7 +627,7 @@
           <div class="mail">
             <div class="mail__bar"><span class="mail__dot"></span><span class="mail__dot"></span><span class="mail__dot"></span><span class="mono">Caixa de entrada</span></div>
             <div class="mail__head">
-              <div class="lockup lockup--h lockup--sm"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg><span class="wordmark">argon</span></div>
+              <div class="lockup lockup--h lockup--sm"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
               <span class="mono">Edição 128 · terça, 22 de setembro</span>
             </div>
             <div class="mail__body">
@@ -554,11 +641,11 @@
 
         <figure class="mock mock--social">
           <div class="social">
-            <div class="avatar avatar--round"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg></div>
+            <div class="avatar avatar--round"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg></div>
             <div class="social__meta"><strong>Argon</strong><span>Consultoria de negócios · 1.240 seguidores</span></div>
           </div>
           <div class="social">
-            <div class="avatar avatar--square"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg></div>
+            <div class="avatar avatar--square"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg></div>
             <div class="social__meta"><strong>@argon</strong><span>Notícias de negócios, sem ruído.</span></div>
           </div>
           <figcaption class="mono caption">Avatares · LinkedIn e Instagram</figcaption>
@@ -567,7 +654,7 @@
         <figure class="mock mock--badge">
           <div class="badge">
             <span class="badge__hole"></span>
-            <div class="lockup lockup--h lockup--xs"><svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg><span class="wordmark">argon</span></div>
+            <div class="lockup lockup--h lockup--xs"><svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
             <p class="badge__event mono">Café de negócios · outubro</p>
             <p class="badge__name">Nome Sobrenome</p>
             <p class="badge__role">Participante</p>
@@ -579,7 +666,7 @@
           <div class="browser">
             <div class="browser__tabs">
               <div class="browser__tab">
-                <svg class="mark mark--16 js-mark-small" aria-hidden="true"><use href="#m4s"/></svg>
+                <svg class="mark mark--16 js-mark-small" aria-hidden="true"><use href="#m14s"/></svg>
                 <span>Argon · Notícias de negócios, sem ruído</span>
               </div>
             </div>
@@ -592,7 +679,7 @@
           <div class="bag">
             <span class="bag__handle"></span>
             <div class="bag__body">
-              <svg class="mark js-mark" aria-hidden="true"><use href="#m4"/></svg>
+              <svg class="mark js-mark" aria-hidden="true"><use href="#m14"/></svg>
             </div>
           </div>
           <figcaption class="mono caption">Ecobag · serigrafia a uma cor</figcaption>
@@ -606,7 +693,7 @@
         <h2 id="next-title" class="h2">O que precisamos decidir</h2>
       </div>
       <ol class="steps">
-        <li><strong>Escolher uma ou duas variações.</strong> Minha indicação é a 4; da rodada 1b, a 9. A 3 segue como alternativa segura.</li>
+        <li><strong>Validar a direção escolhida.</strong> Símbolo 14 com o ARGON desenhado; confirmar se a leitura “conexão, rede, tecnologia” é a que vocês querem para uma consultoria.</li>
         <li><strong>Confirmar o briefing.</strong> Valores, público, região e a leitura pública do número três.</li>
         <li><strong>Rodada 2.</strong> Escolher uma das três paletas e fazer o ajuste fino da geometria.</li>
         <li><strong>Aplicar.</strong> Marca no site, favicon e e-mail da newsletter; cores finais validadas em prova de gráfica.</li>
@@ -614,6 +701,6 @@
     </section>
   </main>
 
-  <footer class="foot mono">Argon · identidade visual, rodada 1c · documento interno</footer>
+  <footer class="foot mono">Argon · identidade visual, rodada 1d · documento interno</footer>
 </body>
 </html>

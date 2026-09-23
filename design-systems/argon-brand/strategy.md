@@ -119,7 +119,18 @@ estável. É uma leitura possível para o número três, _a validar_.
 A pedido, os esboços 1, 2, 5 e 9 foram passados a limpo com a maior fidelidade possível, como
 variações 10 (Gancho), 11 (Lâmina), 12 (Arco longo) e 13 (Gesto).
 
+## 4c. Direção escolhida (rodada 1d)
+
+Os sócios escolheram o A com um traço que atravessa a letra e o wordmark ARGON em caixa alta, com
+traço fino e o A sem barra. O traço vem do gesto que aparece em 6 dos 9 esboços. O que o separa do
+clichê "A com swoosh" é a folga no cruzamento e a perna direita que para antes do fim. Esses
+detalhes devem ser mantidos. Abaixo de 32 px, usa-se a versão de traço constante. A leitura
+"conexão, rede, tecnologia" é diferente da de "consultoria séria" e está _a validar_.
+
 ## 5. Recomendação
+
+**Atualização (rodada 1d):** a direção escolhida (variação 14 + ARGON) substitui a recomendação da
+variação 4 abaixo, que fica registrada como histórico.
 
 **Variação 4 — Quatro traços.** Um vértice solto no topo, duas pernas e uma barra.
 
