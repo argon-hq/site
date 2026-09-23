@@ -15,7 +15,15 @@ pnpm install
 pnpm dev
 ```
 
-O site sobe em `http://localhost:3000`.
+O site sobe em `https://localhost:3000`, com um certificado que o `pnpm certs` gera na primeira
+vez (e que o `pnpm dev` refaz sozinho quando vence). É https porque a validação da edição só
+aceita links https: o link de descadastro que vai no e-mail aponta para o site, e um link que o
+site local não atende seria pior do que link nenhum. A API continua em http — ela nunca aparece
+dentro do e-mail.
+
+O certificado é assinado por uma autoridade nossa, então o navegador avisa na primeira visita.
+Para parar de avisar, importe `certs/rootCA.pem` como autoridade confiável; senão, é só seguir.
+O diretório `certs/` fica fora do git e se refaz a qualquer momento com `pnpm certs`.
 
 ## Comandos
 
@@ -27,6 +35,7 @@ Rodados da raiz, o Turborepo os executa em todos os pacotes do workspace:
 | `pnpm build` | Build de produção |
 | `pnpm lint` | ESLint |
 | `pnpm check-types` | Checagem de tipos |
+| `pnpm certs` | Gera o certificado de TLS local em `certs/` |
 
 Para rodar em um pacote só, sem passar pelo turbo: `pnpm -C apps/web <script>`.
 
