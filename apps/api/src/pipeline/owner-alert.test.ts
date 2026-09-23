@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Either } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { MailService } from "../mail/mail.service";
 import type { SettingsService } from "../settings/settings.service";
@@ -33,5 +33,26 @@ describe("OwnerAlert", () => {
   it("never fails: a broken alert does not bury the failure it reports", async () => {
     const a = alert(["eduardo@argon.com.br"], true);
     await expect(Effect.runPromise(a.instance.send("collect", "boom"))).resolves.toBeUndefined();
+  });
+});
+
+describe("OwnerAlert.onFailure", () => {
+  it("alerts once for a failed effect and keeps the failure on its way out", async () => {
+    const a = alert(["eduardo@argon.com.br"]);
+    const failing = Effect.fail({ reason: "settings: boom" });
+
+    const result = await Effect.runPromise(Effect.either(a.instance.onFailure("build", failing)));
+
+    expect(Either.isLeft(result) && result.left.reason).toBe("settings: boom");
+    expect(a.send).toHaveBeenCalledTimes(1);
+    expect(a.send.mock.calls[0]![0]).toMatchObject({ subject: "[Argon] falha na etapa build" });
+  });
+
+  it("says nothing when the effect succeeds", async () => {
+    const a = alert(["eduardo@argon.com.br"]);
+
+    await Effect.runPromise(a.instance.onFailure("build", Effect.succeed("ready")));
+
+    expect(a.send).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { ORIGINS } from "../subscriber/urls";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
+import { PipelineScheduler } from "./scheduler";
 
 @Module({})
 export class PipelineModule {
@@ -18,6 +19,9 @@ export class PipelineModule {
         { provide: ORIGINS, useValue: { web: config.WEB_ORIGIN, api: config.API_ORIGIN } },
         PipelineService,
         OwnerAlert,
+        // The clock is only wired where it should tick. An environment with it off has no timer at
+        // all, instead of a timer nobody wanted: the run is still one POST /pipeline/run away.
+        ...(config.SCHEDULER_ENABLED ? [PipelineScheduler] : []),
       ],
     };
   }

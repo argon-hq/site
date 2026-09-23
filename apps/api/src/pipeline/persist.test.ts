@@ -22,6 +22,7 @@ function ctx(stored: string[] = []) {
     prisma: mocks as unknown as PrismaClient,
     since: new Date("2026-09-17T00:00:00Z"),
     cutoff: 3,
+    maxTextChars: 12_000,
     logger: silent,
   };
   return Object.assign(context, { mocks });

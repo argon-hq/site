@@ -14,6 +14,9 @@ grep -q "^$KEY=" .env && sed -i "s|^$KEY=.*|$KEY=$TAG|" .env || echo "$KEY=$TAG"
 # Parâmetros /argon/<env>/NOME viram NOME=valor no env do ambiente.
 aws ssm get-parameters-by-path --path "/argon/$ENV_NAME/" --with-decryption --region sa-east-1 \
   --query 'Parameters[].[Name,Value]' --output text | awk -F'\t' '{sub(".*/","",$1); print $1"="$2}' > "env/$ENV_NAME.env"
+# Quem publica sabe onde está publicando: a API lê isto para saber quanto uma rodada pode custar
+# (apps/api/src/pipeline/profile.ts). Escrito aqui, e não no Parameter Store, para não poder discordar.
+echo "ARGON_ENV=$ENV_NAME" >> "env/$ENV_NAME.env"
 aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin "$(grep '^ECR=' .env | cut -d= -f2)"
 SERVICES=""; for a in $APPS; do SERVICES="$SERVICES $a-$ENV_NAME"; done
 docker compose pull $SERVICES

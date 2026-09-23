@@ -34,4 +34,11 @@ export class OwnerAlert {
       ),
     );
   }
+
+  // Where a boundary turns a failed effect into one alert: the run alerts once, when the workflow
+  // gives up, and each per-step route alerts for its own step. The steps themselves carry no alert,
+  // or a step that tries again would mail the owners once per attempt.
+  onFailure<A, E extends { reason: string }>(step: string, effect: Effect.Effect<A, E>): Effect.Effect<A, E> {
+    return effect.pipe(Effect.tapError((error) => this.send(step, error.reason)));
+  }
 }

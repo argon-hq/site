@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PROFILE } from "../pipeline/profile";
 import type { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "./settings.service";
 
@@ -25,9 +26,25 @@ describe("SettingsService", () => {
     const { settings } = service(identity);
     const s = await settings.load();
     expect(s.sending_paused).toBe(false);
-    expect(s.min_articles).toBe(3);
     expect(s.owner_emails).toEqual([]);
     expect(s.sender.name).toBe("Argon");
+  });
+
+  it("takes what shapes the edition from the environment's profile when there is no row", async () => {
+    const { settings } = service(identity);
+    const s = await settings.load();
+
+    expect(s.min_articles).toBe(PROFILE.minArticles);
+    expect(s.max_articles).toBe(PROFILE.maxArticles);
+    expect(s.score_cutoff).toBe(PROFILE.scoreCutoff);
+  });
+
+  it("lets a row win over the profile: it is how an environment says something else", async () => {
+    const { settings } = service(identity.concat({ key: "score_cutoff", value: 4.5 }));
+    const s = await settings.load();
+
+    expect(s.score_cutoff).toBe(4.5);
+    expect(PROFILE.scoreCutoff).not.toBe(4.5);
   });
 
   it("fails naming the missing or invalid keys", async () => {

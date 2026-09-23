@@ -3,18 +3,22 @@ import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
 import type { z } from "zod";
-import { twoAttempts } from "../mastra/attempts";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
-import type { CollectContext } from "../mastra/tools/context";
+import type { EditionContext } from "../mastra/workflows/context";
+import type { EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
 import { buildReason, loadEdition, saveBuilt } from "./build";
-import { collectResultSchema, type CollectResult } from "./collect.schema";
+import { agentCollect, fixtureCollect } from "./collect-source";
+import type { CollectResult } from "./collect.schema";
 import { OwnerAlert } from "./owner-alert";
 import { persistCandidate, type Outcome } from "./persist";
-import { editionDate, MAX_SEARCHES, MAX_STEPS, MIN_SEARCHES, RECENT_DAYS, SOURCES, windowHours, windowStart } from "./rules";
+import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
+import { runDate, runFailure } from "./run";
+import { editionDate, windowHours, windowStart } from "./rules";
+import { mockHeader, mockItem } from "./write-mock";
 import {
   belowMinimum,
   ItemFailed,
@@ -33,6 +37,8 @@ import {
 export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<{ reason: string }> {}
+// A failed run says which step failed, so the single alert it sends is addressed.
+export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string }> {}
 
 export type CollectReport = {
   date: string;
@@ -74,9 +80,21 @@ export type BuildReport = {
   durationMs: number;
 };
 
+export type RunReport = EditionRun & { runId: string; durationMs: number };
+
+// What a step is told before it starts: which clock to read and whether this run pays for judgement
+// or works over the fixture. Both have a default, so a step can still be called bare in a test.
+export type StepRun = { mode?: Mode; now?: Date };
+
+const startOf = (p: StepRun) => ({ mode: resolveMode(DEPLOYMENT, p.mode), now: p.now ?? new Date() });
+
 @Injectable()
 export class PipelineService {
   private readonly logger = new Logger(PipelineService.name);
+
+  // One generation at a time. The process is single, so a flag is enough to keep the 5h30 run and a
+  // run someone fired by hand from working on the same edition at once.
+  private inFlight = false;
 
   constructor(
     private readonly mastra: MastraService,
@@ -86,8 +104,11 @@ export class PipelineService {
     @Inject(ORIGINS) private readonly origins: Origins,
   ) {}
 
-  // Collection step: the Editor loads the `collect` skill and works inside the rules set here.
-  collect(now = new Date()): Effect.Effect<CollectReport, CollectFailed> {
+  // Collection step: the Editor loads the `collect` skill and works inside the rules set here. A
+  // mocked run swaps where the news comes from and nothing else — what is stored is decided by the
+  // same code either way.
+  collect(run: StepRun = {}): Effect.Effect<CollectReport, CollectFailed> {
+    const { mode, now } = startOf(run);
     return Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
@@ -95,38 +116,28 @@ export class PipelineService {
         catch: (error) => new CollectFailed({ reason: `settings: ${String(error)}` }),
       });
       const since = windowStart(now);
-      const prompt = collectPrompt({ now, since, cutoff: settings.score_cutoff, max: settings.max_articles });
-      this.logger.log({ msg: "collect started", since: since.toISOString(), cutoff: settings.score_cutoff });
+      this.logger.log({ msg: "collect started", mode, since: since.toISOString(), cutoff: settings.score_cutoff });
 
-      // Tools have no Nest injection: they read what the run needs from the request context.
-      const requestContext = new RequestContext<CollectContext>();
-      requestContext.set("prisma", this.prisma);
-      requestContext.set("recentDays", RECENT_DAYS);
+      const source =
+        mode === "mock"
+          ? fixtureCollect
+          : agentCollect({ mastra: this.mastra, prisma: this.prisma, profile: PROFILE, logger: this.logger });
 
-      const editor = this.mastra.getAgent("editor");
-      const generated = yield* twoAttempts(
-        prompt,
-        (text) =>
-          Effect.tryPromise({
-            try: () =>
-              editor.generate(text, {
-                structuredOutput: { schema: collectResultSchema },
-                requestContext,
-                maxSteps: MAX_STEPS,
-              }),
-            catch: (error) => new CollectFailed({ reason: String(error) }),
-          }),
-        (reason) => this.logger.warn({ msg: "first attempt rejected, retrying", reason }),
+      const collected = yield* source({ now, since, cutoff: settings.score_cutoff, max: settings.max_articles }).pipe(
+        Effect.mapError((error) => new CollectFailed({ reason: error.reason })),
       );
 
-      const toolCalls = (generated.toolCalls ?? []).map((call) => call.payload?.toolName ?? "?");
-      this.logger.log({ msg: "editor finished", steps: generated.steps?.length ?? null, toolCalls: countBy(toolCalls), evaluated: generated.object.candidates.length });
-
-      // The agent's list is persisted by code, one candidate at a time, in score order.
-      const persistCtx = { prisma: this.prisma, since, cutoff: settings.score_cutoff, logger: this.logger };
+      // The list is persisted by code, one candidate at a time, in score order.
+      const persistCtx = {
+        prisma: this.prisma,
+        since,
+        cutoff: settings.score_cutoff,
+        maxTextChars: PROFILE.maxTextChars,
+        logger: this.logger,
+      };
       const outcomes = yield* Effect.forEach(
-        [...generated.object.candidates].sort((a, b) => b.score - a.score),
-        (candidate) => persistCandidate(candidate, persistCtx),
+        [...collected.result.candidates].sort((a, b) => b.score - a.score),
+        (candidate) => persistCandidate(candidate, persistCtx, collected.read),
         { concurrency: 3 },
       ).pipe(Effect.mapError((e) => new CollectFailed({ reason: `database: ${e.reason}` })));
 
@@ -136,28 +147,27 @@ export class PipelineService {
         windowHours: windowHours(now),
         cutoff: settings.score_cutoff,
         maxArticles: settings.max_articles,
-        result: generated.object,
+        result: collected.result,
         outcomes,
         saved: outcomes.filter((o) => o.outcome === "saved").length,
-        usage: generated.usage ?? null,
+        usage: collected.usage,
         durationMs: Date.now() - startedAt,
       };
-      this.logger.log({ msg: "collect finished", saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, durationMs: report.durationMs, usage: report.usage });
+      this.logger.log({ msg: "collect finished", mode, saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, durationMs: report.durationMs, usage: report.usage });
       return report;
     }).pipe(
-      // A failed step is logged and mailed to the owners, as the architecture requires.
-      Effect.tapError((e) =>
-        Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason })).pipe(
-          Effect.andThen(this.alert.send("collect", e.reason)),
-        ),
-      ),
+      // The alert is not here: with a retry per step, alerting inside the step would mail the owners
+      // once per attempt. The run alerts once when the workflow gives up, and the per-step route
+      // alerts for its own step.
+      Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason }))),
     );
   }
 
   // Writing step: the Editor loads the `write` skill and writes one article at a time, then the
   // edition header over what was approved. Selection happened in the collection step; this one
   // turns the stored text into what the e-mail carries.
-  write(now = new Date()): Effect.Effect<WriteReport, WriteFailed> {
+  write(run: StepRun = {}): Effect.Effect<WriteReport, WriteFailed> {
+    const { mode, now } = startOf(run);
     return Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
@@ -176,7 +186,7 @@ export class PipelineService {
         cutoff: settings.score_cutoff,
         max: settings.max_articles,
       }).pipe(Effect.mapError(failed));
-      this.logger.log({ msg: "write started", date: day, edition: edition.id, candidates: candidates.length });
+      this.logger.log({ msg: "write started", mode, date: day, edition: edition.id, candidates: candidates.length });
 
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
       // the second attempt can quote what the first got wrong.
@@ -192,9 +202,15 @@ export class PipelineService {
             catch: (error) => new ItemFailed({ reason: String(error) }),
           });
 
-      const items = yield* Effect.forEach(candidates, (candidate) => writeItem(candidate, generating(writtenItemSchema), this.logger), {
-        concurrency: 3,
-      });
+      // A mocked run writes from the article itself. The step builds one generation per article, so
+      // the mock closes over what it is writing about; everything after it is unchanged, schema and
+      // transaction included.
+      const items = yield* Effect.forEach(
+        candidates,
+        (candidate) =>
+          writeItem(candidate, mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema), this.logger),
+        { concurrency: 3 },
+      );
       const written = items.filter((item): item is WrittenResult => item.outcome === "written");
 
       const report = (status: WriteReport["status"], header: EditionHeader | null, usage: unknown[]): WriteReport => ({
@@ -231,9 +247,10 @@ export class PipelineService {
         return report("skipped", null, written.map((item) => item.usage));
       }
 
+      const writtenItems = written.map((item) => item.item);
       const header = yield* writeHeader(
-        written.map((item) => item.item),
-        generating(editionHeaderSchema),
+        writtenItems,
+        mode === "mock" ? mockHeader(writtenItems, day) : generating(editionHeaderSchema),
         this.logger,
       ).pipe(Effect.mapError(failed));
 
@@ -246,6 +263,7 @@ export class PipelineService {
       const done = report("written", header.object, [...written.map((item) => item.usage), header.usage]);
       this.logger.log({
         msg: "write finished",
+        mode,
         date: day,
         subject: done.header?.subject,
         written: done.written,
@@ -255,18 +273,15 @@ export class PipelineService {
       });
       return done;
     }).pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason })).pipe(
-          Effect.andThen(this.alert.send("write", error.reason)),
-        ),
-      ),
+      Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason }))),
     );
   }
 
   // Building step: no model, no judgement. The rows the writing step left become the HTML and the
   // plain text the sending step carries, and nothing is stored until the mechanical validation
   // passes. Same edition in, same e-mail out.
-  build(now = new Date()): Effect.Effect<BuildReport, BuildFailed> {
+  build(run: StepRun = {}): Effect.Effect<BuildReport, BuildFailed> {
+    const { now } = startOf(run);
     return Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
@@ -306,31 +321,62 @@ export class PipelineService {
       this.logger.log({ msg: "build finished", ...report });
       return report;
     }).pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason })).pipe(
-          Effect.andThen(this.alert.send("build", error.reason)),
-        ),
-      ),
+      Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason }))),
     );
   }
-}
+  // The whole generation as one run of the `edition` workflow: collect → write → build, each step
+  // with its own retry and its own state in the Studio. The steps have no Nest injection, so the run
+  // hands them this service through the request context — the same deal the tools have.
+  run(request: StepRun = {}): Effect.Effect<RunReport, RunFailed> {
+    const { mode, now } = startOf(request);
+    return Effect.suspend(() => {
+      if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight" });
+      this.inFlight = true;
+      return this.startRun(mode, now).pipe(
+        // The one alert of a failed run, addressed to the step that failed. Nothing alerts inside the
+        // steps, so a step that tried twice still costs one e-mail.
+        Effect.tapError((error) =>
+          Effect.sync(() => this.logger.error({ msg: "run failed", step: error.step, reason: error.reason })).pipe(
+            Effect.andThen(this.alert.send(error.step, error.reason)),
+          ),
+        ),
+        Effect.ensuring(
+          Effect.sync(() => {
+            this.inFlight = false;
+          }),
+        ),
+      );
+    });
+  }
 
-// The sources come from the rules, not from the skill: one list for the search allowlist, the
-// persistence and the prompt.
-function collectPrompt(p: { now: Date; since: Date; cutoff: number; max: number }): string {
-  const fmt = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  return [
-    `Hoje é ${fmt.format(p.now)} (horário de Brasília).`,
-    "Carregue a skill \"collect\" com a ferramenta skill e siga o processo dela.",
-    `Janela: só notícias publicadas depois de ${fmt.format(p.since)}.`,
-    `Corte: nota ${p.cutoff}. Pare ao ter ${p.max} notícias acima do corte ou ao esgotar as fontes.`,
-    `Buscas: de ${MIN_SEARCHES} a ${MAX_SEARCHES}, sem repetir a mesma consulta.`,
-    "Fontes disponíveis na busca, e as únicas que o sistema guarda:",
-    ...SOURCES.map((source) => `- ${source.name} (${source.domain}): ${source.covers}`),
-    "No fim, responda no formato pedido com todas as notícias lidas, inclusive as abaixo do corte.",
-  ].join("\n");
-}
+  private startRun(mode: Mode, now: Date): Effect.Effect<RunReport, RunFailed> {
+    return Effect.gen(this, function* () {
+      const startedAt = Date.now();
+      const date = runDate(now);
+      this.logger.log({ msg: "run started", date, mode });
 
-function countBy(names: string[]): Record<string, number> {
-  return names.reduce<Record<string, number>>((acc, n) => ({ ...acc, [n]: (acc[n] ?? 0) + 1 }), {});
+      const requestContext = new RequestContext<EditionContext>();
+      requestContext.set("pipeline", this);
+
+      const workflow = this.mastra.getWorkflow("edition");
+      const started = yield* Effect.tryPromise({
+        try: async () => {
+          const run = await workflow.createRun();
+          const result = await run.start({ inputData: { date, mode }, requestContext });
+          return { runId: run.runId, result };
+        },
+        catch: (error) => new RunFailed({ step: "run", reason: String(error) }),
+      });
+
+      if (started.result.status !== "success") return yield* new RunFailed(runFailure(started.result));
+
+      const report: RunReport = {
+        ...(started.result.result as EditionRun),
+        runId: started.runId,
+        durationMs: Date.now() - startedAt,
+      };
+      this.logger.log({ msg: "run finished", ...report });
+      return report;
+    });
+  }
 }
