@@ -19,4 +19,11 @@ export class PipelineController {
   write() {
     return runEffect("write", this.pipeline.write());
   }
+
+  // POST /pipeline/build → builds and validates the e-mail of today's edition. Internal secret required.
+  @Post("build")
+  @HttpCode(200)
+  build() {
+    return runEffect("build", this.pipeline.build());
+  }
 }

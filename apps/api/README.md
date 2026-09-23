@@ -15,6 +15,13 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   alert to the owners — better no edition than a weak one; but a thin run never downgrades an edition an earlier run
   of the same day already wrote (`belowMinimum`): it fails instead, and the complete edition stands. The skill holds
   the craft; categories and lengths travel from the schema into the step prompt, never into the skill.
+  `POST /pipeline/build` closes the generation with no model at all: `build.ts` reads the day's edition and its
+  articles, adapts them with `toEditionInput`, builds with `buildEdition` and checks with `validateEdition`. Only a
+  clean edition is stored — `html`, `text` and the move from `generating` to `ready` — so a rejected validation leaves
+  the edition exactly as it was, fails the step and mails the owners with every rule it broke. The builder is
+  deterministic, so running again writes the same two strings. The stored HTML is one edition for everyone, so its
+  unsubscribe link carries `UNSUBSCRIBE_PLACEHOLDER` (`src/subscriber/urls.ts`) and the sending step swaps the
+  sentinel for each subscriber's token; it is an absolute https URL, so nothing in the validation is relaxed for it.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -39,6 +46,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
 - `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, assets and stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, unsubscribeUrl)` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `asset_base_url`, `social`), with the unsubscribe URL per subscriber. Fixed strings live in `copy.ts`, Figma tokens in `theme.ts`. Icons in `public/email` (`pnpm email:icons`, Font Awesome Free, CC BY 4.0).
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
+- Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
 - `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
 - `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (links the collector already evaluated). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
@@ -106,4 +114,8 @@ curl -X POST http://localhost:3001/subscriber/unsubscribe -H "x-internal-secret:
 
 ```bash
 curl -X POST http://localhost:3001/pipeline/write -H "x-internal-secret: $INTERNAL_API_SECRET"
+```
+
+```bash
+curl -X POST http://localhost:3001/pipeline/build -H "x-internal-secret: $INTERNAL_API_SECRET"
 ```
