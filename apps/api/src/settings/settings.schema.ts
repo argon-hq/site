@@ -19,7 +19,8 @@ export const settingsSchema = z.object({
   // Business identity: no sensible default in code
   sender: z.object({ name: z.string().min(1), address: z.email(), postalAddress: z.string().min(1) }),
   privacy_policy_url: z.url(),
-  asset_base_url: z.url(), // absolute base of the e-mail images
+  // The base of the e-mail images is not here: it comes from WEB_ORIGIN (src/email/assets.ts), so
+  // each environment points at the site deployed from the same tag as this API.
   social: z.object({ site: z.url(), linkedin: z.url().optional(), instagram: z.url().optional(), youtube: z.url().optional() }),
 });
 

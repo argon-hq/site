@@ -68,7 +68,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   injected Resend client in AWS, `SmtpTransport` pointing at the local Mailpit otherwise. Resend is never the default, so
   no development machine reaches a real inbox by accident.
 - `src/config.ts`: environment validated with Zod. Names match the Parameter Store keys under `/argon/<env>/`.
-- `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, assets and stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, unsubscribeUrl)` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `asset_base_url`, `social`), with the unsubscribe URL per subscriber. Fixed strings live in `copy.ts`, Figma tokens in `theme.ts`. Icons in `public/email` (`pnpm email:icons`, Font Awesome Free, CC BY 4.0).
+- `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, assets and stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, { webOrigin, unsubscribeUrl })` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `social`), with the unsubscribe URL per subscriber. `assets.ts` derives the base of the images from the origin of the site, and `EmailAssets` checks at boot that the site really serves them. Fixed strings live in `copy.ts`, Figma tokens in `theme.ts`. Icons in `public/email` (`pnpm email:icons`, Font Awesome Free, CC BY 4.0).
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by `prisma generate`, which runs before build, dev, test and check-types.
 - Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
 - `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
@@ -132,14 +132,22 @@ pnpm email:send [to]   # sends the fixture edition through the real transport; l
 pnpm email:icons       # regenerates the social PNGs into apps/web/public/email
 ```
 
-The images are served by the site, not by the API: `asset_base_url` points at the site's domain in
-every environment, and the API has no static route. They live in `apps/web/public/email`, which the
-web image copies, so a change only reaches an inbox after the site is deployed. To see them locally,
-run the site and point the setting at it:
+The images are served by the site, not by the API: the API has no static route and mail clients
+accept neither SVG nor relative paths. They live in `apps/web/public/email`, which the web image
+copies, and the base of their URLs is `WEB_ORIGIN` + `/email` — never a setting, so every
+environment points at the site deployed from the same tag as the API that wrote the HTML. Locally
+that means `pnpm dev` in `apps/web` and nothing else; a `WEB_ORIGIN` with no site behind it mails
+broken images.
 
-```bash
-docker exec api-db-1 psql -U argon -d argon_dev -c "update setting set value='\"http://localhost:3000/email\"' where key='asset_base_url';"
+Which is what `EmailAssets` says, at every boot, in one line per state:
+
 ```
+LOG   [EmailAssets] { msg: 'email assets ok', base: 'https://lab.argon.eduardofockink.com/email', count: 4 }
+ERROR [EmailAssets] { msg: 'email assets unreachable', base: '...', broken: [{ url: '.../logo.png', ok: false, detail: '404 text/html' }] }
+```
+
+A 404 answered by the site's own 404 page counts as broken: the check wants a 2xx *and* an
+`image/*`. It never blocks the boot — an image out of the air is no reason to take the API down.
 
 ## Conventions
 

@@ -1,8 +1,8 @@
 // Generates the PNGs of the social icons from Font Awesome Free (brands).
 // Usage: pnpm email:icons  →  apps/web/public/email/{linkedin,instagram,youtube}.png
 //
-// They live in the site, not here: `asset_base_url` points at the site's domain, which is what
-// serves static files in every environment. The API has no static route and is on another host.
+// They live in the site, not here: the site is what serves static files, and the URL the template
+// carries is WEB_ORIGIN + /email. The API has no static route and is on another host.
 // Icons: Font Awesome Free 7, CC BY 4.0 (https://fontawesome.com/license/free). The Argon
 // logo is exported from Figma and does not go through here.
 

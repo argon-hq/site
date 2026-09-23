@@ -5,6 +5,7 @@
 import { Effect } from "effect";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { EMAIL_ICONS } from "./assets";
 import { buildEdition } from "./edition/build";
 import { editionEdgeFixture } from "./fixtures/edition-edge";
 import { editionFixture } from "./fixtures/edition";
@@ -13,11 +14,11 @@ import { validateEdition } from "./validate";
 
 const outDir = path.resolve("out");
 
-const ICONS = ["logo", "linkedin", "instagram", "youtube"];
-
-// Preview only: swap image URLs for data URIs so the file opens without a server.
+// Preview only: swap image URLs for data URIs so the file opens without a server. It is also why
+// the preview never catches a broken image: on disk they are always there. What catches it is
+// `EmailAssets`, against the site that actually serves them.
 function inlineIcons(html: string, assetBaseUrl: string) {
-  return Effect.reduce(ICONS, html, (current, icon) =>
+  return Effect.reduce(EMAIL_ICONS, html, (current, icon) =>
     Effect.promise(() => readFile(path.resolve("../web/public/email", `${icon}.png`))).pipe(
       Effect.map((png) => current.replaceAll(`${assetBaseUrl}/${icon}.png`, `data:image/png;base64,${png.toString("base64")}`)),
     ),

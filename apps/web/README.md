@@ -144,10 +144,12 @@ o servidor do Gmail, não o site.
 
 ## Imagens do e-mail
 
-`public/email/*.png` são os ícones do rodapé da newsletter. Ficam aqui, e não na API, porque o
-`asset_base_url` das configurações aponta para o domínio do site em todos os ambientes — é ele que
-serve estático. Cliente de e-mail não aceita SVG nem caminho relativo, então são PNG e a URL é
-absoluta. Quem gera é o `pnpm -C apps/api email:icons`.
+`public/email/*.png` são os ícones do rodapé da newsletter. Ficam aqui, e não na API, porque quem
+serve estático é o site — a API não tem rota pública além de `/health`. Cliente de e-mail não
+aceita SVG nem caminho relativo, então são PNG e a URL é absoluta: a API monta cada uma com
+`WEB_ORIGIN` + `/email`. Web e API sobem com a mesma tag, então apagar ou renomear um PNG aqui
+quebra o e-mail do mesmo deploy — e a API diz isso no log, ao subir (`EmailAssets`). Quem gera é o
+`pnpm -C apps/api email:icons`.
 
 ## Pendências de design
 

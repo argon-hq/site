@@ -6,7 +6,6 @@ import { SettingsService } from "./settings.service";
 const identity: Array<{ key: string; value: unknown }> = [
   { key: "sender", value: { name: "Argon", address: "news@example.com", postalAddress: "Rua 1, Cidade" } },
   { key: "privacy_policy_url", value: "https://example.com/privacy" },
-  { key: "asset_base_url", value: "https://example.com/email" },
   { key: "social", value: { site: "https://example.com" } },
 ];
 
