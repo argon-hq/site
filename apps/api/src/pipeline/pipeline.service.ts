@@ -6,6 +6,8 @@ import type { z } from "zod";
 import { twoAttempts } from "../mastra/attempts";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { CollectContext } from "../mastra/tools/context";
+import type { EditionContext } from "../mastra/workflows/context";
+import type { EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
@@ -14,6 +16,7 @@ import { buildReason, loadEdition, saveBuilt } from "./build";
 import { collectResultSchema, type CollectResult } from "./collect.schema";
 import { OwnerAlert } from "./owner-alert";
 import { persistCandidate, type Outcome } from "./persist";
+import { runDate, runFailure } from "./run";
 import { editionDate, MAX_SEARCHES, MAX_STEPS, MIN_SEARCHES, RECENT_DAYS, SOURCES, windowHours, windowStart } from "./rules";
 import {
   belowMinimum,
@@ -33,6 +36,8 @@ import {
 export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<{ reason: string }> {}
+// A failed run says which step failed, so the single alert it sends is addressed.
+export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string }> {}
 
 export type CollectReport = {
   date: string;
@@ -74,9 +79,15 @@ export type BuildReport = {
   durationMs: number;
 };
 
+export type RunReport = EditionRun & { runId: string; durationMs: number };
+
 @Injectable()
 export class PipelineService {
   private readonly logger = new Logger(PipelineService.name);
+
+  // One generation at a time. The process is single, so a flag is enough to keep the 5h30 run and a
+  // run someone fired by hand from working on the same edition at once.
+  private inFlight = false;
 
   constructor(
     private readonly mastra: MastraService,
@@ -145,12 +156,10 @@ export class PipelineService {
       this.logger.log({ msg: "collect finished", saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, durationMs: report.durationMs, usage: report.usage });
       return report;
     }).pipe(
-      // A failed step is logged and mailed to the owners, as the architecture requires.
-      Effect.tapError((e) =>
-        Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason })).pipe(
-          Effect.andThen(this.alert.send("collect", e.reason)),
-        ),
-      ),
+      // The alert is not here: with a retry per step, alerting inside the step would mail the owners
+      // once per attempt. The run alerts once when the workflow gives up, and the per-step route
+      // alerts for its own step.
+      Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason }))),
     );
   }
 
@@ -255,11 +264,7 @@ export class PipelineService {
       });
       return done;
     }).pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason })).pipe(
-          Effect.andThen(this.alert.send("write", error.reason)),
-        ),
-      ),
+      Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason }))),
     );
   }
 
@@ -306,12 +311,62 @@ export class PipelineService {
       this.logger.log({ msg: "build finished", ...report });
       return report;
     }).pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason })).pipe(
-          Effect.andThen(this.alert.send("build", error.reason)),
-        ),
-      ),
+      Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason }))),
     );
+  }
+  // The whole generation as one run of the `edition` workflow: collect → write → build, each step
+  // with its own retry and its own state in the Studio. The steps have no Nest injection, so the run
+  // hands them this service through the request context — the same deal the tools have.
+  run(now = new Date()): Effect.Effect<RunReport, RunFailed> {
+    return Effect.suspend(() => {
+      if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight" });
+      this.inFlight = true;
+      return this.startRun(now).pipe(
+        // The one alert of a failed run, addressed to the step that failed. Nothing alerts inside the
+        // steps, so a step that tried twice still costs one e-mail.
+        Effect.tapError((error) =>
+          Effect.sync(() => this.logger.error({ msg: "run failed", step: error.step, reason: error.reason })).pipe(
+            Effect.andThen(this.alert.send(error.step, error.reason)),
+          ),
+        ),
+        Effect.ensuring(
+          Effect.sync(() => {
+            this.inFlight = false;
+          }),
+        ),
+      );
+    });
+  }
+
+  private startRun(now: Date): Effect.Effect<RunReport, RunFailed> {
+    return Effect.gen(this, function* () {
+      const startedAt = Date.now();
+      const date = runDate(now);
+      this.logger.log({ msg: "run started", date });
+
+      const requestContext = new RequestContext<EditionContext>();
+      requestContext.set("pipeline", this);
+
+      const workflow = this.mastra.getWorkflow("edition");
+      const started = yield* Effect.tryPromise({
+        try: async () => {
+          const run = await workflow.createRun();
+          const result = await run.start({ inputData: { date }, requestContext });
+          return { runId: run.runId, result };
+        },
+        catch: (error) => new RunFailed({ step: "run", reason: String(error) }),
+      });
+
+      if (started.result.status !== "success") return yield* new RunFailed(runFailure(started.result));
+
+      const report: RunReport = {
+        ...(started.result.result as EditionRun),
+        runId: started.runId,
+        durationMs: Date.now() - startedAt,
+      };
+      this.logger.log({ msg: "run finished", ...report });
+      return report;
+    });
   }
 }
 

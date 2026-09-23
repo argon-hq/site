@@ -4,8 +4,9 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 
 ## Layout
 
-- `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step, copied to `dist` by nest-cli assets), `prompts/`, `schemas/`, `tools/`. `MastraModule` is imported last and mounted under `/mastra`.
-- `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`), and a step that fails mails the `owner_emails` from the settings (`owner-alert.ts`). Errors, retries and outcomes use Effect.
+- `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step, copied to `dist` by nest-cli assets), `prompts/`, `schemas/`, `tools/`, `workflows/`. `MastraModule` is imported last and mounted under `/mastra`.
+  `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+- `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
   `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
   São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
   `write` skill once per article — two attempts each, the second carrying the validation error. An article rejected
@@ -22,7 +23,17 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   deterministic, so running again writes the same two strings. The stored HTML is one edition for everyone, so its
   unsubscribe link carries `UNSUBSCRIBE_PLACEHOLDER` (`src/subscriber/urls.ts`) and the sending step swaps the
   sentinel for each subscriber's token; it is an absolute https URL, so nothing in the validation is relaxed for it.
-- `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason.
+  `POST /pipeline/run` is the whole generation, as one run of the `edition` workflow: the same three steps, in order, each
+  retried on its own, with the day of the edition as the only input (`run.ts`). The steps keep reading the real clock,
+  because the collection window is relative to it, and a run for another day stops before touching anything. A run below
+  the minimum ends after the writing: there is no edition to build. The clock lives in Nest and not in
+  `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
+  and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
+  and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
+  A failure mails the `owner_emails` from the settings (`owner-alert.ts`) **once**: the alert lives at the boundaries —
+  the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
+  once per attempt.
+- `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason. `failureReason(cause)` is what both boundaries, the route and the workflow step, use to say what went wrong.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
   confirmed subscription and issues the permanent unsubscribe token in the same write; the hash of the confirmation token
