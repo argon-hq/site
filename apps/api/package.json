@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@mastra/core": "^1.67.0",
+    "@mastra/editor": "^0.15.0",
     "@mastra/nestjs": "^0.2.26",
     "@mastra/pg": "^1.25.0",
     "@mozilla/readability": "^0.6.0",
