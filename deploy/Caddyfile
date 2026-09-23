@@ -15,10 +15,24 @@ api.dev.argon.eduardofockink.com {
 	reverse_proxy api-dev:3001
 }
 
+# O lab para sozinho depois de um tempo sem uso (lab-idle-stop.sh). Os dois hosts escrevem no mesmo
+# arquivo: a data de modificação dele é o último sinal de vida do ambiente.
 lab.argon.eduardofockink.com {
+	log {
+		output file /var/log/caddy/lab.log
+	}
 	reverse_proxy web-lab:3000
+	handle_errors {
+		respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
+	}
 }
 
 api.lab.argon.eduardofockink.com {
+	log {
+		output file /var/log/caddy/lab.log
+	}
 	reverse_proxy api-lab:3001
+	handle_errors {
+		respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
+	}
 }
