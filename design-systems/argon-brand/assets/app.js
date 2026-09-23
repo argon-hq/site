@@ -48,21 +48,21 @@
   }
 
   var picker = document.querySelector(".js-picker");
-  var mark = read("argon-brand-mark");
-  if (!mark || !document.getElementById(mark)) mark = "m4";
+  var mark = read("argon-brand-mark-1d");
+  if (!mark || !document.getElementById(mark)) mark = "m14";
   applyMark(mark);
 
   if (picker) {
     picker.addEventListener("change", function () {
       applyMark(picker.value);
-      write("argon-brand-mark", picker.value);
+      write("argon-brand-mark-1d", picker.value);
     });
   }
 
   document.querySelectorAll(".js-try").forEach(function (btn) {
     btn.addEventListener("click", function () {
       applyMark(btn.dataset.mark);
-      write("argon-brand-mark", btn.dataset.mark);
+      write("argon-brand-mark-1d", btn.dataset.mark);
       var target = document.getElementById("system-title");
       if (target) target.scrollIntoView({ block: "start" });
     });

@@ -75,8 +75,9 @@ ol, ul { padding: 0; list-style: none; }
 
 /* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
-.logo__mark { width: 24px; height: 24px; margin-bottom: 2px; }
-.logo__word { font-size: 1.5rem; font-weight: 500; letter-spacing: 0.04em; line-height: 1; }
+/* Símbolo m14 a partir de 32 px; abaixo disso, a versão de traço constante (m14s). */
+.logo__mark { width: 32px; height: 32px; }
+.logo__wm { display: block; height: 16px; width: auto; aspect-ratio: 264 / 44; }
 
 /* nav */
 .nav {
@@ -162,7 +163,7 @@ main { max-width: var(--max); margin-inline: auto; }
   margin-inline: auto;
   padding-block: 40px 56px;
 }
-.foot .logo__word { font-size: 1.25rem; }
+.foot .logo__wm { height: 13px; }
 .foot .logo__mark { width: 20px; height: 20px; }
 .foot__rights { flex-basis: 100%; text-transform: none; letter-spacing: 0.02em; }
 
