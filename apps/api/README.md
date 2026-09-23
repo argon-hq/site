@@ -15,6 +15,13 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   alert to the owners — better no edition than a weak one; but a thin run never downgrades an edition an earlier run
   of the same day already wrote (`belowMinimum`): it fails instead, and the complete edition stands. The skill holds
   the craft; categories and lengths travel from the schema into the step prompt, never into the skill.
+  `POST /pipeline/build` closes the generation with no model at all: `build.ts` reads the day's edition and its
+  articles, adapts them with `toEditionInput`, builds with `buildEdition` and checks with `validateEdition`. Only a
+  clean edition is stored — `html`, `text` and the move from `generating` to `ready` — so a rejected validation leaves
+  the edition exactly as it was, fails the step and mails the owners with every rule it broke. The builder is
+  deterministic, so running again writes the same two strings. The stored HTML is one edition for everyone, so its
+  unsubscribe link carries `UNSUBSCRIBE_PLACEHOLDER` (`src/subscriber/urls.ts`) and the sending step swaps the
+  sentinel for each subscriber's token; it is an absolute https URL, so nothing in the validation is relaxed for it.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -105,4 +112,8 @@ curl -X POST http://localhost:3001/subscriber/unsubscribe -H "x-internal-secret:
 
 ```bash
 curl -X POST http://localhost:3001/pipeline/write -H "x-internal-secret: $INTERNAL_API_SECRET"
+```
+
+```bash
+curl -X POST http://localhost:3001/pipeline/build -H "x-internal-secret: $INTERNAL_API_SECRET"
 ```
