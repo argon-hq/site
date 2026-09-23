@@ -6,7 +6,37 @@ Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container
 - `compose.yml`, `Caddyfile`: ficam em `/opt/argon` na instância; o workflow de deploy os envia a cada execução.
 - `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera `env/<env>.env` a partir de `/argon/<env>/*` no Parameter Store e sobe o ambiente.
 
-Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`. Parâmetros: `aws ssm put-parameter --name /argon/dev/NOME --type SecureString --value ...`. A API espera `DATABASE_URL`, `ANTHROPIC_API_KEY` e `INTERNAL_API_SECRET`.
+Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
+
+## Variáveis
+
+Cada parâmetro `/argon/<env>/NOME` vira `NOME=valor` em `env/<env>.env` — **o mesmo arquivo para o
+site e para a API** do ambiente. Todo ambiente espera estas oito:
+
+| Variável | Quem lê | Tipo |
+| --- | --- | --- |
+| `DATABASE_URL` | API | SecureString |
+| `ANTHROPIC_API_KEY` | API | SecureString |
+| `RESEND_API_KEY` | API | SecureString |
+| `INTERNAL_API_SECRET` | site e API | SecureString |
+| `API_URL` | site | String |
+| `WEB_ORIGIN`, `API_ORIGIN` | API | String |
+| `MAIL_TRANSPORT` | API | String |
+
+`API_URL` alcança a API pela rede do compose: `http://api-<env>:3001`. `WEB_ORIGIN` e `API_ORIGIN`
+são absolutos e entram nos links de todo e-mail — o site serve a página de descadastro, a API o
+endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a API não sobe.
+
+`NODE_ENV` e `PORT` não entram. Já vêm nas imagens, e como o `env_file` é compartilhado, um `PORT`
+no arquivo derrubaria um dos dois containers — o site escuta 3000, a API 3001.
+
+```bash
+aws ssm put-parameter --profile argon-new --region sa-east-1 \
+  --name /argon/dev/<NOME> --type SecureString --overwrite --value '<valor>'
+```
+
+O perfil importa: `argon-new` é a conta do deploy (382597877834); o `default` aponta para a conta
+do DNS. O valor só chega aos containers no deploy seguinte, que é quem regera `env/<env>.env`.
 
 ## Recursos criados (17/09/2026, conta 382597877834, sa-east-1)
 
