@@ -45,5 +45,9 @@ docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 sleep 5; for g in $(for a in $APPS; do echo "/argon/$ENV_NAME/$a"; done) /argon/postgres; do
   aws logs put-retention-policy --region sa-east-1 --log-group-name "$g" --retention-in-days 30 || true
 done
-docker image prune -f >/dev/null
+# Plain `prune -f` only drops dangling images, and every deploy tags one with its commit: the old
+# ones stayed tagged forever and filled the 16 GB disk (43 images, 10 GB, deploys failing with "no
+# space left on device"). With -a the tagged ones no container uses go too — a stopped container
+# still holds its image, so an idle-stopped lab keeps its own. The filter spares today's, for rollback.
+docker image prune -af --filter "until=24h" >/dev/null
 echo "deploy $ENV_NAME $TAG ok"
