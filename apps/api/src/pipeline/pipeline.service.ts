@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
@@ -6,8 +6,11 @@ import type { z } from "zod";
 import { twoAttempts } from "../mastra/attempts";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { CollectContext } from "../mastra/tools/context";
+import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
+import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
+import { buildReason, loadEdition, saveBuilt } from "./build";
 import { collectResultSchema, type CollectResult } from "./collect.schema";
 import { OwnerAlert } from "./owner-alert";
 import { persistCandidate, type Outcome } from "./persist";
@@ -29,6 +32,7 @@ import {
 
 export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
+export class BuildFailed extends Data.TaggedError("BuildFailed")<{ reason: string }> {}
 
 export type CollectReport = {
   date: string;
@@ -59,6 +63,17 @@ export type WriteReport = {
   durationMs: number;
 };
 
+export type BuildReport = {
+  date: string;
+  editionId: string;
+  status: "ready";
+  subject: string;
+  items: number;
+  htmlBytes: number;
+  textBytes: number;
+  durationMs: number;
+};
+
 @Injectable()
 export class PipelineService {
   private readonly logger = new Logger(PipelineService.name);
@@ -68,6 +83,7 @@ export class PipelineService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly alert: OwnerAlert,
+    @Inject(ORIGINS) private readonly origins: Origins,
   ) {}
 
   // Collection step: the Editor loads the `collect` skill and works inside the rules set here.
@@ -242,6 +258,57 @@ export class PipelineService {
       Effect.tapError((error) =>
         Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason })).pipe(
           Effect.andThen(this.alert.send("write", error.reason)),
+        ),
+      ),
+    );
+  }
+
+  // Building step: no model, no judgement. The rows the writing step left become the HTML and the
+  // plain text the sending step carries, and nothing is stored until the mechanical validation
+  // passes. Same edition in, same e-mail out.
+  build(now = new Date()): Effect.Effect<BuildReport, BuildFailed> {
+    return Effect.gen(this, function* () {
+      const startedAt = Date.now();
+      const settings = yield* Effect.tryPromise({
+        try: () => this.settings.load(),
+        catch: (error) => new BuildFailed({ reason: `settings: ${String(error)}` }),
+      });
+      const date = editionDate(now);
+      const day = date.toISOString().slice(0, 10);
+
+      const written = yield* loadEdition(this.prisma, date).pipe(
+        Effect.mapError((error) => new BuildFailed({ reason: error.reason })),
+      );
+      this.logger.log({ msg: "build started", date: day, edition: written.id, articles: written.articles.length });
+
+      // One edition for everyone, so the stored HTML carries the unsubscribe placeholder; the
+      // sending step swaps it for each subscriber's token.
+      const context = editionContext(settings, unsubscribePlaceholderUrl(this.origins));
+      const built = yield* toEditionInput(written.edition, written.articles, context).pipe(
+        Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition)))),
+        Effect.mapError((error) => new BuildFailed({ reason: buildReason(error) })),
+      );
+
+      yield* saveBuilt(this.prisma, { editionId: written.id, html: built.html, text: built.text }).pipe(
+        Effect.mapError((error) => new BuildFailed({ reason: error.reason })),
+      );
+
+      const report: BuildReport = {
+        date: day,
+        editionId: written.id,
+        status: "ready",
+        subject: built.subject,
+        items: written.articles.length,
+        htmlBytes: Buffer.byteLength(built.html, "utf8"),
+        textBytes: Buffer.byteLength(built.text, "utf8"),
+        durationMs: Date.now() - startedAt,
+      };
+      this.logger.log({ msg: "build finished", ...report });
+      return report;
+    }).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason })).pipe(
+          Effect.andThen(this.alert.send("build", error.reason)),
         ),
       ),
     );

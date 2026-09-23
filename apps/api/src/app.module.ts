@@ -18,7 +18,7 @@ const config = loadConfig();
     PrismaModule.forRoot(config.DATABASE_URL),
     SettingsModule,
     MailModule.forRoot(config),
-    PipelineModule,
+    PipelineModule.forRoot(config),
     SubscriberModule.forRoot(config),
     // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.
     // Global so any module can inject MastraService without re-registering the instance.
