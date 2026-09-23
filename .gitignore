@@ -9,6 +9,9 @@ dist
 .env
 .env*.local
 
+# certificado de TLS local, gerado por pnpm certs
+certs
+
 # sistema
 .DS_Store
 *.log
