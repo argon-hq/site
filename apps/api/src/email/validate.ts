@@ -30,8 +30,11 @@ function documentErrors(input: EditionInput, document: Document): ValidationErro
     if (href !== FONT_STYLESHEET) errors.push(error("stylesheet_not_allowed", `Folha de estilo fora da allowlist: ${href}`));
   }
 
+  // https like every link: an image over plain http is refused or left unloaded by mail clients,
+  // and a redirect to https does not save it — the box arrives empty and the e-mail looks broken.
   for (const img of Array.from(document.querySelectorAll("img"))) {
     const src = img.getAttribute("src") ?? "";
+    if (!/^https:\/\//.test(src)) errors.push(error("image_not_absolute", `Imagem não é https absoluta: ${src || "(vazia)"}`));
     if (!src.startsWith(`${input.assetBaseUrl}/`)) errors.push(error("image_not_allowed", `Imagem fora de ${input.assetBaseUrl}: ${src}`));
     if (!img.getAttribute("alt")) errors.push(error("image_alt_missing", `Imagem sem alt: ${src}`));
   }

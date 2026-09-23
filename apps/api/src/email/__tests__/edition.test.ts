@@ -98,6 +98,18 @@ describe("validateEdition", () => {
     expect(await codes(input)).toEqual(["link_not_absolute"]);
   });
 
+  // The lab failure of 23/09: the base of the images was typed by hand into the settings as http,
+  // the site answered 308 to https, and the icons arrived as empty boxes. The prefix check alone
+  // said nothing, because the src did start with the base it was given.
+  it("reports an image that is not https, even when it is under the allowed base", async () => {
+    const overHttp = { ...editionFixture, assetBaseUrl: "http://lab.argon.com.br/email" };
+    const result = await codes(overHttp);
+
+    // One per icon in the footer, and nothing else: the src is under the base it was given.
+    expect(new Set(result)).toEqual(new Set(["image_not_absolute"]));
+    expect(result).toHaveLength(4);
+  });
+
   it("reports a subject over the limit", async () => {
     expect(await codes({ ...editionFixture, subject: "x".repeat(limits.subjectMax + 1) })).toEqual(["subject_too_long"]);
   });
