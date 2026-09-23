@@ -300,7 +300,10 @@ export class PipelineService {
 
       // One edition for everyone, so the stored HTML carries the unsubscribe placeholder; the
       // sending step swaps it for each subscriber's token.
-      const context = editionContext(settings, unsubscribePlaceholderUrl(this.origins));
+      const context = editionContext(settings, {
+        webOrigin: this.origins.web,
+        unsubscribeUrl: unsubscribePlaceholderUrl(this.origins),
+      });
       const built = yield* toEditionInput(written.edition, written.articles, context).pipe(
         Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition)))),
         Effect.mapError((error) => new BuildFailed({ reason: buildReason(error) })),
