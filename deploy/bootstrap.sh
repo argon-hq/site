@@ -32,3 +32,23 @@ WantedBy=timers.target
 UNIT
 systemctl daemon-reload
 systemctl enable --now argon-backup.timer
+
+# Para o lab depois de uma hora sem requisição. Ajuste com LAB_IDLE_MINUTES em /opt/argon/.env.
+cat > /etc/systemd/system/argon-lab-idle.service <<'UNIT'
+[Unit]
+Description=Stop the Argon lab environment when idle
+[Service]
+Type=oneshot
+ExecStart=/opt/argon/lab-idle-stop.sh
+UNIT
+cat > /etc/systemd/system/argon-lab-idle.timer <<'UNIT'
+[Unit]
+Description=Check whether the Argon lab is idle
+[Timer]
+OnCalendar=*:0/10
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now argon-lab-idle.timer

@@ -7,6 +7,7 @@ Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container
 - `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera `env/<env>.env` a partir de `/argon/<env>/*` no Parameter Store, sobe o Postgres, reconcilia o banco do ambiente e sobe o resto.
 - `provision-db.sh <env>`: cria papel, banco e extensão do ambiente no Postgres local. Idempotente, roda a cada deploy.
 - `backup-db.sh`: dump de todos os bancos para o S3. Chamado pelo timer `argon-backup`.
+- `lab-idle-stop.sh [minutos]`: para o lab depois de um tempo sem requisição. Chamado pelo timer `argon-lab-idle`.
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 
@@ -90,4 +91,25 @@ Em Actions → Deploy → Run workflow: ambiente `lab` e o nome da branch a publ
 
 ```bash
 gh workflow run deploy.yml --ref dev -f env=lab -f branch=feat/ARG-94-db-schema-prisma
+```
+
+### Parada por inatividade
+
+O lab é descartável e dividia ~320 MB de uma instância de 2 GB com prod e dev sem ninguém usando.
+Agora ele para sozinho.
+
+Os dois hosts do lab gravam em `logs/lab.log`, montado no Caddy. A data de modificação desse
+arquivo é o último sinal de vida do ambiente — o `lab-idle-stop.sh`, a cada dez minutos, para
+`web-lab` e `api-lab` se ela estiver mais velha que a janela de inatividade. O deploy toca o
+arquivo, então um lab recém-publicado tem a janela inteira antes de poder ser parado.
+
+A janela padrão é de 60 minutos; mude com `LAB_IDLE_MINUTES` em `/opt/argon/.env`. Com o lab
+parado, os dois hosts respondem 503 com uma linha explicando como subir de novo — não um 502 seco.
+
+Subir de novo é publicar a branch pelo workflow. Não há religamento automático por acesso: quem
+abre o lab normalmente acabou de publicar nele.
+
+```bash
+systemctl list-timers argon-lab-idle     # quando roda de novo
+/opt/argon/lab-idle-stop.sh 0            # para agora, sem esperar
 ```

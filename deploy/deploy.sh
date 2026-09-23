@@ -5,7 +5,8 @@
 set -euo pipefail
 ENV_NAME="$1"; TAG="$2"; APPS="${3:-web}"
 cd /opt/argon
-mkdir -p env
+# logs/ is bind-mounted into Caddy; lab.log is how lab-idle-stop.sh knows the lab is still in use.
+mkdir -p env logs
 touch .env
 grep -q '^ECR=' .env || echo "ECR=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.sa-east-1.amazonaws.com" >> .env
 for k in PROD_TAG DEV_TAG LAB_TAG; do grep -q "^$k=" .env || echo "$k=" >> .env; done
@@ -35,6 +36,8 @@ docker compose up -d --wait postgres
 case " $APPS " in *" api "*)
   docker compose run --rm --no-deps "api-$ENV_NAME" sh -c 'if [ -f prisma.config.ts ]; then exec ./node_modules/.bin/prisma migrate deploy; else echo "no migrations in this image"; fi' ;;
 esac
+# A fresh lab deploy is activity: this gives it a full idle window before it can be stopped.
+if [ "$ENV_NAME" = lab ]; then touch logs/lab.log; fi
 docker compose up -d caddy $SERVICES
 # The Caddyfile is a bind mount: a changed file needs an explicit reload, or new hosts never get certificates.
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
