@@ -10,3 +10,25 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 mkdir -p /opt/argon/env
 # Swap de 2 GB: a t4g.small tem 2 GB de RAM.
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+# Nightly dump of every database to S3, at 03:30 America/Sao_Paulo — before the 05:30 generation.
+# The bucket comes from ARGON_BACKUP_BUCKET in /opt/argon/.env; without it the unit fails loudly
+# instead of pretending to back anything up. A systemd timer, because cron is not in the base AMI.
+cat > /etc/systemd/system/argon-backup.service <<'UNIT'
+[Unit]
+Description=Dump the Argon databases to S3
+[Service]
+Type=oneshot
+ExecStart=/opt/argon/backup-db.sh
+UNIT
+cat > /etc/systemd/system/argon-backup.timer <<'UNIT'
+[Unit]
+Description=Nightly Argon database backup
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now argon-backup.timer

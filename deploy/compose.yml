@@ -9,6 +9,40 @@ services:
       - caddy-data:/data
       - caddy-config:/config
 
+  # Postgres on the instance itself, in place of RDS: the database only serves development, and a
+  # db.t4g.micro in sa-east-1 costs more than the machine running every container. No published
+  # port — only the Compose network reaches it. Same image as compose.local.yml, so local and
+  # deployed environments run the same major and the same pgvector build.
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file: env/postgres.env
+    shm_size: 128mb
+    # Tuned for a 2 GB instance shared with seven other containers. Each environment opens a Prisma
+    # pool and a Mastra pool, so the connection ceiling is what matters, not cache.
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - maintenance_work_mem=64MB
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # A checkpoint on shutdown takes longer than the 10 s default, and a killed Postgres replays on
+    # the next boot instead of starting clean.
+    stop_grace_period: 1m
+    logging: { driver: awslogs, options: { awslogs-group: /argon/postgres, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+
   web-prod:
     image: ${ECR}/argon/web:${PROD_TAG}
     restart: unless-stopped
@@ -19,6 +53,7 @@ services:
     image: ${ECR}/argon/api:${PROD_TAG}
     restart: unless-stopped
     env_file: env/prod.env
+    depends_on: { postgres: { condition: service_healthy } }
     logging: { driver: awslogs, options: { awslogs-group: /argon/prod/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   web-dev:
@@ -31,6 +66,7 @@ services:
     image: ${ECR}/argon/api:${DEV_TAG}
     restart: unless-stopped
     env_file: env/dev.env
+    depends_on: { postgres: { condition: service_healthy } }
     logging: { driver: awslogs, options: { awslogs-group: /argon/dev/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   web-lab:
@@ -43,8 +79,10 @@ services:
     image: ${ECR}/argon/api:${LAB_TAG}
     restart: unless-stopped
     env_file: env/lab.env
+    depends_on: { postgres: { condition: service_healthy } }
     logging: { driver: awslogs, options: { awslogs-group: /argon/lab/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
 volumes:
   caddy-data:
   caddy-config:
+  db-data:

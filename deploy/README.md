@@ -1,10 +1,12 @@
 # Deploy
 
-Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container do site e um da API por ambiente. Imagens no ECR, segredos no Parameter Store, logs no CloudWatch. Detalhes no documento Stack.
+Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container do site e um da API por ambiente, e um Postgres para todos eles. Imagens no ECR, segredos no Parameter Store, logs no CloudWatch. Detalhes no documento Stack.
 
-- `bootstrap.sh`: user data da instância.
+- `bootstrap.sh`: user data da instância. Instala Docker, o swap e o timer de backup.
 - `compose.yml`, `Caddyfile`: ficam em `/opt/argon` na instância; o workflow de deploy os envia a cada execução.
-- `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera `env/<env>.env` a partir de `/argon/<env>/*` no Parameter Store e sobe o ambiente.
+- `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera `env/<env>.env` a partir de `/argon/<env>/*` no Parameter Store, sobe o Postgres, reconcilia o banco do ambiente e sobe o resto.
+- `provision-db.sh <env>`: cria papel, banco e extensão do ambiente no Postgres local. Idempotente, roda a cada deploy.
+- `backup-db.sh`: dump de todos os bancos para o S3. Chamado pelo timer `argon-backup`.
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 
@@ -44,8 +46,8 @@ do DNS. O valor só chega aos containers no deploy seguinte, que é quem regera 
 | --- | --- |
 | Instância EC2 | `i-00296133cc8e8093d` (t4g.small, 16 GB, IP elástico 54.94.89.230) |
 | Security groups | `sg-0768581b67b050a67` (web), `sg-003868d936307df4b` (db) |
-| Papel da instância | `argon-ec2` |
-| RDS | `argon` (db.t4g.micro, PostgreSQL 16, privado). Senha master em `/argon/rds/master_password` |
+| Banco | Container `postgres` no compose, volume `db-data`. Senha do superusuário em `/argon/postgres/POSTGRES_PASSWORD` |
+| Backup | Bucket S3 `ARGON_BACKUP_BUCKET` em `/opt/argon/.env`, timer `argon-backup` |
 | ECR | `argon/web`, `argon/api` |
 | Papel do GitHub | `argon-github-deploy` (OIDC, repositório argon-hq/site) |
 | DNS | `argon.eduardofockink.com`, `dev.argon.eduardofockink.com`, `lab.argon.eduardofockink.com`, `api.argon.eduardofockink.com`, `api.dev.argon.eduardofockink.com`, `api.lab.argon.eduardofockink.com` (zona na conta 663702377780, provisória até a ARG-68) |
@@ -54,9 +56,35 @@ do DNS. O valor só chega aos containers no deploy seguinte, que é quem regera 
 
 Acesso à instância: `aws ssm start-session --target i-00296133cc8e8093d`. Sem SSH.
 
+## Banco
+
+Postgres 16 com pgvector, na própria instância, no lugar do RDS. O RDS custava US$ 29/mês — mais que a máquina que roda todos os containers — para servir um banco que só o desenvolvimento usa.
+
+Um container para os três ambientes, cada um com seu papel e seu banco (`argon_prod`, `argon_dev`, `argon_lab`), como era no RDS. Sem porta publicada: só a rede do Compose alcança, e de um container para outro a autenticação é por senha (`scram-sha-256`).
+
+`DATABASE_URL` no Parameter Store continua sendo a fonte única das credenciais. O `provision-db.sh` lê de lá e reconcilia o papel e o banco a cada deploy — um volume novo se reconstrói sozinho no deploy seguinte. Um ambiente cuja URL ainda aponte para um host de RDS é pulado, então dá para migrar um ambiente de cada vez.
+
+O host é `postgres` e a conexão não usa TLS: ela não sai da rede do Compose, na mesma máquina.
+
+```
+postgresql://argon_dev:SENHA@postgres:5432/argon_dev
+```
+
+### Backup e restauração
+
+O timer `argon-backup` roda `backup-db.sh` às 3h30 (America/Sao_Paulo), antes da geração das 5h30. Cada banco vira um dump no formato custom em `s3://$ARGON_BACKUP_BUCKET/postgres/<banco>/<data>.dump`. A retenção é regra de ciclo de vida no bucket, não lógica no script.
+
+Restaurar um banco:
+
+```bash
+aws s3 cp s3://BUCKET/postgres/argon_dev/2026-09-23T06-30-00Z.dump - \
+  | docker compose exec -T postgres sh -c 'cat > /tmp/r.dump'
+docker compose exec -T postgres pg_restore -U postgres -d argon_dev --clean --if-exists /tmp/r.dump
+```
+
 ## Lab
 
-Ambiente para publicar uma branch em desenvolvimento sem esperar merge. É um só, sobrescrito a cada uso, com banco `argon_lab` no mesmo RDS, separado de dev.
+Ambiente para publicar uma branch em desenvolvimento sem esperar merge. É um só, sobrescrito a cada uso, com banco `argon_lab`, separado de dev.
 
 Em Actions → Deploy → Run workflow: ambiente `lab` e o nome da branch a publicar. O compose, o Caddyfile e o deploy.sh vêm da branch em que o workflow roda (normalmente `dev`); o código vem da branch escolhida. Fica em `lab.argon.eduardofockink.com` e `api.lab.argon.eduardofockink.com`.
 

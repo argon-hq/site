@@ -71,10 +71,10 @@ jobs:
           TAG: ${{ steps.src.outputs.tag }}
           APPS: ${{ steps.build.outputs.apps }}
         run: |
-          FILES=$(for f in compose.yml Caddyfile deploy.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+          FILES=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
             --comment "deploy $ENV_NAME $TAG" \
-            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x deploy.sh && ./deploy.sh $ENV_NAME $TAG \"$APPS\"" '{commands:[$s]}')" \
+            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x ./*.sh && ./deploy.sh $ENV_NAME $TAG \"$APPS\"" '{commands:[$s]}')" \
             --query Command.CommandId --output text)
           aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
