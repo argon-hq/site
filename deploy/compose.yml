@@ -21,11 +21,16 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports: ["80:80", "443:443"]
+    # STUDIO_AUTH_USER and STUDIO_AUTH_HASH for the Caddyfile's basic_auth; deploy.sh writes the file.
+    env_file: env/caddy.env
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./logs:/var/log/caddy
       - caddy-data:/data
       - caddy-config:/config
+    # Access logs of the production hosts go to stdout as JSON, hence here. Non-blocking: CloudWatch
+    # being unreachable must not stall the proxy in front of everything.
+    logging: { driver: awslogs, options: { awslogs-group: /argon/caddy, awslogs-region: sa-east-1, awslogs-create-group: "true", mode: non-blocking, max-buffer-size: 4m } }
 
   # Postgres on the instance itself, in place of RDS: the database only serves development, and a
   # db.t4g.micro in sa-east-1 costs more than the machine running every container. No published

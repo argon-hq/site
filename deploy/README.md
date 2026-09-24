@@ -52,6 +52,43 @@ gh api --method POST repos/argon-hq/site/environments/prod/deployment-branch-pol
 gh secret set AWS_ALERTS_TOPIC_ARN --repo argon-hq/site --body "arn:aws:sns:sa-east-1:382597877834:<topico>"
 ```
 
+## Caddy
+
+Todo site importa o snippet `(secure)`: HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
+`Permissions-Policy`, `Referrer-Policy` (só se o app não mandou uma) e corpo de requisição limitado
+a 1 MB. Os hosts de prod gravam o log de acesso em JSON no stdout, que o driver `awslogs` leva para
+o grupo `/argon/caddy`, com retenção de 30 dias como os outros.
+
+### Acesso do operador
+
+O Studio (`/studio`, `/mastra`) nos hosts de dev e lab e os hosts `api.dev` e `api.lab` inteiros
+pedem usuário e senha (`basic_auth`) antes de chegar à API. O segredo interno continua valendo
+atrás disso; a senha só tira essas superfícies do alcance de quem varre a internet. Duas rotas dos
+hosts de API ficam abertas porque quem as chama não tem como mandar senha: `GET /health` (o smoke
+do deploy) e `POST /subscriber/unsubscribe/one-click` (o cliente de e-mail, RFC 8058). Prod não
+muda: o site é público e a API de prod só tem o segredo interno, como antes.
+
+As credenciais vivem em `/argon/caddy/` no Parameter Store e viram `env/caddy.env` no deploy. **As
+duas são obrigatórias**: sem `STUDIO_AUTH_HASH` o Caddy se recusa a carregar o `basic_auth` e
+derrubaria todos os sites junto, então o `deploy.sh` para antes, com a mensagem dizendo o que falta.
+
+```bash
+HASH=$(docker run --rm caddy:2-alpine caddy hash-password --plaintext '<senha>')
+aws ssm put-parameter --profile argon-new --region sa-east-1 \
+  --name /argon/caddy/STUDIO_AUTH_USER --type String --overwrite --value 'argon'
+aws ssm put-parameter --profile argon-new --region sa-east-1 \
+  --name /argon/caddy/STUDIO_AUTH_HASH --type SecureString --overwrite --value "$HASH"
+```
+
+No Studio, o navegador pede a senha uma vez por host; o `x-internal-secret` continua guardado no
+próprio Studio. Para o `curl`: `curl -u argon https://api.dev.argon.eduardofockink.com/...`.
+
+### Lab parado
+
+Os hosts do lab distinguem o 502 de proxy sem destino — o lab parado pelo `lab-idle-stop.sh`, que
+vira o 503 "O lab está parado" — de qualquer outro erro, que sai com o código original. Um
+container em crash loop aparece como o que é, não como um convite a publicar de novo.
+
 ## Variáveis
 
 Cada parâmetro `/argon/<env>/NOME` vira `NOME=valor` em `env/<env>.env` — **o mesmo arquivo para o

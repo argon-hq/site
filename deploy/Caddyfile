@@ -1,19 +1,64 @@
-# TLS automático (Let's Encrypt). Ao trocar de domínio, só estas linhas mudam.
+# TLS automático (Let's Encrypt). Ao trocar de domínio, só os nomes dos sites mudam.
+
+# Every site imports this. Referrer-Policy uses `?` so the stricter `no-referrer` the site already
+# sends wins; the others overwrite whatever the app said. 1 MB is far above the largest legitimate
+# body (a sign-up form, a Studio call) and stops a client from streaming gigabytes at Node.
+(secure) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		?Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	request_body {
+		max_size 1MB
+	}
+}
+
+# Operator-only surfaces: the Studio, the Mastra routes and the non-production API hosts. The
+# internal secret still applies behind this; the password just keeps the internet from probing it.
+# Credentials come from /argon/caddy/ in Parameter Store, through env/caddy.env (deploy.sh).
+(operator) {
+	basic_auth {
+		{$STUDIO_AUTH_USER} {$STUDIO_AUTH_HASH}
+	}
+}
+
+# What a non-production API host still answers without a password: the health check the deploy
+# smoke-tests, and the one-click unsubscribe that mail clients call on their own (RFC 8058).
+(open_api_routes) {
+	@open expression `({method} == "GET" && {path} == "/health") || ({method} == "POST" && {path} == "/subscriber/unsubscribe/one-click")`
+}
+
 argon.eduardofockink.com {
+	import secure
+	log {
+		output stdout
+		format json
+	}
 	reverse_proxy web-prod:3000
 }
 
 api.argon.eduardofockink.com {
+	import secure
+	log {
+		output stdout
+		format json
+	}
 	reverse_proxy api-prod:3001
 }
 
 dev.argon.eduardofockink.com {
+	import secure
 	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
 	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
 	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
 	# the API serves anything there.
 	@studio path /studio /studio/* /mastra /mastra/*
 	handle @studio {
+		import operator
 		reverse_proxy api-dev:3001
 	}
 	handle {
@@ -22,12 +67,35 @@ dev.argon.eduardofockink.com {
 }
 
 api.dev.argon.eduardofockink.com {
-	reverse_proxy api-dev:3001
+	import secure
+	import open_api_routes
+	handle @open {
+		reverse_proxy api-dev:3001
+	}
+	handle {
+		import operator
+		reverse_proxy api-dev:3001
+	}
 }
 
 # O lab para sozinho depois de um tempo sem uso (lab-idle-stop.sh). Os dois hosts escrevem no mesmo
 # arquivo: a data de modificação dele é o último sinal de vida do ambiente.
+# A stopped lab is a 502 from the proxy; anything else is a real error and keeps its own code, so a
+# crash loop does not read as "just start it again".
+(lab_errors) {
+	handle_errors {
+		@down expression {err.status_code} == 502
+		handle @down {
+			respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
+		}
+		handle {
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
+	}
+}
+
 lab.argon.eduardofockink.com {
+	import secure
 	log {
 		output file /var/log/caddy/lab.log
 	}
@@ -37,22 +105,27 @@ lab.argon.eduardofockink.com {
 	# the API serves anything there.
 	@studio path /studio /studio/* /mastra /mastra/*
 	handle @studio {
+		import operator
 		reverse_proxy api-lab:3001
 	}
 	handle {
 		reverse_proxy web-lab:3000
 	}
-	handle_errors {
-		respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
-	}
+	import lab_errors
 }
 
 api.lab.argon.eduardofockink.com {
+	import secure
 	log {
 		output file /var/log/caddy/lab.log
 	}
-	reverse_proxy api-lab:3001
-	handle_errors {
-		respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
+	import open_api_routes
+	handle @open {
+		reverse_proxy api-lab:3001
 	}
+	handle {
+		import operator
+		reverse_proxy api-lab:3001
+	}
+	import lab_errors
 }

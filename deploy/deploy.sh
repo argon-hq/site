@@ -30,6 +30,14 @@ echo "ARGON_ENV=$ENV_NAME" >> "env/$ENV_NAME.env"
 # on the first boot of an empty volume: changing the parameter later does not change the password.
 params_to_env "/argon/postgres/" "env/postgres.env"
 grep -q '^POSTGRES_PASSWORD=' env/postgres.env || { echo "deploy: /argon/postgres/POSTGRES_PASSWORD is missing" >&2; exit 1; }
+# Caddy's basic_auth for the Studio and the non-production API hosts. Both parameters are required:
+# Caddy refuses to load a basic_auth with an empty hash, which would take every site down with it.
+# Compose expands `$name` inside env files, and a bcrypt hash is full of them — `$$` keeps them literal.
+params_to_env "/argon/caddy/" "env/caddy.env"
+sed -i 's/\$/$$/g' env/caddy.env
+for k in STUDIO_AUTH_USER STUDIO_AUTH_HASH; do
+  grep -q "^$k=." env/caddy.env || { echo "deploy: /argon/caddy/$k is missing (see deploy/README.md, Acesso do operador)" >&2; exit 1; }
+done
 aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin "$(grep '^ECR=' .env | cut -d= -f2)"
 SERVICES=""; for a in $APPS; do SERVICES="$SERVICES $a-$ENV_NAME"; done
 docker compose pull $SERVICES
@@ -49,7 +57,7 @@ docker compose up -d --wait --wait-timeout 180 caddy $SERVICES
 # The Caddyfile is a bind mount: a changed file needs an explicit reload, or new hosts never get certificates.
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 # Retenção de 30 dias nos logs do ambiente; o grupo é criado pelo driver awslogs no primeiro start.
-sleep 5; for g in $(for a in $APPS; do echo "/argon/$ENV_NAME/$a"; done) /argon/postgres; do
+sleep 5; for g in $(for a in $APPS; do echo "/argon/$ENV_NAME/$a"; done) /argon/postgres /argon/caddy; do
   aws logs put-retention-policy --region sa-east-1 --log-group-name "$g" --retention-in-days 30 || true
 done
 # Plain `prune -f` only drops dangling images, and every deploy tags one with its commit: the old
