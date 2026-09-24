@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runDate, runFailure, SCHEDULE, TIMEZONE } from "./run";
+import { runDate, runFailure, SCHEDULE, SEND_SCHEDULE, TIMEZONE } from "./run";
 
 describe("runDate", () => {
   it("names the run after the São Paulo calendar day", () => {
@@ -18,6 +18,13 @@ describe("the schedule", () => {
     expect([dayOfMonth, month]).toEqual(["*", "*"]);
     expect(weekday).toBe("1-6"); // 0 is Sunday, and Sunday has no edition
     expect(TIMEZONE).toBe("America/Sao_Paulo");
+  });
+
+  it("sends at 7h, an hour and a half later, so a run that repeated a step has finished", () => {
+    const [minute, hour, dayOfMonth, month, weekday] = SEND_SCHEDULE.split(" ");
+    expect([minute, hour]).toEqual(["0", "7"]);
+    expect([dayOfMonth, month]).toEqual(["*", "*"]);
+    expect(weekday).toBe("1-6"); // the same days: no edition on Sunday, nothing to send
   });
 });
 

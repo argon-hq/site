@@ -50,4 +50,13 @@ export class PipelineController {
   build() {
     return runEffect("build", this.alert.onFailure("build", this.pipeline.build()));
   }
+
+  // POST /pipeline/send → sends today's built edition to every confirmed subscriber, in batches. It
+  // is what the 7h schedule fires; by hand it is the same send, and running it again only picks up
+  // what is still pending. No model either way, so the mode changes nothing. Internal secret required.
+  @Post("send")
+  @HttpCode(200)
+  send() {
+    return runEffect("send", this.alert.onFailure("send", this.pipeline.send()));
+  }
 }

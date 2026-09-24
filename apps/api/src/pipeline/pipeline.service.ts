@@ -7,6 +7,8 @@ import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../m
 import type { EditionContext } from "../mastra/workflows/context";
 import type { EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
+import { MailService } from "../mail/mail.service";
+import type { BatchDelivery, Message } from "../mail/mail.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
@@ -15,9 +17,30 @@ import { agentCollect, fixtureCollect } from "./collect-source";
 import type { CollectResult } from "./collect.schema";
 import { generateStructured } from "./generate";
 import { OwnerAlert } from "./owner-alert";
+import { personalize, sendRefusal, SUBSTITUTES_UNSUBSCRIBE_TOKEN } from "./personalize";
 import { persistCandidate, type Outcome } from "./persist";
 import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
+import {
+  assignBatches,
+  batchKey,
+  BATCH_SIZE,
+  BatchRefused,
+  closeEdition,
+  countPending,
+  countSettled,
+  createDeliveries,
+  deliverBatch,
+  highestBatch,
+  loadSendable,
+  markSending,
+  newRecipients,
+  pendingBatches,
+  recordBatch,
+  SendDbFailed,
+  type PendingBatch,
+  type SendableEdition,
+} from "./send";
 import { editionDate, windowHours, windowStart } from "./rules";
 import { mockHeader, mockItem } from "./write-mock";
 import {
@@ -38,6 +61,7 @@ import {
 export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<{ reason: string }> {}
+export class SendFailed extends Data.TaggedError("SendFailed")<{ reason: string }> {}
 // A failed run says which step failed, so the single alert it sends is addressed.
 export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string }> {}
 
@@ -81,6 +105,26 @@ export type BuildReport = {
   durationMs: number;
 };
 
+// One batch as the report sees it. Which row failed and why is not here on purpose: an edition can
+// carry thousands of rows, and the reason is already on the row, in `delivery.error`.
+export type BatchOutcome = { batch: number; size: number; sent: number; failed: number };
+
+export type SendReport = {
+  date: string;
+  editionId: string;
+  // Where the edition ended up, which is how an operator reads "did it finish".
+  status: "sent" | "sending";
+  // Rows still owed when this run started, how many of those it created, and how many an earlier
+  // run had already settled. Together they tell a resume apart from a first run at a glance.
+  recipients: number;
+  created: number;
+  alreadySent: number;
+  batches: BatchOutcome[];
+  sent: number;
+  failed: number;
+  durationMs: number;
+};
+
 export type RunReport = EditionRun & { runId: string; durationMs: number };
 
 // What a step is told before it starts: which clock to read and whether this run pays for judgement
@@ -97,11 +141,17 @@ export class PipelineService {
   // run someone fired by hand from working on the same edition at once.
   private inFlight = false;
 
+  // One send at a time, for the same reason: two overlapping sends would read the same pending rows
+  // and build the same batches. The idempotency keys would still spare the subscribers, but the rows
+  // would be written twice over.
+  private sending = false;
+
   constructor(
     private readonly mastra: MastraService,
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly alert: OwnerAlert,
+    private readonly mail: MailService,
     @Inject(ORIGINS) private readonly origins: Origins,
   ) {}
 
@@ -329,6 +379,166 @@ export class PipelineService {
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason }))),
     );
   }
+  // Sending step: no model and no judgement, like the building step. The edition the building step
+  // left becomes one message per confirmed subscriber, handed to the provider in batches. It is a
+  // run of its own, at 7h, and not a fourth step of the generation workflow: the edition is ready
+  // long before it, and a resend has nothing to do with generating anything.
+  send(run: StepRun = {}): Effect.Effect<SendReport, SendFailed> {
+    const { now } = startOf(run);
+    return Effect.suspend(() => {
+      if (this.sending) return new SendFailed({ reason: "a send is already in flight" });
+      this.sending = true;
+      return this.startSend(now).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            this.sending = false;
+          }),
+        ),
+        // No alert here: the route and the 7h cron each add their own, so one failure is one e-mail.
+        Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "send failed", reason: error.reason }))),
+      );
+    });
+  }
+
+  private startSend(now: Date): Effect.Effect<SendReport, SendFailed> {
+    return Effect.gen(this, function* () {
+      // Before any read and any write: production does not mail an edition whose unsubscribe link is
+      // still a placeholder, whoever asks.
+      const refusal = sendRefusal(DEPLOYMENT, SUBSTITUTES_UNSUBSCRIBE_TOKEN);
+      if (refusal !== null) return yield* new SendFailed({ reason: refusal });
+
+      const startedAt = Date.now();
+      const settings = yield* Effect.tryPromise({
+        try: () => this.settings.load(),
+        catch: (error) => new SendFailed({ reason: `settings: ${String(error)}` }),
+      });
+      const date = editionDate(now);
+      const day = date.toISOString().slice(0, 10);
+      const failed = (error: { reason: string }) => new SendFailed({ reason: error.reason });
+
+      // The kill switch, read from the database immediately before anything leaves. A paused send
+      // writes nothing at all, so it is a failure of the step and not an outcome of it — which is
+      // what puts it on the one alert path without an alert inside the step.
+      if (settings.sending_paused) {
+        return yield* new SendFailed({ reason: `envio pausado: a edição ${day} não saiu porque sending_paused está ligado` });
+      }
+
+      const edition = yield* loadSendable(this.prisma, date).pipe(Effect.mapError(failed));
+      // On its way out before the first row exists: a run that dies here leaves an edition the next
+      // send resumes, instead of one the building step would quietly rebuild over.
+      yield* markSending(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
+
+      // Whoever confirmed since the last run starts a batch after the highest one already handed
+      // out. Adding them to a batch that already went out would change what that key stands for.
+      const from = yield* highestBatch(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
+      const recipients = yield* newRecipients(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
+      yield* createDeliveries(this.prisma, {
+        editionId: edition.id,
+        rows: assignBatches(recipients, from),
+      }).pipe(Effect.mapError(failed));
+
+      const settled = yield* countSettled(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
+      const batches = yield* pendingBatches(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
+      const waiting = batches.reduce((total, batch) => total + batch.rows.length, 0);
+      this.logger.log({
+        msg: "send started",
+        date: day,
+        edition: edition.id,
+        recipients: waiting,
+        created: recipients.length,
+        alreadySent: settled,
+        batches: batches.length,
+        batchSize: BATCH_SIZE,
+      });
+
+      // One batch at a time, which is `Effect.forEach`'s default and has to stay that way. Each
+      // batch is a hundred-message call against a provider with a request-rate limit, so going wide
+      // buys throughput a newsletter does not need and makes a 429 likely; sequential is also what
+      // leaves a clean prefix of settled batches when a run dies, which is what the resume reads.
+      const outcomes = yield* Effect.forEach(batches, (batch) => this.sendOneBatch(edition, batch, now)).pipe(
+        Effect.mapError(failed),
+      );
+
+      const pending = yield* countPending(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
+      if (pending === 0) yield* closeEdition(this.prisma, { editionId: edition.id, now }).pipe(Effect.mapError(failed));
+
+      const report: SendReport = {
+        date: day,
+        editionId: edition.id,
+        status: pending === 0 ? "sent" : "sending",
+        recipients: waiting,
+        created: recipients.length,
+        alreadySent: settled,
+        batches: outcomes,
+        sent: outcomes.reduce((total, batch) => total + batch.sent, 0),
+        failed: outcomes.reduce((total, batch) => total + batch.failed, 0),
+        durationMs: Date.now() - startedAt,
+      };
+      // An edition with nobody to send it to is not a failure: lab and a development machine hit it
+      // constantly. It closes as sent, and the warning is what says the list was empty.
+      if (waiting === 0) this.logger.warn({ msg: "edition sent to nobody", date: day, edition: edition.id });
+      this.logger.log({ msg: "send finished", ...report });
+      return report;
+    });
+  }
+
+  // One batch: the stored edition becomes one message per row, the provider answers one result per
+  // message, and the whole answer is written in a single transaction — a batch settles or it does
+  // not. A row that cannot be personalised never enters the payload; only ARG-114 can produce one.
+  private sendOneBatch(
+    edition: SendableEdition,
+    batch: PendingBatch,
+    now: Date,
+  ): Effect.Effect<BatchOutcome, SendDbFailed | BatchRefused> {
+    return Effect.gen(this, function* () {
+      const results: { id: string; result: BatchDelivery }[] = [];
+      const messages: Message[] = [];
+      // The delivery row each message belongs to, in the same order: the provider answers by
+      // position and nothing else links an id back to a subscriber.
+      const addressed: string[] = [];
+
+      for (const row of batch.rows) {
+        const copy = personalize(edition);
+        if (copy.outcome === "unpersonalizable") {
+          results.push({ id: row.id, result: { outcome: "refused", reason: copy.reason } });
+          continue;
+        }
+        addressed.push(row.id);
+        messages.push({
+          to: row.recipient.email,
+          subject: edition.subject,
+          html: copy.html,
+          text: copy.text,
+          headers: copy.headers,
+        });
+      }
+
+      const answers =
+        messages.length === 0
+          ? []
+          : yield* deliverBatch(this.mail, { messages, idempotencyKey: batchKey(edition.id, batch.batch) });
+
+      // The transport owes one result per message. If it ever does not, stop: writing the answers
+      // out of step would put one subscriber's provider id on another subscriber's row.
+      if (answers.length !== messages.length) {
+        return yield* new BatchRefused({
+          reason: `batch ${batch.batch} of edition ${edition.id} got ${answers.length} answer(s) for ${messages.length} message(s)`,
+        });
+      }
+      answers.forEach((result, index) => results.push({ id: addressed[index], result }));
+
+      yield* recordBatch(this.prisma, { rows: results, now });
+
+      const refused = results.filter((row) => row.result.outcome === "refused");
+      for (const row of refused) {
+        if (row.result.outcome === "refused") {
+          this.logger.warn({ msg: "delivery failed", edition: edition.id, delivery: row.id, reason: row.result.reason });
+        }
+      }
+      return { batch: batch.batch, size: results.length, sent: results.length - refused.length, failed: refused.length };
+    });
+  }
+
   // The whole generation as one run of the `edition` workflow: collect → write → build, each step
   // with its own retry and its own state in the Studio. The steps have no Nest injection, so the run
   // hands them this service through the request context — the same deal the tools have.
