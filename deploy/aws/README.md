@@ -4,9 +4,9 @@ Terraform da conta AWS do Argon (382597877834, `sa-east-1`). Descreve o que a ta
 criados" do `deploy/README.md` listava de memória, mais os alarmes das etapas 2, 8 e 14 da revisão
 de 24/09/2026.
 
-> **Escrito sem rodar `terraform plan`.** O código foi montado a partir de leituras da conta
-> (`describe`/`list`/`get`, nada foi alterado), mas nenhum `plan` foi executado contra ela. O
-> primeiro `plan` é parte do trabalho: leia cada linha dele antes do `apply`.
+> **Aplicado em 24/09/2026.** O primeiro `plan` importou 82 recursos, criou as duas assinaturas de
+> e-mail do SNS e só alterou tags e descrições; o `apply` que o seguiu deixou a conta igual ao código
+> (`terraform plan` responde "No changes"). O estado está no bucket `argon-terraform-state-382597877834`.
 
 ## O que cobre
 
@@ -180,10 +180,8 @@ Docker, swap e timers prontos; o primeiro deploy pelo workflow sobe o resto.
 
 ## Riscos conhecidos
 
-- Nenhum `plan` foi rodado: os recursos com maior chance de diferença inesperada são o
-  orçamento (formato de `limit_amount` e lista de e-mails), o ciclo de vida do ECR (JSON), a
-  URL do provedor OIDC (com ou sem `https://`) e o versionamento `Disabled` do bucket.
-- Os alarmes diários têm o falso positivo de domingo e avisam tarde (dia UTC seguinte).
+- Os alarmes diários avaliam por dia UTC e avisam tarde (no dia seguinte); o domingo sem edição é
+  coberto pelos heartbeats que a API registra às 5h30 e às 7h (`src/pipeline/scheduler.ts`).
 - `/argon/prod/api` pode ter sido criado pelo `awslogs` entre a escrita deste código e o
   primeiro `apply`. Se o `plan` tentar criá-lo e o `apply` falhar com "already exists", adicione
   o import em `imports.tf`.
