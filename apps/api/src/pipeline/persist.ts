@@ -30,6 +30,33 @@ const markSeen = (prisma: PrismaClient, url: string) =>
 const findArticle = (prisma: PrismaClient, url: string) =>
   db(url, () => prisma.article.findUnique({ where: { canonicalUrl: url }, select: { id: true } }));
 
+// Prisma's code for a unique violation. Candidates are persisted a few at a time, so two that end up
+// with the same canonical URL can both pass `findArticle` before either has inserted; the one that
+// loses the insert is a duplicate, not a broken database.
+const UNIQUE_VIOLATION = "P2002";
+const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === UNIQUE_VIOLATION;
+
+const createArticle = (prisma: PrismaClient, data: Parameters<PrismaClient["article"]["create"]>[0]["data"], url: string) =>
+  Effect.tryPromise({
+    try: () => prisma.article.create({ data }),
+    catch: (error) => (isUniqueViolation(error) ? new Duplicate({ url }) : new DbFailed({ url, reason: String(error) })),
+  });
+
+// The same article twice in one answer — two search hits, two tracking parameters — is one
+// candidate, the best scored one: the list arrives in score order, so the first occurrence wins.
+export function dedupeCandidates(candidates: Candidate[]): Candidate[] {
+  const seen = new Set<string>();
+  const kept: Candidate[] = [];
+  for (const candidate of candidates) {
+    const key = canonicalize(candidate.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(candidate);
+  }
+  return kept;
+}
+
 // The agent judged; the code decides what is stored. Allowlist, window and cutoff are enforced here.
 const persist = (candidate: Candidate, ctx: PersistContext, read: ReadPage) =>
   Effect.gen(function* () {
@@ -59,18 +86,18 @@ const persist = (candidate: Candidate, ctx: PersistContext, read: ReadPage) =>
     if (publishedAt && Number.isNaN(publishedAt.getTime())) return yield* new Rejected({ url: canonical, reason: "invalid publishedAt" });
     if (publishedAt && publishedAt < ctx.since) return yield* new Rejected({ url: canonical, reason: "outside window" });
 
-    yield* db(canonical, () =>
-      ctx.prisma.article.create({
-        data: {
-          canonicalUrl: canonical,
-          sourceName: candidate.sourceName,
-          originalTitle: page.originalTitle || candidate.title,
-          extractedText: page.extractedText.slice(0, ctx.maxTextChars),
-          publishedAt,
-          score: candidate.score,
-          scoreDetails: { rationale: candidate.rationale },
-        },
-      }),
+    yield* createArticle(
+      ctx.prisma,
+      {
+        canonicalUrl: canonical,
+        sourceName: candidate.sourceName,
+        originalTitle: page.originalTitle || candidate.title,
+        extractedText: page.extractedText.slice(0, ctx.maxTextChars),
+        publishedAt,
+        score: candidate.score,
+        scoreDetails: { rationale: candidate.rationale },
+      },
+      canonical,
     );
     return { outcome: "saved", url: canonical, publishedAt: publishedAt?.toISOString() ?? null } satisfies Outcome;
   });

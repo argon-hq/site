@@ -116,6 +116,23 @@ describe("MailService.sendBatch", () => {
     expect(sent.results[1]?.outcome === "refused" && sent.results[1].reason).toContain("mailbox unavailable");
   });
 
+  it("settles each message of the fallback as it goes, before the next one leaves", async () => {
+    const order: string[] = [];
+    const send = vi.fn(async (message: { to: string }) => {
+      order.push(`send ${message.to}`);
+      return { id: `<${message.to}>` };
+    });
+    const transport: MailTransport = { name: "smtp", send };
+    const onSettled = vi.fn(async (index: number) => {
+      order.push(`settled ${index}`);
+    });
+
+    await service(transport).sendBatch(two, { onSettled });
+
+    expect(order).toEqual([`send ${two[0]?.to}`, "settled 0", `send ${two[1]?.to}`, "settled 1"]);
+    expect(onSettled).toHaveBeenCalledWith(0, { outcome: "sent", id: `<${two[0]?.to}>` });
+  });
+
   it("answers an empty batch without touching the transport or the settings", async () => {
     const transport: MailTransport = { name: "fake", send: vi.fn(), sendBatch: vi.fn() };
     const settings = { get: vi.fn() };
