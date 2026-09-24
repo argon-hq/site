@@ -2,7 +2,7 @@ import type { LoggerService } from "@nestjs/common";
 import { Data, Effect, Match } from "effect";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
-import { fetchArticle, type FetchFailed, type PageUnreadable } from "../mastra/tools/read-page";
+import { fetchArticle, type FetchFailed, type PageUnreadable, type UrlNotAllowed } from "../mastra/tools/read-page";
 import type { Candidate } from "./collect.schema";
 import { canonicalize, isAllowedDomain } from "./rules";
 
@@ -13,7 +13,7 @@ export type Outcome =
   | { outcome: "rejected"; url: string; reason: string };
 
 export type PersistContext = { prisma: PrismaClient; since: Date; cutoff: number; maxTextChars: number; logger: LoggerService };
-export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable>;
+export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable | UrlNotAllowed>;
 
 class Rejected extends Data.TaggedError("Rejected")<{ url: string; reason: string }> {}
 class Duplicate extends Data.TaggedError("Duplicate")<{ url: string }> {}
