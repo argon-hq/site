@@ -12,7 +12,8 @@ dev.argon.eduardofockink.com {
 	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
 	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
 	# the API serves anything there.
-	handle /studio /studio/* /mastra /mastra/* {
+	@studio path /studio /studio/* /mastra /mastra/*
+	handle @studio {
 		reverse_proxy api-dev:3001
 	}
 	handle {
@@ -34,7 +35,8 @@ lab.argon.eduardofockink.com {
 	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
 	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
 	# the API serves anything there.
-	handle /studio /studio/* /mastra /mastra/* {
+	@studio path /studio /studio/* /mastra /mastra/*
+	handle @studio {
 		reverse_proxy api-lab:3001
 	}
 	handle {
