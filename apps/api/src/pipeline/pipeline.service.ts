@@ -1,7 +1,8 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
+import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
 import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { EditionContext } from "../mastra/workflows/context";
@@ -60,12 +61,14 @@ import {
   type WrittenResult,
 } from "./write";
 
-export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
-export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
-export class BuildFailed extends Data.TaggedError("BuildFailed")<{ reason: string }> {}
-export class SendFailed extends Data.TaggedError("SendFailed")<{ reason: string }> {}
+// Every step failure carries a reason and, when the caller is the one to act, the HTTP status that
+// says so (see src/effect/failure.ts).
+export class CollectFailed extends Data.TaggedError("CollectFailed")<Failure> {}
+export class WriteFailed extends Data.TaggedError("WriteFailed")<Failure> {}
+export class BuildFailed extends Data.TaggedError("BuildFailed")<Failure> {}
+export class SendFailed extends Data.TaggedError("SendFailed")<Failure> {}
 // A failed run says which step failed, so the single alert it sends is addressed.
-export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string }> {}
+export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string; status?: HttpStatus }> {}
 
 export type CollectReport = {
   date: string;
@@ -165,16 +168,16 @@ export class PipelineService {
 
   // Every step runs holding the day's lock (see EditionLock): a busy edition is a failure of the
   // step, in the step's own words, so the route and the alert read it like any other.
-  private locked<A, E extends { reason: string }>(
+  private locked<A, E extends Failure>(
     day: string,
     step: string,
     body: Effect.Effect<A, E>,
-    fail: (reason: string) => E,
+    fail: (failure: Failure) => E,
   ): Effect.Effect<A, E> {
     return this.lock.hold(day, step, body).pipe(
       Effect.catchIf(
         (error): error is EditionBusy | LockDbFailed => error instanceof EditionBusy || error instanceof LockDbFailed,
-        (error) => Effect.fail(fail(error.reason)),
+        (error) => Effect.fail(fail(error instanceof EditionBusy ? { reason: error.reason, status: CONFLICT } : { reason: error.reason })),
       ),
     );
   }
@@ -233,7 +236,7 @@ export class PipelineService {
       this.logger.log({ msg: "collect finished", mode, saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, durationMs: report.durationMs, usage: report.usage });
       return report;
     });
-    return this.locked(runDate(now), "collect", body, (reason) => new CollectFailed({ reason })).pipe(
+    return this.locked(runDate(now), "collect", body, (failure) => new CollectFailed(failure)).pipe(
       // The alert is not here: with a retry per step, alerting inside the step would mail the owners
       // once per attempt. The run alerts once when the workflow gives up, and the per-step route
       // alerts for its own step.
@@ -255,7 +258,7 @@ export class PipelineService {
       const date = editionDate(now);
       const day = date.toISOString().slice(0, 10);
       const since = windowStart(now);
-      const failed = (error: { reason: string }) => new WriteFailed({ reason: error.reason });
+      const failed = (error: Failure) => new WriteFailed({ reason: error.reason, status: error.status });
 
       const edition = yield* openEdition(this.prisma, date).pipe(Effect.mapError(failed));
       const candidates = yield* selectCandidates(this.prisma, {
@@ -311,18 +314,19 @@ export class PipelineService {
       // Better no edition than a weak one: below the minimum nothing is written and the owners hear
       // about it. This is an outcome of the step, not a failure of it — unless an earlier run of the
       // day already wrote the edition, and then the thin run fails and leaves that one alone.
-      const short = `ficou com ${written.length} notícia(s) válida(s), abaixo do mínimo de ${settings.min_articles}`;
+      const short = `ended with ${written.length} valid article(s), below the minimum of ${settings.min_articles}`;
       const outcome = belowMinimum({ written: written.length, min: settings.min_articles, alreadyWritten: edition.alreadyWritten });
 
       if (outcome === "keep_previous") {
         return yield* new WriteFailed({
-          reason: `edição ${day} já estava escrita e a rodada de agora ${short}; a edição anterior continua valendo`,
+          reason: `edition ${day} was already written and this run ${short}; the earlier edition stands`,
+          status: CONFLICT,
         });
       }
       if (outcome === "skip") {
         yield* skipEdition(this.prisma, edition.id).pipe(Effect.mapError(failed));
         this.logger.warn({ msg: "edition skipped", date: day, written: written.length, min: settings.min_articles });
-        yield* this.alert.send("write", `edição ${day} ${short}`);
+        yield* this.alert.send("write", `edition ${day} ${short}`);
         return report("skipped", null, written.map((item) => item.usage));
       }
 
@@ -352,7 +356,7 @@ export class PipelineService {
       });
       return done;
     });
-    return this.locked(runDate(now), "write", body, (reason) => new WriteFailed({ reason })).pipe(
+    return this.locked(runDate(now), "write", body, (failure) => new WriteFailed(failure)).pipe(
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason }))),
     );
   }
@@ -372,7 +376,7 @@ export class PipelineService {
       const day = date.toISOString().slice(0, 10);
 
       const written = yield* loadEdition(this.prisma, date).pipe(
-        Effect.mapError((error) => new BuildFailed({ reason: error.reason })),
+        Effect.mapError((error) => new BuildFailed({ reason: error.reason, status: error.status })),
       );
       this.logger.log({ msg: "build started", date: day, edition: written.id, articles: written.articles.length });
 
@@ -384,7 +388,8 @@ export class PipelineService {
       });
       const built = yield* toEditionInput(written.edition, written.articles, context).pipe(
         Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition)))),
-        Effect.mapError((error) => new BuildFailed({ reason: buildReason(error) })),
+        // What the builder refuses is the edition's fault, and says so with a 422.
+        Effect.mapError((error) => new BuildFailed({ reason: buildReason(error), status: UNPROCESSABLE })),
       );
 
       yield* saveBuilt(this.prisma, { editionId: written.id, html: built.html, text: built.text }).pipe(
@@ -404,7 +409,7 @@ export class PipelineService {
       this.logger.log({ msg: "build finished", ...report });
       return report;
     });
-    return this.locked(runDate(now), "build", body, (reason) => new BuildFailed({ reason })).pipe(
+    return this.locked(runDate(now), "build", body, (failure) => new BuildFailed(failure)).pipe(
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason }))),
     );
   }
@@ -417,9 +422,9 @@ export class PipelineService {
     const date = run.date ?? editionDate(now);
     const day = date.toISOString().slice(0, 10);
     return Effect.suspend(() => {
-      if (this.sending) return new SendFailed({ reason: "a send is already in flight" });
+      if (this.sending) return new SendFailed({ reason: "a send is already in flight", status: CONFLICT });
       this.sending = true;
-      return this.locked(day, "send", this.startSend(date, now), (reason) => new SendFailed({ reason })).pipe(
+      return this.locked(day, "send", this.startSend(date, now), (failure) => new SendFailed(failure)).pipe(
         Effect.ensuring(
           Effect.sync(() => {
             this.sending = false;
@@ -439,13 +444,13 @@ export class PipelineService {
         catch: (error) => new SendFailed({ reason: `settings: ${String(error)}` }),
       });
       const day = date.toISOString().slice(0, 10);
-      const failed = (error: { reason: string }) => new SendFailed({ reason: error.reason });
+      const failed = (error: Failure) => new SendFailed({ reason: error.reason, status: error.status });
 
       // The kill switch, read from the database immediately before anything leaves. A paused send
       // writes nothing at all, so it is a failure of the step and not an outcome of it — which is
       // what puts it on the one alert path without an alert inside the step.
       if (settings.sending_paused) {
-        return yield* new SendFailed({ reason: `envio pausado: a edição ${day} não saiu porque sending_paused está ligado` });
+        return yield* new SendFailed({ reason: `sending paused: edition ${day} did not go out because sending_paused is on`, status: CONFLICT });
       }
 
       const edition = yield* loadSendable(this.prisma, date).pipe(Effect.mapError(failed));
@@ -524,7 +529,7 @@ export class PipelineService {
         catch: (error) => new SendDbFailed({ reason: `settings: ${String(error)}` }),
       });
       if (paused) {
-        return yield* new SendFailed({ reason: `sending paused before batch ${batch.batch}: sending_paused is on` });
+        return yield* new SendFailed({ reason: `sending paused before batch ${batch.batch}: sending_paused is on`, status: CONFLICT });
       }
 
       const results: { id: string; result: BatchDelivery }[] = [];
@@ -596,7 +601,7 @@ export class PipelineService {
   run(request: StepRun = {}): Effect.Effect<RunReport, RunFailed> {
     const { mode, now } = startOf(request);
     return Effect.suspend(() => {
-      if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight" });
+      if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight", status: CONFLICT });
       this.inFlight = true;
       return this.startRun(mode, now).pipe(
         // The one alert of a failed run, addressed to the step that failed. Nothing alerts inside the

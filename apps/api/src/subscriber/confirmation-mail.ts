@@ -32,7 +32,7 @@ export class ConfirmationMail {
       }),
     );
 
-    await this.mail.send({ to, subject: built.subject, html: built.html, text: built.text });
-    this.logger.log({ msg: "confirmation sent", to });
+    const sent = await this.mail.send({ to, subject: built.subject, html: built.html, text: built.text });
+    this.logger.log({ msg: "confirmation sent", id: sent.id });
   }
 }

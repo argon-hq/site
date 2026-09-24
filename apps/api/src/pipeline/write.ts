@@ -1,5 +1,6 @@
 import type { LoggerService } from "@nestjs/common";
 import { Data, Effect } from "effect";
+import { CONFLICT, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import { twoAttempts } from "../mastra/attempts";
 import { BODY_MAX, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
@@ -22,7 +23,7 @@ export type Written = { id: string; item: WrittenItem };
 
 // A generation that already carries its reason, so the second attempt can quote it.
 export class ItemFailed extends Data.TaggedError("ItemFailed")<{ reason: string }> {}
-export class WriteDbFailed extends Data.TaggedError("WriteDbFailed")<{ reason: string }> {}
+export class WriteDbFailed extends Data.TaggedError("WriteDbFailed")<Failure> {}
 
 export type Generate<A> = (prompt: string) => Effect.Effect<{ object: A; usage?: unknown }, ItemFailed>;
 
@@ -44,7 +45,7 @@ export const openEdition = (prisma: PrismaClient, date: Date) =>
   ).pipe(
     Effect.filterOrFail(
       (edition) => edition.status !== "sending" && edition.status !== "sent",
-      (edition) => new WriteDbFailed({ reason: `edition ${date.toISOString().slice(0, 10)} is already ${edition.status}` }),
+      (edition) => new WriteDbFailed({ reason: `edition ${date.toISOString().slice(0, 10)} is already ${edition.status}`, status: CONFLICT }),
     ),
     Effect.map((edition) => ({
       id: edition.id,

@@ -88,7 +88,7 @@ describe("buildReason", () => {
   });
 
   it("names the render failure as a template problem", () => {
-    expect(buildReason(new EditionRenderError({ cause: new Error("boom") }))).toContain("renderizar");
+    expect(buildReason(new EditionRenderError({ cause: new Error("boom") }))).toContain("failed to render");
   });
 
   it("lists every broken rule, with the article number of the ones that have it", () => {
@@ -102,7 +102,7 @@ describe("buildReason", () => {
     );
 
     expect(reason).toContain("script_present: HTML contém <script>");
-    expect(reason).toContain("item_link_missing_in_text (notícia 2)");
+    expect(reason).toContain("item_link_missing_in_text (item 2)");
   });
 });
 
