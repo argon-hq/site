@@ -7,6 +7,7 @@ import {
   type FilledMessage,
   type MailTransport,
   type Message,
+  type OnSettled,
   type SentBatch,
   type SentMessage,
 } from "./mail.types";
@@ -43,7 +44,7 @@ export class MailService {
 
     const sent = this.transport.sendBatch
       ? await this.transport.sendBatch(filled, options)
-      : { results: await this.oneAtATime(filled) };
+      : { results: await this.oneAtATime(filled, options?.onSettled) };
 
     // One line for the batch, not one per message: an edition must not write a log entry per
     // subscriber. What each message got is on its own delivery row.
@@ -60,16 +61,20 @@ export class MailService {
 
   // The fallback for a transport with no batch endpoint, such as the local Mailpit, which genuinely
   // delivers one at a time. It catches per message so both paths keep the same promise: a refusal
-  // is a result, never an exception.
-  private async oneAtATime(messages: FilledMessage[]): Promise<BatchDelivery[]> {
+  // is a result, never an exception. Each result is handed over as it happens, because here there
+  // is no idempotency key: what already left must be on record before the next one goes.
+  private async oneAtATime(messages: FilledMessage[], onSettled?: OnSettled): Promise<BatchDelivery[]> {
     const results: BatchDelivery[] = [];
-    for (const message of messages) {
+    for (const [index, message] of messages.entries()) {
+      let result: BatchDelivery;
       try {
         const sent = await this.transport.send(message);
-        results.push({ outcome: "sent", id: sent.id });
+        result = { outcome: "sent", id: sent.id };
       } catch (error) {
-        results.push({ outcome: "refused", reason: String(error) });
+        result = { outcome: "refused", reason: String(error) };
       }
+      results.push(result);
+      await onSettled?.(index, result);
     }
     return results;
   }

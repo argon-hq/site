@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
 import { PageUnreadable } from "../mastra/tools/read-page";
-import { persistCandidate, type PersistContext, type ReadPage } from "./persist";
+import { dedupeCandidates, persistCandidate, type PersistContext, type ReadPage } from "./persist";
 
 const silent: LoggerService = { log: () => {}, warn: () => {}, error: () => {} };
 
@@ -98,10 +98,37 @@ describe("persistCandidate", () => {
     expect(c.mocks.article.create).not.toHaveBeenCalled();
   });
 
+  it("is a duplicate when the insert loses the race to the same canonical url", async () => {
+    // Two candidates a few rows apart can both pass the lookup before either has inserted; the
+    // unique index answers for the loser, and that answer is a duplicate, not a broken database.
+    const c = ctx();
+    c.mocks.article.create.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+    expect(await Effect.runPromise(persistCandidate(candidate, c, page(null)))).toEqual({
+      outcome: "duplicate",
+      url: "https://valor.globo.com/empresas/noticia/2026/09/18/x.ghtml",
+    });
+  });
+
+  it("still fails on any other database error", async () => {
+    const c = ctx();
+    c.mocks.article.create.mockRejectedValueOnce(new Error("connection lost"));
+    const exit = await Effect.runPromiseExit(persistCandidate(candidate, c, page(null)));
+    expect(exit._tag).toBe("Failure");
+  });
+
   it("rejects a canonical url that leaves the allowlist", async () => {
     const c = ctx();
     const read = page(null, "https://g1.globo.com/economia/x");
     expect(await Effect.runPromise(persistCandidate(candidate, c, read))).toMatchObject({ outcome: "rejected", reason: "canonical url outside the allowlist" });
     expect(c.mocks.article.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("dedupeCandidates", () => {
+  it("keeps the first of two candidates with the same canonical url", () => {
+    const first = { ...candidate, score: 4.5 };
+    const twin = { ...candidate, url: "https://www.valor.globo.com/empresas/noticia/2026/09/18/x.ghtml?utm_source=x", score: 3 };
+    const other = { ...candidate, url: "https://valor.globo.com/empresas/noticia/2026/09/18/y.ghtml", score: 2 };
+    expect(dedupeCandidates([first, twin, other])).toEqual([first, other]);
   });
 });

@@ -26,9 +26,14 @@ export type BatchDelivery = { outcome: "sent"; id: string | null } | { outcome: 
 // the only thing that lets the sending step put a provider id on the right delivery row.
 export type SentBatch = { results: BatchDelivery[] };
 
+// Called as each message of a batch settles, with its position and its result. Only a transport
+// that genuinely sends one at a time has anything to say before the whole batch is done; it is how
+// the caller records what already left when the process dies halfway through.
+export type OnSettled = (index: number, result: BatchDelivery) => Promise<void>;
+
 // The provider's idempotency key. The same key with the same payload delivers once, however many
 // times it is asked for, which is what makes a resumed batch safe.
-export type BatchOptions = { idempotencyKey?: string };
+export type BatchOptions = { idempotencyKey?: string; onSettled?: OnSettled };
 
 export interface MailTransport {
   readonly name: string;

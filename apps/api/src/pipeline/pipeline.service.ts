@@ -19,7 +19,7 @@ import type { CollectResult } from "./collect.schema";
 import { generateStructured } from "./generate";
 import { OwnerAlert } from "./owner-alert";
 import { personalize } from "./personalize";
-import { persistCandidate, type Outcome } from "./persist";
+import { dedupeCandidates, persistCandidate, type Outcome } from "./persist";
 import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
 import {
@@ -180,7 +180,9 @@ export class PipelineService {
         Effect.mapError((error) => new CollectFailed({ reason: error.reason })),
       );
 
-      // The list is persisted by code, one candidate at a time, in score order.
+      // The list is persisted by code, a few candidates at a time, in score order, one row per
+      // canonical URL: the answer is deduplicated first, and the unique index catches what the
+      // canonical URL of the page itself only reveals after the read.
       const persistCtx = {
         prisma: this.prisma,
         since,
@@ -189,7 +191,7 @@ export class PipelineService {
         logger: this.logger,
       };
       const outcomes = yield* Effect.forEach(
-        [...collected.result.candidates].sort((a, b) => b.score - a.score),
+        dedupeCandidates([...collected.result.candidates].sort((a, b) => b.score - a.score)),
         (candidate) => persistCandidate(candidate, persistCtx, collected.read),
         { concurrency: 3 },
       ).pipe(Effect.mapError((e) => new CollectFailed({ reason: `database: ${e.reason}` })));
@@ -482,12 +484,23 @@ export class PipelineService {
   // One batch: the stored edition becomes one message per row, the provider answers one result per
   // message, and the whole answer is written in a single transaction — a batch settles or it does
   // not. A row that cannot be personalised never enters the payload: it settles as failed on its own.
+  // So does a row whose subscriber is no longer confirmed: the rows were created when the run
+  // started, and a run can be resumed hours later, so the status is read again here, right before
+  // the address would leave. The kill switch is read again for the same reason.
   private sendOneBatch(
     edition: SendableEdition,
     batch: PendingBatch,
     now: Date,
-  ): Effect.Effect<BatchOutcome, SendDbFailed | BatchRefused> {
+  ): Effect.Effect<BatchOutcome, SendDbFailed | BatchRefused | SendFailed> {
     return Effect.gen(this, function* () {
+      const paused = yield* Effect.tryPromise({
+        try: () => this.settings.get("sending_paused"),
+        catch: (error) => new SendDbFailed({ reason: `settings: ${String(error)}` }),
+      });
+      if (paused) {
+        return yield* new SendFailed({ reason: `sending paused before batch ${batch.batch}: sending_paused is on` });
+      }
+
       const results: { id: string; result: BatchDelivery }[] = [];
       const messages: Message[] = [];
       // The delivery row each message belongs to, in the same order: the provider answers by
@@ -495,6 +508,10 @@ export class PipelineService {
       const addressed: string[] = [];
 
       for (const row of batch.rows) {
+        if (row.recipient.status !== "confirmed") {
+          results.push({ id: row.id, result: { outcome: "refused", reason: `subscriber is ${row.recipient.status}, not confirmed` } });
+          continue;
+        }
         const copy = personalize(edition, row.recipient, this.origins, this.unsubscribeSecret);
         if (copy.outcome === "unpersonalizable") {
           results.push({ id: row.id, result: { outcome: "refused", reason: copy.reason } });
@@ -510,10 +527,21 @@ export class PipelineService {
         });
       }
 
+      // A transport that delivers one message at a time settles each row as it goes, so a run that
+      // dies mid-batch leaves the rows already delivered marked and only the rest pending. A
+      // transport with a batch endpoint answers all at once, and the key makes a repeat safe.
+      const settled = new Set<string>();
+      const onSettled = (index: number, result: BatchDelivery) => {
+        const id = addressed[index];
+        if (id === undefined) return Promise.resolve();
+        settled.add(id);
+        return Effect.runPromise(recordBatch(this.prisma, { rows: [{ id, result }], now }));
+      };
+
       const answers =
         messages.length === 0
           ? []
-          : yield* deliverBatch(this.mail, { messages, idempotencyKey: batchKey(edition.id, batch.batch) });
+          : yield* deliverBatch(this.mail, { messages, idempotencyKey: batchKey(edition.id, batch.batch), onSettled });
 
       // The transport owes one result per message. If it ever does not, stop: writing the answers
       // out of step would put one subscriber's provider id on another subscriber's row.
@@ -522,9 +550,9 @@ export class PipelineService {
           reason: `batch ${batch.batch} of edition ${edition.id} got ${answers.length} answer(s) for ${messages.length} message(s)`,
         });
       }
-      answers.forEach((result, index) => results.push({ id: addressed[index], result }));
+      answers.forEach((result, index) => results.push({ id: addressed[index] as string, result }));
 
-      yield* recordBatch(this.prisma, { rows: results, now });
+      yield* recordBatch(this.prisma, { rows: results.filter((row) => !settled.has(row.id)), now });
 
       const refused = results.filter((row) => row.result.outcome === "refused");
       for (const row of refused) {

@@ -1,7 +1,7 @@
 import { Data, Effect } from "effect";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { MailService } from "../mail/mail.service";
-import type { BatchDelivery, Message } from "../mail/mail.types";
+import type { BatchDelivery, Message, OnSettled } from "../mail/mail.types";
 import type { Recipient } from "./personalize";
 
 // How many messages go to the provider in one call. Ours to enforce: the SDK chunks nothing and
@@ -18,8 +18,10 @@ const db = <A>(run: () => Promise<A>) =>
 // building step stored, one e-mail for everyone.
 export type SendableEdition = { id: string; subject: string; html: string; text: string };
 
-// One delivery still waiting, and who it is waiting for.
-export type PendingRow = { id: string; batch: number; recipient: Recipient };
+// One delivery still waiting, and who it is waiting for — with the status the subscriber has now,
+// not the one they had when the row was created.
+export type PendingRow = { id: string; batch: number; recipient: PendingRecipient };
+export type PendingRecipient = Recipient & { status: string };
 export type PendingBatch = { batch: number; rows: PendingRow[] };
 
 // A batch is all-or-nothing at the row level: either the provider answered and every row of that
@@ -109,7 +111,7 @@ export const pendingBatches = (
   db(() =>
     prisma.delivery.findMany({
       where: { editionId: p.editionId, status: "pending" },
-      select: { id: true, batch: true, subscriber: { select: { id: true, email: true } } },
+      select: { id: true, batch: true, subscriber: { select: { id: true, email: true, status: true } } },
       orderBy: [{ batch: "asc" }, { id: "asc" }],
     }),
   ).pipe(
@@ -118,7 +120,7 @@ export const pendingBatches = (
         rows.map((row) => ({
           id: row.id,
           batch: row.batch,
-          recipient: { subscriberId: row.subscriber.id, email: row.subscriber.email },
+          recipient: { subscriberId: row.subscriber.id, email: row.subscriber.email, status: row.subscriber.status },
         })),
       ),
     ),
@@ -132,7 +134,9 @@ export const recordBatch = (
   prisma: PrismaClient,
   p: { rows: { id: string; result: BatchDelivery }[]; now: Date },
 ): Effect.Effect<void, SendDbFailed> =>
-  db(() =>
+  p.rows.length === 0
+    ? Effect.void
+    : db(() =>
     prisma.$transaction(
       p.rows.map(({ id, result }) =>
         prisma.delivery.update({
@@ -168,10 +172,10 @@ export const closeEdition = (
 // nothing was delivered, and the rows it names stay pending for the next run.
 export const deliverBatch = (
   mail: Pick<MailService, "sendBatch">,
-  p: { messages: Message[]; idempotencyKey: string },
+  p: { messages: Message[]; idempotencyKey: string; onSettled?: OnSettled },
 ): Effect.Effect<BatchDelivery[], BatchRefused> =>
   Effect.tryPromise({
-    try: () => mail.sendBatch(p.messages, { idempotencyKey: p.idempotencyKey }),
+    try: () => mail.sendBatch(p.messages, { idempotencyKey: p.idempotencyKey, onSettled: p.onSettled }),
     catch: (error) => new BatchRefused({ reason: String(error) }),
   }).pipe(Effect.map((sent) => sent.results));
 

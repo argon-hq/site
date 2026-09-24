@@ -16,6 +16,7 @@ import {
   loadSendable,
   markSending,
   newRecipients,
+  pendingBatches,
   recordBatch,
   type PendingRow,
 } from "./send";
@@ -37,7 +38,7 @@ const editionRow = (over: Record<string, unknown> = {}) => ({
 const fakePrisma = (parts: Record<string, unknown>) => parts as unknown as PrismaClient;
 
 const recipient = (n: number): Recipient => ({ subscriberId: `s${n}`, email: `s${n}@example.com` });
-const pendingRow = (id: string, batch: number): PendingRow => ({ id, batch, recipient: recipient(1) });
+const pendingRow = (id: string, batch: number): PendingRow => ({ id, batch, recipient: { ...recipient(1), status: "confirmed" } });
 
 describe("loadSendable", () => {
   it("reads the day's edition with the two copies the building step stored", async () => {
@@ -177,6 +178,12 @@ describe("batchKey", () => {
 });
 
 describe("recordBatch", () => {
+  it("writes nothing for an empty batch", async () => {
+    const $transaction = vi.fn();
+    await Effect.runPromise(recordBatch(fakePrisma({ $transaction, delivery: { update: vi.fn() } }), { rows: [], now: new Date() }));
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
   it("writes the whole batch in one transaction, so a batch settles or it does not", async () => {
     const calls: unknown[] = [];
     const update = vi.fn((args) => args);
@@ -199,6 +206,32 @@ describe("recordBatch", () => {
       { where: { id: "d1" }, data: { status: "sent", providerEmailId: "re_1", sentAt: now, error: null } },
       { where: { id: "d2" }, data: { status: "failed", error: "invalid address" } },
     ]);
+  });
+});
+
+describe("pendingBatches", () => {
+  it("reads the status the subscriber has now, so a resumed run does not mail who has left", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "d1", batch: 1, subscriber: { id: "s1", email: "s1@example.com", status: "confirmed" } },
+      { id: "d2", batch: 1, subscriber: { id: "s2", email: "s2@example.com", status: "cancelled" } },
+    ]);
+    const batches = await Effect.runPromise(pendingBatches(fakePrisma({ delivery: { findMany } }), { editionId: "e1" }));
+
+    expect(findMany.mock.calls[0]?.[0].select.subscriber.select.status).toBe(true);
+    expect(batches[0]?.rows.map((row) => row.recipient.status)).toEqual(["confirmed", "cancelled"]);
+  });
+});
+
+describe("deliverBatch", () => {
+  it("hands the per-message settling over to the transport, with the key", async () => {
+    const sendBatch = vi.fn().mockResolvedValue({ results: [{ outcome: "sent", id: "m1" }] });
+    const onSettled = vi.fn().mockResolvedValue(undefined);
+    const message = { to: "s1@example.com", subject: "s", html: "<p>", text: "t" };
+
+    const results = await Effect.runPromise(deliverBatch({ sendBatch }, { messages: [message], idempotencyKey: "e1:1", onSettled }));
+
+    expect(results).toEqual([{ outcome: "sent", id: "m1" }]);
+    expect(sendBatch).toHaveBeenCalledWith([message], { idempotencyKey: "e1:1", onSettled });
   });
 });
 
