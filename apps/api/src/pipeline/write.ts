@@ -1,5 +1,6 @@
 import type { LoggerService } from "@nestjs/common";
 import { Data, Effect } from "effect";
+import { dbEffect } from "../effect/db";
 import { CONFLICT, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import { twoAttempts } from "../mastra/attempts";
@@ -27,8 +28,7 @@ export class WriteDbFailed extends Data.TaggedError("WriteDbFailed")<Failure> {}
 
 export type Generate<A> = (prompt: string) => Effect.Effect<{ object: A; usage?: unknown }, ItemFailed>;
 
-const db = <A>(run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: (error) => new WriteDbFailed({ reason: String(error) }) });
+const db = dbEffect((reason) => new WriteDbFailed({ reason }));
 
 // Today's edition, created on the first run of the day. Running the step again reuses the row; one
 // already on its way out is never rewritten, and the database freezes a sent one anyway.

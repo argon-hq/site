@@ -1,4 +1,5 @@
 import { Data, Effect, Match } from "effect";
+import { dbEffect } from "../effect/db";
 import { CONFLICT, NOT_FOUND, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { ArticleRow, EditionRow } from "../email";
@@ -10,8 +11,7 @@ export type WrittenEdition = { id: string; edition: EditionRow; articles: Articl
 
 export class BuildDbFailed extends Data.TaggedError("BuildDbFailed")<Failure> {}
 
-const db = <A>(run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: (error) => new BuildDbFailed({ reason: String(error) }) });
+const db = dbEffect((reason) => new BuildDbFailed({ reason }));
 
 // Read, never create: without a written edition there is nothing to build. One already on its way
 // out is refused, as in the writing step, and the database freezes a sent one anyway.

@@ -116,5 +116,7 @@ export function collectPrompt(p: CollectRun & { profile: Profile }): string {
 }
 
 function countBy(names: string[]): Record<string, number> {
-  return names.reduce<Record<string, number>>((acc, n) => ({ ...acc, [n]: (acc[n] ?? 0) + 1 }), {});
+  const counts: Record<string, number> = {};
+  for (const name of names) counts[name] = (counts[name] ?? 0) + 1;
+  return counts;
 }

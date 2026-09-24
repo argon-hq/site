@@ -6,7 +6,7 @@ import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
 import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { EditionContext } from "../mastra/workflows/context";
-import type { EditionRun } from "../mastra/workflows/edition";
+import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
@@ -439,8 +439,13 @@ export class PipelineService {
 
       if (started.result.status !== "success") return yield* new RunFailed(runFailure(started.result));
 
+      // What the workflow hands back is typed loosely by Mastra; the schema it was declared with
+      // is what says it is a run, and a run that does not fit it is a failure with a name.
+      const run = editionRunSchema.safeParse(started.result.result);
+      if (!run.success) return yield* new RunFailed({ step: "run", reason: `workflow result is not a run: ${run.error.message}` });
+
       const report: RunReport = {
-        ...(started.result.result as EditionRun),
+        ...run.data,
         runId: started.runId,
         durationMs: Date.now() - startedAt,
       };

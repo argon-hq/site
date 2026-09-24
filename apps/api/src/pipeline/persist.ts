@@ -1,5 +1,6 @@
 import type { LoggerService } from "@nestjs/common";
 import { Data, Effect, Match } from "effect";
+import { dbEffect } from "../effect/db";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
 import { fetchArticle, type FetchFailed, type PageUnreadable, type UrlNotAllowed } from "../mastra/tools/read-page";
@@ -20,8 +21,7 @@ class Duplicate extends Data.TaggedError("Duplicate")<{ url: string }> {}
 class BelowCutoff extends Data.TaggedError("BelowCutoff")<{ url: string }> {}
 export class DbFailed extends Data.TaggedError("DbFailed")<{ url: string; reason: string }> {}
 
-const db = <A>(url: string, run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: (error) => new DbFailed({ url, reason: String(error) }) });
+const db = <A>(url: string, run: () => Promise<A>) => dbEffect((reason) => new DbFailed({ url, reason }))(run);
 
 // Every evaluated link is remembered, kept or not, so the next run skips it.
 const markSeen = (prisma: PrismaClient, url: string) =>

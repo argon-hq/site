@@ -1,20 +1,38 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, type OnApplicationBootstrap } from "@nestjs/common";
 import { Effect } from "effect";
 import { MailService } from "../mail/mail.service";
 import { SettingsService } from "../settings/settings.service";
+import { DEPLOYMENT } from "./profile";
 
 const ESCAPE: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
 
 // When a pipeline step fails, the owners registered in the settings table hear about it. This is an
 // internal notice and never reaches a subscriber, so it carries no layout.
 @Injectable()
-export class OwnerAlert {
+export class OwnerAlert implements OnApplicationBootstrap {
   private readonly logger = new Logger(OwnerAlert.name);
 
   constructor(
     private readonly mail: MailService,
     private readonly settings: SettingsService,
   ) {}
+
+  // Production with nobody to alert is production that fails in silence. The boot does not stop
+  // over it — the row is written through the API, which has to be up for that — but the line it
+  // writes is the one the CloudWatch alarm watches, so the silence is heard the same morning.
+  async onApplicationBootstrap(): Promise<void> {
+    if (DEPLOYMENT !== "prod") return;
+    await Effect.runPromise(
+      Effect.tryPromise(() => this.settings.get("owner_emails")).pipe(
+        Effect.tap((owners) =>
+          Effect.sync(() => {
+            if (owners.length === 0) this.logger.error({ msg: "owner alert skipped", step: "boot", reason: "owner_emails is empty" });
+          }),
+        ),
+        Effect.catchAll((error) => Effect.sync(() => this.logger.error({ msg: "owner alert skipped", step: "boot", reason: String(error) }))),
+      ),
+    );
+  }
 
   // Never fails: an alert that throws would bury the failure it reports.
   send(step: string, reason: string): Effect.Effect<void> {

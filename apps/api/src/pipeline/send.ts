@@ -1,4 +1,5 @@
 import { Data, Effect } from "effect";
+import { dbEffect } from "../effect/db";
 import { CONFLICT, NOT_FOUND, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { MailService } from "../mail/mail.service";
@@ -12,8 +13,7 @@ export const BATCH_SIZE = 100;
 export class SendDbFailed extends Data.TaggedError("SendDbFailed")<Failure> {}
 export class BatchRefused extends Data.TaggedError("BatchRefused")<{ reason: string }> {}
 
-const db = <A>(run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: (error) => new SendDbFailed({ reason: String(error) }) });
+const db = dbEffect((reason) => new SendDbFailed({ reason }));
 
 // The edition as the sending step needs it: the subject it goes out under and the two copies the
 // building step stored, one e-mail for everyone.

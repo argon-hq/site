@@ -30,7 +30,9 @@ export async function subscribe(input: { email: string; consent: boolean }): Pro
     method: "POST",
     body: {
       email: parsed.data.email,
-      // Prova de opt-in exigida pela LGPD. Atrás do Caddy o IP real é o primeiro da lista.
+      // Proof of opt-in (LGPD). The first address is the visitor's because Caddy, the only proxy
+      // in front, replaces whatever X-Forwarded-For a client sent (it has no trusted_proxies). A
+      // CDN in front of Caddy would change that: then the real address is the last one it added.
       consentIp: requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim(),
       consentUserAgent: requestHeaders.get("user-agent") ?? undefined,
     },
