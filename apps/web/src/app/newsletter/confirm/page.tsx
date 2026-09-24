@@ -25,12 +25,12 @@ export default async function ConfirmPage({
 
   return (
     <div className="grid min-h-svh flex-1 lg:grid-cols-[16fr_9fr]">
-      <section className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
+      <main id="main-content" className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <BrandMark />
           <ConfirmPanel token={token ?? null} />
         </div>
-      </section>
+      </main>
 
       <aside
         aria-label={preview("label")}

@@ -31,6 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
   const theme = await getUserTheme();
+  const t = await getTranslations("common");
 
   return (
     <html
@@ -42,6 +43,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>
           <EntryPathTracker />
+          {/* Skip link: hidden until it receives keyboard focus. Every page
+              marks its landmark with id="main-content". */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            {t("skipToContent")}
+          </a>
           {children}
         </NextIntlClientProvider>
       </body>
