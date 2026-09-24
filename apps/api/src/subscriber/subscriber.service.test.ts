@@ -65,11 +65,13 @@ describe("SubscriberService", () => {
   it("records a new address as pending, with the token hashed and the consent", async () => {
     const { prisma, subscribers } = service(null);
 
-    const result = await Effect.runPromise(subscribers.signUp({
-      email: "  Joao@Example.COM ",
-      consentIp: "203.0.113.7",
-      consentUserAgent: "Mozilla/5.0",
-    }));
+    const result = await Effect.runPromise(
+      subscribers.signUp({
+        email: "  Joao@Example.COM ",
+        consentIp: "203.0.113.7",
+        consentUserAgent: "Mozilla/5.0",
+      }),
+    );
 
     const { where, create } = upsertArgs(prisma);
     expect(where.email).toBe("joao@example.com"); // trimmed and lower-case, as the check constraint requires
@@ -91,7 +93,9 @@ describe("SubscriberService", () => {
   it("does not duplicate or touch an address that is already confirmed", async () => {
     const { prisma, subscribers } = service({ id: "abc", status: "confirmed" });
 
-    expect(await Effect.runPromise(subscribers.signUp({ email: "joao@example.com" }))).toEqual({ status: "already_confirmed" });
+    expect(await Effect.runPromise(subscribers.signUp({ email: "joao@example.com" }))).toEqual({
+      status: "already_confirmed",
+    });
     expect(prisma.subscriber.upsert).not.toHaveBeenCalled();
   });
 
@@ -300,9 +304,12 @@ describe("SubscriberService.confirm", () => {
       tokenExpiresAt: inAnHour(),
     });
 
-    expect(await Effect.runPromise(subscribers.confirm(TOKEN))).toEqual({ status: "confirmed", email: "joao@example.com" });
+    expect(await Effect.runPromise(subscribers.confirm(TOKEN))).toEqual({
+      status: "confirmed",
+      email: "joao@example.com",
+    });
 
-    const { data } = prisma.subscriber.update.mock.calls[0]?.[0] ?? { data: {} };
+    const { data } = prisma.subscriber.update.mock.calls[0]?.[0] ?? { data: {} as UpdateArgs["data"] };
     expect(data.status).toBe("confirmed");
     // The confirmed row has to carry the hash of its unsubscribe token; the check constraint
     // requires it, and it is the hash of the token the editions will carry.
@@ -328,7 +335,10 @@ describe("SubscriberService.confirm", () => {
   it("treats a second click as success, without writing again", async () => {
     const { prisma, subscribers } = confirmService({ id: "abc", email: "joao@example.com", status: "confirmed" });
 
-    expect(await Effect.runPromise(subscribers.confirm(TOKEN))).toEqual({ status: "already_confirmed", email: "joao@example.com" });
+    expect(await Effect.runPromise(subscribers.confirm(TOKEN))).toEqual({
+      status: "already_confirmed",
+      email: "joao@example.com",
+    });
     expect(prisma.subscriber.update).not.toHaveBeenCalled();
   });
 
@@ -340,7 +350,10 @@ describe("SubscriberService.confirm", () => {
       tokenExpiresAt: new Date(Date.now() - 1000),
     });
 
-    expect(await Effect.runPromise(subscribers.confirm(TOKEN))).toEqual({ status: "expired", email: "joao@example.com" });
+    expect(await Effect.runPromise(subscribers.confirm(TOKEN))).toEqual({
+      status: "expired",
+      email: "joao@example.com",
+    });
     expect(prisma.subscriber.update).not.toHaveBeenCalled();
   });
 

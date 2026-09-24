@@ -19,6 +19,7 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm format:check
       - run: pnpm check-types
       # Some things only break at build time — a route, a server/client boundary, the Nest bundle.
       - run: pnpm build

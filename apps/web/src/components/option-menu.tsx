@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export type MenuOption<T extends string> = {
   value: T;
@@ -189,9 +182,7 @@ export function OptionMenu<T extends string>({
                 onClick={() => handleSelect(option.value)}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-surface focus-visible:bg-surface focus-visible:outline-none"
               >
-                <span className="flex shrink-0 items-center justify-center text-muted">
-                  {option.icon}
-                </span>
+                <span className="flex shrink-0 items-center justify-center text-muted">{option.icon}</span>
                 <span className={isCurrent ? "font-medium" : "text-muted"}>{option.label}</span>
                 {isCurrent && <Check />}
               </button>
@@ -205,13 +196,7 @@ export function OptionMenu<T extends string>({
 
 function Check() {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      width="14"
-      height="14"
-      aria-hidden="true"
-      className="ml-auto text-accent"
-    >
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" className="ml-auto text-accent">
       <path
         d="M3.5 8.5L6.5 11.5L12.5 4.5"
         fill="none"

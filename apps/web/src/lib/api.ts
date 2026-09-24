@@ -5,10 +5,7 @@
  */
 type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number | null };
 
-export async function apiFetch<T>(
-  path: string,
-  init?: { method?: string; body?: unknown },
-): Promise<ApiResult<T>> {
+export async function apiFetch<T>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
   const apiUrl = process.env.API_URL;
   const secret = process.env.INTERNAL_API_SECRET;
 

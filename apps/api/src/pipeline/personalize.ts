@@ -22,7 +22,12 @@ export type Personalization =
 // The marker as the building step wrote it into the URL, so the same substitution serves both
 // copies. The token is base64url and a dot, so it needs no escaping there; encoded anyway, so the
 // two can never disagree.
-export function personalize(edition: StoredEdition, recipient: Recipient, origins: Origins, secret: string): Personalization {
+export function personalize(
+  edition: StoredEdition,
+  recipient: Recipient,
+  origins: Origins,
+  secret: string,
+): Personalization {
   if (!edition.html.includes(UNSUBSCRIBE_PLACEHOLDER) || !edition.text.includes(UNSUBSCRIBE_PLACEHOLDER)) {
     return { outcome: "unpersonalizable", reason: "stored edition carries no unsubscribe marker" };
   }

@@ -140,7 +140,8 @@ const fetchGuarded = (
 
       const location = response.headers.get("location");
       yield* Effect.promise(() => response.body?.cancel() ?? Promise.resolve());
-      if (!location) return yield* new FetchFailed({ url: current, reason: `HTTP ${response.status} without location` });
+      if (!location)
+        return yield* new FetchFailed({ url: current, reason: `HTTP ${response.status} without location` });
       if (hop + 1 > MAX_REDIRECTS) return yield* new FetchFailed({ url: current, reason: "too many redirects" });
       current = new URL(location, current).toString();
     }
@@ -148,7 +149,10 @@ const fetchGuarded = (
 
 // One attempt: guard, fetch, parse, extract. Network errors are retried by the caller; refused
 // addresses and unreadable pages are not.
-const fetchOnce = (url: string, deps: FetchDeps): Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable | UrlNotAllowed> =>
+const fetchOnce = (
+  url: string,
+  deps: FetchDeps,
+): Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable | UrlNotAllowed> =>
   Effect.gen(function* () {
     const controller = new AbortController();
     const { response, url: finalUrl } = yield* fetchGuarded(url, deps, controller.signal).pipe(
@@ -163,13 +167,14 @@ const fetchOnce = (url: string, deps: FetchDeps): Effect.Effect<ExtractedArticle
 
     const html = yield* readBody(response, finalUrl);
     const { document } = parseHTML(html);
-    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.getAttribute("href") ?? finalUrl;
+    const canonical =
+      document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.getAttribute("href") ?? finalUrl;
     const published =
       document.querySelector('meta[property="article:published_time"]')?.getAttribute("content") ??
       document.querySelector("time[datetime]")?.getAttribute("datetime") ??
       null;
 
-    const article = new Readability(document as unknown as Document).parse();
+    const article = new Readability(document).parse();
     if (!article?.textContent?.trim()) return yield* new PageUnreadable({ url: finalUrl, reason: "no readable text" });
 
     return {
@@ -185,14 +190,22 @@ const fetchOnce = (url: string, deps: FetchDeps): Effect.Effect<ExtractedArticle
 export const fetchArticle = (url: string, deps: FetchDeps = liveDeps) =>
   fetchOnce(url, deps).pipe(
     Effect.timeoutFail({ duration: TIMEOUT, onTimeout: () => new FetchFailed({ url, reason: "timeout" }) }),
-    Effect.retry({ schedule: Schedule.exponential("500 millis"), times: 2, while: (error) => error._tag === "FetchFailed" }),
+    Effect.retry({
+      schedule: Schedule.exponential("500 millis"),
+      times: 2,
+      while: (error) => error._tag === "FetchFailed",
+    }),
   );
+
+const readPageInput = z.object({ url: z.url() });
 
 export const readPage = createTool({
   id: "read_page",
-  description: "Lê uma página de notícia de uma das fontes e devolve título, texto principal, data de publicação e URL canônica.",
-  inputSchema: z.object({ url: z.url() }),
+  description:
+    "Lê uma página de notícia de uma das fontes e devolve título, texto principal, data de publicação e URL canônica.",
+  inputSchema: readPageInput,
   outputSchema: extractedArticleSchema,
-  // Promise boundary: Mastra calls the tool, the effect runs here.
-  execute: ({ url }) => Effect.runPromise(fetchArticle(url)),
+  // Promise boundary: Mastra calls the tool, the effect runs here. The input is parsed again on
+  // the way in: what Mastra types it as depends on its zod version, not on this schema.
+  execute: (input) => Effect.runPromise(fetchArticle(readPageInput.parse(input).url)),
 });

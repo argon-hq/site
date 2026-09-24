@@ -38,14 +38,18 @@ const editionRow = (over: Record<string, unknown> = {}) => ({
 const fakePrisma = (parts: Record<string, unknown>) => parts as unknown as PrismaClient;
 
 const recipient = (n: number): Recipient => ({ subscriberId: `s${n}`, email: `s${n}@example.com` });
-const pendingRow = (id: string, batch: number): PendingRow => ({ id, batch, recipient: { ...recipient(1), status: "confirmed" } });
+const pendingRow = (id: string, batch: number): PendingRow => ({
+  id,
+  batch,
+  recipient: { ...recipient(1), status: "confirmed" },
+});
 
 describe("loadSendable", () => {
   it("reads the day's edition with the two copies the building step stored", async () => {
     const findUnique = vi.fn().mockResolvedValue(editionRow());
     const edition = await Effect.runPromise(loadSendable(fakePrisma({ edition: { findUnique } }), date));
 
-    expect(findUnique.mock.calls[0][0].where).toEqual({ date });
+    expect(findUnique.mock.calls[0]?.[0]?.where).toEqual({ date });
     expect(edition).toEqual({ id: "e1", subject: "Crédito, SELIC e IA", html: "<html>", text: "texto" });
   });
 
@@ -92,7 +96,10 @@ describe("newRecipients", () => {
     const findMany = vi.fn().mockResolvedValue([{ id: "s1", email: "s1@example.com" }]);
     const found = await Effect.runPromise(newRecipients(fakePrisma({ subscriber: { findMany } }), { editionId: "e1" }));
 
-    expect(findMany.mock.calls[0][0].where).toEqual({ status: "confirmed", deliveries: { none: { editionId: "e1" } } });
+    expect(findMany.mock.calls[0]?.[0]?.where).toEqual({
+      status: "confirmed",
+      deliveries: { none: { editionId: "e1" } },
+    });
     expect(found).toEqual([{ subscriberId: "s1", email: "s1@example.com" }]);
   });
 
@@ -100,7 +107,7 @@ describe("newRecipients", () => {
     const findMany = vi.fn().mockResolvedValue([]);
     await Effect.runPromise(newRecipients(fakePrisma({ subscriber: { findMany } }), { editionId: "e1" }));
 
-    expect(findMany.mock.calls[0][0].orderBy).toEqual({ id: "asc" });
+    expect(findMany.mock.calls[0]?.[0]?.orderBy).toEqual({ id: "asc" });
   });
 });
 
@@ -127,9 +134,9 @@ describe("assignBatches", () => {
       0,
     );
 
-    expect(rows[0].batch).toBe(1);
-    expect(rows[BATCH_SIZE - 1].batch).toBe(1);
-    expect(rows[BATCH_SIZE].batch).toBe(2);
+    expect(rows[0]?.batch).toBe(1);
+    expect(rows[BATCH_SIZE - 1]?.batch).toBe(1);
+    expect(rows[BATCH_SIZE]?.batch).toBe(2);
   });
 
   it("numbers new subscribers after the edition's highest batch, so nobody joins one that already went out", () => {
@@ -166,8 +173,8 @@ describe("groupByBatch", () => {
     const grouped = groupByBatch([pendingRow("d1", 1), pendingRow("d2", 1), pendingRow("d3", 2)]);
 
     expect(grouped.map((batch) => batch.batch)).toEqual([1, 2]);
-    expect(grouped[0].rows.map((row) => row.id)).toEqual(["d1", "d2"]);
-    expect(grouped[1].rows.map((row) => row.id)).toEqual(["d3"]);
+    expect(grouped[0]?.rows.map((row) => row.id)).toEqual(["d1", "d2"]);
+    expect(grouped[1]?.rows.map((row) => row.id)).toEqual(["d3"]);
   });
 });
 
@@ -180,7 +187,9 @@ describe("batchKey", () => {
 describe("recordBatch", () => {
   it("writes nothing for an empty batch", async () => {
     const $transaction = vi.fn();
-    await Effect.runPromise(recordBatch(fakePrisma({ $transaction, delivery: { update: vi.fn() } }), { rows: [], now: new Date() }));
+    await Effect.runPromise(
+      recordBatch(fakePrisma({ $transaction, delivery: { update: vi.fn() } }), { rows: [], now: new Date() }),
+    );
     expect($transaction).not.toHaveBeenCalled();
   });
 
@@ -215,7 +224,9 @@ describe("pendingBatches", () => {
       { id: "d1", batch: 1, subscriber: { id: "s1", email: "s1@example.com", status: "confirmed" } },
       { id: "d2", batch: 1, subscriber: { id: "s2", email: "s2@example.com", status: "cancelled" } },
     ]);
-    const batches = await Effect.runPromise(pendingBatches(fakePrisma({ delivery: { findMany } }), { editionId: "e1" }));
+    const batches = await Effect.runPromise(
+      pendingBatches(fakePrisma({ delivery: { findMany } }), { editionId: "e1" }),
+    );
 
     expect(findMany.mock.calls[0]?.[0].select.subscriber.select.status).toBe(true);
     expect(batches[0]?.rows.map((row) => row.recipient.status)).toEqual(["confirmed", "cancelled"]);
@@ -228,7 +239,9 @@ describe("deliverBatch", () => {
     const onSettled = vi.fn().mockResolvedValue(undefined);
     const message = { to: "s1@example.com", subject: "s", html: "<p>", text: "t" };
 
-    const results = await Effect.runPromise(deliverBatch({ sendBatch }, { messages: [message], idempotencyKey: "e1:1", onSettled }));
+    const results = await Effect.runPromise(
+      deliverBatch({ sendBatch }, { messages: [message], idempotencyKey: "e1:1", onSettled }),
+    );
 
     expect(results).toEqual([{ outcome: "sent", id: "m1" }]);
     expect(sendBatch).toHaveBeenCalledWith([message], { idempotencyKey: "e1:1", onSettled });
@@ -240,7 +253,7 @@ describe("countPending", () => {
     const count = vi.fn().mockResolvedValue(0);
     const pending = await Effect.runPromise(countPending(fakePrisma({ delivery: { count } }), { editionId: "e1" }));
 
-    expect(count.mock.calls[0][0].where).toEqual({ editionId: "e1", status: "pending" });
+    expect(count.mock.calls[0]?.[0]?.where).toEqual({ editionId: "e1", status: "pending" });
     expect(pending).toBe(0);
   });
 });

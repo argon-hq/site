@@ -31,13 +31,20 @@ describe("personalize", () => {
     const copy = personalize(edition, recipient, origins, secret);
     const token = unsubscribeTokenFor(secret, recipient.subscriberId);
 
-    expect(copy.outcome === "ready" && copy.headers["List-Unsubscribe"]).toBe(`<${unsubscribeOneClickUrl(origins, token)}>`);
+    expect(copy.outcome === "ready" && copy.headers["List-Unsubscribe"]).toBe(
+      `<${unsubscribeOneClickUrl(origins, token)}>`,
+    );
     expect(copy.outcome === "ready" && copy.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
   });
 
   it("gives two subscribers two different tokens", () => {
     const a = personalize(edition, recipient, origins, secret);
-    const b = personalize(edition, { ...recipient, subscriberId: "0a1b2c3d-0000-4000-8000-000000000000" }, origins, secret);
+    const b = personalize(
+      edition,
+      { ...recipient, subscriberId: "0a1b2c3d-0000-4000-8000-000000000000" },
+      origins,
+      secret,
+    );
     expect(a.outcome === "ready" && b.outcome === "ready" && a.html).not.toBe(b.outcome === "ready" && b.html);
   });
 

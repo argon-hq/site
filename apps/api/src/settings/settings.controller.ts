@@ -10,7 +10,8 @@ export const patchBody = z
   .object({ key: z.enum(settingKeys as [SettingKey, ...SettingKey[]]), value: z.unknown() })
   .superRefine((body, ctx) => {
     const result = settingsSchema.shape[body.key].safeParse(body.value);
-    if (!result.success) for (const issue of result.error.issues) ctx.addIssue({ ...issue, path: ["value", ...issue.path] });
+    if (!result.success)
+      for (const issue of result.error.issues) ctx.addIssue({ ...issue, path: ["value", ...issue.path] });
   });
 
 @Controller("settings")

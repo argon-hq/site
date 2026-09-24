@@ -19,13 +19,7 @@ function UnitedStatesFlag() {
     <>
       <rect width="20" height="14" fill="#FFFFFF" />
       {[0, 2, 4, 6, 8, 10, 12].map((stripe) => (
-        <rect
-          key={stripe}
-          y={stripe * STRIPE_HEIGHT}
-          width="20"
-          height={STRIPE_HEIGHT}
-          fill="#B22234"
-        />
+        <rect key={stripe} y={stripe * STRIPE_HEIGHT} width="20" height={STRIPE_HEIGHT} fill="#B22234" />
       ))}
       <rect width="8.6" height={STRIPE_HEIGHT * 7} fill="#3C3B6E" />
     </>

@@ -3,9 +3,7 @@
 import { apiFetch } from "@/lib/api";
 import { tokenSchema } from "@/lib/token";
 
-type UnsubscribeResult =
-  | { ok: true; status: "cancelled" | "already_cancelled"; email: string }
-  | { ok: false };
+type UnsubscribeResult = { ok: true; status: "cancelled" | "already_cancelled"; email: string } | { ok: false };
 
 /** Cancela de verdade. Só é chamada pelo botão da página, nunca ao abrir. */
 export async function unsubscribe(token: string): Promise<UnsubscribeResult> {

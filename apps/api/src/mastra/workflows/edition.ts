@@ -71,13 +71,15 @@ const stepOf = <A>(
     outputSchema: editionRunSchema,
     retries: STEP_RETRIES,
     execute: async ({ inputData, requestContext }) => {
-      if (skip?.(inputData)) return inputData;
+      // Parsed again on the way in: what Mastra types the input as depends on its zod version.
+      const input = editionRunSchema.parse(inputData);
+      if (skip?.(input)) return input;
 
       const exit = await Effect.runPromiseExit(
         editionContext(id, requestContext as EditionRequestContext).pipe(
-          Effect.tap(() => forToday(inputData.date)),
-          Effect.flatMap(({ pipeline }) => run(pipeline, inputData)),
-          Effect.map((report) => fold(inputData, report)),
+          Effect.tap(() => forToday(input.date)),
+          Effect.flatMap(({ pipeline }) => run(pipeline, input)),
+          Effect.map((report) => fold(input, report)),
         ),
       );
       if (Exit.isFailure(exit)) throw new Error(failureReason(exit.cause));

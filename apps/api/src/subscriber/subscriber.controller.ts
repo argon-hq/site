@@ -11,10 +11,7 @@ const signUpBody = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
   // Proof of opt-in (LGPD). A malformed address here is the proxy's problem, never the
   // subscriber's: `catch` drops the value instead of failing the sign-up.
-  consentIp: z
-    .union([z.ipv4(), z.ipv6()])
-    .optional()
-    .catch(undefined),
+  consentIp: z.union([z.ipv4(), z.ipv6()]).optional().catch(undefined),
   consentUserAgent: z.string().max(500).optional(),
 });
 
@@ -58,7 +55,9 @@ export class SubscriberController {
   @Header("Referrer-Policy", "no-referrer")
   async lookup(@Query("token") token: string) {
     const parsed = unsubscribeToken.safeParse(token);
-    const subscriber = parsed.success ? await runEffect("lookup", this.subscribers.findByUnsubscribeToken(parsed.data)) : null;
+    const subscriber = parsed.success
+      ? await runEffect("lookup", this.subscribers.findByUnsubscribeToken(parsed.data))
+      : null;
     if (!subscriber) throw new NotFoundException({ status: "invalid" });
     return subscriber;
   }

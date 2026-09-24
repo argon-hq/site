@@ -5,7 +5,11 @@
 // `name` and `covers` go into the step prompt, so what the agent reads and what the code accepts
 // can never drift apart.
 export const SOURCES = [
-  { domain: "agenciabrasil.ebc.com.br", name: "Agência Brasil", covers: "indicadores, medidas do governo com efeito em negócios" },
+  {
+    domain: "agenciabrasil.ebc.com.br",
+    name: "Agência Brasil",
+    covers: "indicadores, medidas do governo com efeito em negócios",
+  },
   { domain: "valor.globo.com", name: "Valor Econômico", covers: "empresas, negócios, finanças" },
   { domain: "infomoney.com.br", name: "InfoMoney", covers: "negócios, mercado, empreendedorismo" },
   { domain: "exame.com", name: "Exame", covers: "negócios, PME, gestão" },

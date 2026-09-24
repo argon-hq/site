@@ -39,9 +39,7 @@ export type ConfirmResult =
 // What the subscriber sees on the unsubscribe page. `invalid` covers a token that is wrong,
 // truncated by the e-mail client or from a subscriber that no longer exists.
 export type UnsubscribeResult =
-  | { status: "cancelled"; email: string }
-  | { status: "already_cancelled"; email: string }
-  | { status: "invalid" };
+  { status: "cancelled"; email: string } | { status: "already_cancelled"; email: string } | { status: "invalid" };
 
 // The database did not answer. Nothing the caller can do about it: a 500, like every other.
 export class SubscriberDbFailed extends Data.TaggedError("SubscriberDbFailed")<Failure> {}
@@ -51,7 +49,10 @@ export class SubscriberService {
   private readonly logger = new Logger(SubscriberService.name);
 
   private db<A>(what: string, run: () => Promise<A>): Effect.Effect<A, SubscriberDbFailed> {
-    return Effect.tryPromise({ try: run, catch: (error) => new SubscriberDbFailed({ reason: `${what}: ${String(error)}` }) });
+    return Effect.tryPromise({
+      try: run,
+      catch: (error) => new SubscriberDbFailed({ reason: `${what}: ${String(error)}` }),
+    });
   }
 
   constructor(
@@ -145,17 +146,21 @@ export class SubscriberService {
       }),
     ).pipe(
       Effect.catchAll((failure) =>
-        Effect.sync(() => this.logger.error({ msg: "send mark not cleared", subscriberId: id, reason: failure.reason })),
-      ),
-    );
-
-    return this.confirmation.send(email, token, this.origins).pipe(
-      Effect.tapError((error) =>
-        Effect.sync(() => this.logger.error({ msg: "confirmation not sent", subscriberId: id, reason: error.reason })).pipe(
-          Effect.andThen(clearSendMark),
+        Effect.sync(() =>
+          this.logger.error({ msg: "send mark not cleared", subscriberId: id, reason: failure.reason }),
         ),
       ),
     );
+
+    return this.confirmation
+      .send(email, token, this.origins)
+      .pipe(
+        Effect.tapError((error) =>
+          Effect.sync(() =>
+            this.logger.error({ msg: "confirmation not sent", subscriberId: id, reason: error.reason }),
+          ).pipe(Effect.andThen(clearSendMark)),
+        ),
+      );
   }
 
   // Turns the one-time token into a confirmed subscription, and records the hash of the permanent
@@ -262,15 +267,9 @@ export class SubscriberService {
 
 // The window counts from the last confirmation issued, so a row that never had one
 // (nothing sent yet) is never throttled.
-export function withinResendWindow(
-  lastSentAt: Date | null,
-  now: Date = new Date(),
-): boolean {
+export function withinResendWindow(lastSentAt: Date | null, now: Date = new Date()): boolean {
   if (!lastSentAt) return false;
-  return (
-    now.getTime() - lastSentAt.getTime() <
-    CONFIRMATION_RESEND_WINDOW_SECONDS * 1000
-  );
+  return now.getTime() - lastSentAt.getTime() < CONFIRMATION_RESEND_WINDOW_SECONDS * 1000;
 }
 
 // The check constraint `subscriber_email_normalized` rejects anything else.

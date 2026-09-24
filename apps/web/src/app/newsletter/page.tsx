@@ -39,7 +39,6 @@ export default function NewsletterPage() {
 
           <NewsletterForm />
         </div>
-
       </main>
 
       {/* Provisório: mostra a mesma amostra de edição da tela de confirmação,

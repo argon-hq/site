@@ -84,7 +84,10 @@ export class DeliveryService {
       // writes nothing at all, so it is a failure of the step and not an outcome of it — which is
       // what puts it on the one alert path without an alert inside the step.
       if (settings.sending_paused) {
-        return yield* new SendFailed({ reason: `sending paused: edition ${day} did not go out because sending_paused is on`, status: CONFLICT });
+        return yield* new SendFailed({
+          reason: `sending paused: edition ${day} did not go out because sending_paused is on`,
+          status: CONFLICT,
+        });
       }
 
       const edition = yield* loadSendable(this.prisma, date).pipe(Effect.mapError(failed));
@@ -163,7 +166,10 @@ export class DeliveryService {
         catch: (error) => new SendDbFailed({ reason: `settings: ${String(error)}` }),
       });
       if (paused) {
-        return yield* new SendFailed({ reason: `sending paused before batch ${batch.batch}: sending_paused is on`, status: CONFLICT });
+        return yield* new SendFailed({
+          reason: `sending paused before batch ${batch.batch}: sending_paused is on`,
+          status: CONFLICT,
+        });
       }
 
       const results: { id: string; result: BatchDelivery }[] = [];
@@ -174,7 +180,10 @@ export class DeliveryService {
 
       for (const row of batch.rows) {
         if (row.recipient.status !== "confirmed") {
-          results.push({ id: row.id, result: { outcome: "refused", reason: `subscriber is ${row.recipient.status}, not confirmed` } });
+          results.push({
+            id: row.id,
+            result: { outcome: "refused", reason: `subscriber is ${row.recipient.status}, not confirmed` },
+          });
           continue;
         }
         const copy = personalize(edition, row.recipient, this.origins, this.unsubscribeSecret);
@@ -222,10 +231,20 @@ export class DeliveryService {
       const refused = results.filter((row) => row.result.outcome === "refused");
       for (const row of refused) {
         if (row.result.outcome === "refused") {
-          this.logger.warn({ msg: "delivery failed", edition: edition.id, delivery: row.id, reason: row.result.reason });
+          this.logger.warn({
+            msg: "delivery failed",
+            edition: edition.id,
+            delivery: row.id,
+            reason: row.result.reason,
+          });
         }
       }
-      return { batch: batch.batch, size: results.length, sent: results.length - refused.length, failed: refused.length };
+      return {
+        batch: batch.batch,
+        size: results.length,
+        sent: results.length - refused.length,
+        failed: refused.length,
+      };
     });
   }
 }

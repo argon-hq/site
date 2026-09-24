@@ -39,15 +39,14 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 
 // Only the two calls the step makes. Enough to check what it asks the database and what it writes.
-const fakePrisma = (edition: { findUnique?: unknown; update?: unknown }) =>
-  ({ edition }) as unknown as PrismaClient;
+const fakePrisma = (edition: { findUnique?: unknown; update?: unknown }) => ({ edition }) as unknown as PrismaClient;
 
 describe("loadEdition", () => {
   it("reads the day's edition with its articles", async () => {
     const findUnique = vi.fn().mockResolvedValue(row());
     const written = await Effect.runPromise(loadEdition(fakePrisma({ findUnique }), date));
 
-    expect(findUnique.mock.calls[0][0].where).toEqual({ date });
+    expect(findUnique.mock.calls[0]?.[0]?.where).toEqual({ date });
     expect(written.id).toBe("e1");
     expect(written.edition).toEqual({ date, title: "Três notícias", subject: "Crédito, SELIC e IA" });
     expect(written.articles).toHaveLength(1);

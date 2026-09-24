@@ -20,7 +20,9 @@ const outDir = path.resolve("out");
 function inlineIcons(html: string, assetBaseUrl: string) {
   return Effect.reduce(EMAIL_ICONS, html, (current, icon) =>
     Effect.promise(() => readFile(path.resolve("../web/public/email", `${icon}.png`))).pipe(
-      Effect.map((png) => current.replaceAll(`${assetBaseUrl}/${icon}.png`, `data:image/png;base64,${png.toString("base64")}`)),
+      Effect.map((png) =>
+        current.replaceAll(`${assetBaseUrl}/${icon}.png`, `data:image/png;base64,${png.toString("base64")}`),
+      ),
     ),
   );
 }
@@ -43,7 +45,7 @@ const main = Effect.gen(function* () {
 });
 
 // A failed preview is a broken template: log the cause and leave a non-zero exit code behind.
-Effect.runPromise(
+void Effect.runPromise(
   main.pipe(
     Effect.catchAllCause((cause) =>
       Effect.logError(cause).pipe(Effect.andThen(Effect.sync(() => (process.exitCode = 1)))),

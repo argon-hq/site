@@ -4,8 +4,7 @@ import { subscribe } from "./subscribe";
 
 vi.mock("@/lib/api", () => ({ apiFetch: vi.fn() }));
 vi.mock("next/headers", () => ({
-  headers: async () =>
-    new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "test-agent" }),
+  headers: async () => new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "test-agent" }),
 }));
 
 const apiFetchMock = vi.mocked(apiFetch);

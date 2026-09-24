@@ -22,15 +22,23 @@ describe("EditionWatch", () => {
 
     expect(await Effect.runPromise(service.check(now))).toEqual([]);
 
-    const where = findMany.mock.calls[0]?.[0 as never] as { where: { status: { in: string[] }; updatedAt: { lt: Date } } } | undefined;
+    const where = findMany.mock.calls[0]?.[0 as never] as
+      { where: { status: { in: string[] }; updatedAt: { lt: Date } } } | undefined;
     expect(where?.where.status.in).toEqual(["generating", "sending"]);
-    expect(where?.where.updatedAt.lt.toISOString()).toBe(new Date(now.getTime() - STUCK_AFTER_HOURS * 3_600_000).toISOString());
+    expect(where?.where.updatedAt.lt.toISOString()).toBe(
+      new Date(now.getTime() - STUCK_AFTER_HOURS * 3_600_000).toISOString(),
+    );
     expect(send).not.toHaveBeenCalled();
   });
 
   it("names every stuck edition once to the owners, with how to resume", async () => {
     const { service, send } = watch([
-      { id: "e1", date: new Date("2026-09-23T00:00:00Z"), status: "sending", updatedAt: new Date("2026-09-23T10:05:00Z") },
+      {
+        id: "e1",
+        date: new Date("2026-09-23T00:00:00Z"),
+        status: "sending",
+        updatedAt: new Date("2026-09-23T10:05:00Z"),
+      },
     ]);
 
     const stuck = await Effect.runPromise(service.check(now));

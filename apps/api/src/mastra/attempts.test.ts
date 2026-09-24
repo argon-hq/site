@@ -18,7 +18,7 @@ describe("twoAttempts", () => {
 
     expect(await Effect.runPromise(twoAttempts("pedido", generate, onRetry))).toBe("ok");
     expect(onRetry).toHaveBeenCalledWith("body too long");
-    expect(generate.mock.calls[1][0]).toContain("body too long");
+    expect(generate.mock.calls[1]?.[0]).toContain("body too long");
   });
 
   it("fails with the second reason when both attempts are rejected", async () => {

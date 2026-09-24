@@ -43,6 +43,6 @@ export function runFailure(result: WorkflowResult): RunFailure {
 function messageOf(error: unknown): string {
   if (error === undefined || error === null) return "";
   if (typeof error === "string") return error;
-  if (typeof error === "object" && "message" in error) return String((error as { message: unknown }).message);
-  return String(error);
+  if (typeof error === "object" && "message" in error) return String(error.message);
+  return JSON.stringify(error);
 }

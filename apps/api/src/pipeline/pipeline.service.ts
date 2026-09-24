@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
+import type { Agent } from "@mastra/core/agent";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
@@ -134,7 +135,10 @@ export class PipelineService {
     return this.lock.hold(day, step, body).pipe(
       Effect.catchIf(
         (error): error is EditionBusy | LockDbFailed => error instanceof EditionBusy || error instanceof LockDbFailed,
-        (error) => Effect.fail(fail(error instanceof EditionBusy ? { reason: error.reason, status: CONFLICT } : { reason: error.reason })),
+        (error) =>
+          Effect.fail(
+            fail(error instanceof EditionBusy ? { reason: error.reason, status: CONFLICT } : { reason: error.reason }),
+          ),
       ),
     );
   }
@@ -190,7 +194,15 @@ export class PipelineService {
         usage: collected.usage,
         durationMs: Date.now() - startedAt,
       };
-      this.logger.log({ msg: "collect finished", mode, saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, durationMs: report.durationMs, usage: report.usage });
+      this.logger.log({
+        msg: "collect finished",
+        mode,
+        saved: report.saved,
+        evaluated: report.result.candidates.length,
+        discarded: report.result.discarded,
+        durationMs: report.durationMs,
+        usage: report.usage,
+      });
       return report;
     });
     return this.locked(runDate(now), "collect", body, (failure) => new CollectFailed(failure)).pipe(
@@ -229,7 +241,8 @@ export class PipelineService {
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
       // the second attempt can quote what the first got wrong. Writing loads its skill through the
       // `skill` tool, so it works and takes shape in two calls, the same as the collection.
-      const editor = this.mastra.getAgent("editor");
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
+      const editor: Agent = this.mastra.getAgent("editor");
       const generating =
         <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
         (text) =>
@@ -272,7 +285,11 @@ export class PipelineService {
       // about it. This is an outcome of the step, not a failure of it — unless an earlier run of the
       // day already wrote the edition, and then the thin run fails and leaves that one alone.
       const short = `ended with ${written.length} valid article(s), below the minimum of ${settings.min_articles}`;
-      const outcome = belowMinimum({ written: written.length, min: settings.min_articles, alreadyWritten: edition.alreadyWritten });
+      const outcome = belowMinimum({
+        written: written.length,
+        min: settings.min_articles,
+        alreadyWritten: edition.alreadyWritten,
+      });
 
       if (outcome === "keep_previous") {
         return yield* new WriteFailed({
@@ -284,7 +301,11 @@ export class PipelineService {
         yield* skipEdition(this.prisma, edition.id).pipe(Effect.mapError(failed));
         this.logger.warn({ msg: "edition skipped", date: day, written: written.length, min: settings.min_articles });
         yield* this.alert.send("write", `edition ${day} ${short}`);
-        return report("skipped", null, written.map((item) => item.usage));
+        return report(
+          "skipped",
+          null,
+          written.map((item) => item.usage),
+        );
       }
 
       const writtenItems = written.map((item) => item.item);
@@ -344,7 +365,9 @@ export class PipelineService {
         unsubscribeUrl: unsubscribePlaceholderUrl(this.origins),
       });
       const built = yield* toEditionInput(written.edition, written.articles, context).pipe(
-        Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition)))),
+        Effect.flatMap((input) =>
+          buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition))),
+        ),
         // What the builder refuses is the edition's fault, and says so with a 422.
         Effect.mapError((error) => new BuildFailed({ reason: buildReason(error), status: UNPROCESSABLE })),
       );
@@ -442,7 +465,8 @@ export class PipelineService {
       // What the workflow hands back is typed loosely by Mastra; the schema it was declared with
       // is what says it is a run, and a run that does not fit it is a failure with a name.
       const run = editionRunSchema.safeParse(started.result.result);
-      if (!run.success) return yield* new RunFailed({ step: "run", reason: `workflow result is not a run: ${run.error.message}` });
+      if (!run.success)
+        return yield* new RunFailed({ step: "run", reason: `workflow result is not a run: ${run.error.message}` });
 
       const report: RunReport = {
         ...run.data,

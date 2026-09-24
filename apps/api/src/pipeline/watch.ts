@@ -40,10 +40,17 @@ export class EditionWatch implements OnApplicationBootstrap {
       }
       if (stuck.length > 0) {
         const lines = stuck.map((e) => `edition ${e.date} is ${e.status} since ${e.updatedAt} (${e.id})`);
-        yield* this.alert.send("watch", `${lines.join("\n")}\n\nResume a send with POST /pipeline/send { "date": "YYYY-MM-DD" }.`);
+        yield* this.alert.send(
+          "watch",
+          `${lines.join("\n")}\n\nResume a send with POST /pipeline/send { "date": "YYYY-MM-DD" }.`,
+        );
       }
       return stuck;
-    }).pipe(Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "edition watch failed", reason: error.reason }))));
+    }).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => this.logger.error({ msg: "edition watch failed", reason: error.reason })),
+      ),
+    );
   }
 
   private stuck(now: Date): Effect.Effect<StuckEdition[], WatchDbFailed> {

@@ -21,7 +21,13 @@ export function Social({ social, assetBaseUrl }: SocialProps) {
       <Column align="center">
         {links.map((link) => (
           <Link key={link.icon} href={link.url} style={styles.socialLink}>
-            <Img src={`${assetBaseUrl}/${link.icon}.png`} width="20" height="20" alt={link.alt} style={styles.socialIcon} />
+            <Img
+              src={`${assetBaseUrl}/${link.icon}.png`}
+              width="20"
+              height="20"
+              alt={link.alt}
+              style={styles.socialIcon}
+            />
           </Link>
         ))}
       </Column>

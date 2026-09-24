@@ -33,7 +33,9 @@ export const loadEdition = (prisma: PrismaClient, date: Date): Effect.Effect<Wri
     }),
   ).pipe(
     Effect.flatMap((row) =>
-      row === null ? new BuildDbFailed({ reason: `edition ${day} does not exist yet`, status: NOT_FOUND }) : Effect.succeed(row),
+      row === null
+        ? new BuildDbFailed({ reason: `edition ${day} does not exist yet`, status: NOT_FOUND })
+        : Effect.succeed(row),
     ),
     Effect.filterOrFail(
       (row) => row.status !== "sending" && row.status !== "sent",
@@ -62,10 +64,12 @@ export const saveBuilt = (
 export const buildReason = Match.type<EditionNotReadyError | EditionRenderError | EditionInvalidError>().pipe(
   Match.tag("EditionNotReadyError", (error) => error.reason),
   Match.tag("EditionRenderError", (error) => `the e-mail failed to render: ${String(error.cause)}`),
-  Match.tag("EditionInvalidError", (error) =>
-    `the e-mail failed validation: ${error.errors
-      .map((e) => (e.item === undefined ? `${e.code}: ${e.message}` : `${e.code} (item ${e.item + 1}): ${e.message}`))
-      .join("; ")}`,
+  Match.tag(
+    "EditionInvalidError",
+    (error) =>
+      `the e-mail failed validation: ${error.errors
+        .map((e) => (e.item === undefined ? `${e.code}: ${e.message}` : `${e.code} (item ${e.item + 1}): ${e.message}`))
+        .join("; ")}`,
   ),
   Match.exhaustive,
 );
