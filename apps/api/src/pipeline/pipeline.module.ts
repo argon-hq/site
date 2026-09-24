@@ -2,6 +2,7 @@ import { DynamicModule, Module } from "@nestjs/common";
 import type { Config } from "../config";
 import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
 import { ORIGINS } from "../subscriber/urls";
+import { DeliveryService } from "./delivery.service";
 import { EditionLock } from "./lock";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
@@ -23,6 +24,7 @@ export class PipelineModule {
         // The sending step derives each subscriber's unsubscribe token itself, as the confirmation does.
         { provide: UNSUBSCRIBE_SECRET, useValue: config.UNSUBSCRIBE_TOKEN_SECRET },
         PipelineService,
+        DeliveryService,
         OwnerAlert,
         // The lock opens a connection of its own, outside the pool, so it takes the URL directly.
         { provide: EditionLock, useFactory: () => new EditionLock(config.DATABASE_URL) },
