@@ -11,6 +11,9 @@ export const SCHEDULE = "30 5 * * 1-6";
 // and the sending step says so instead of mailing anything.
 export const SEND_SCHEDULE = "0 7 * * 1-6";
 
+// An hour after the send: an edition still on its way by then is stuck, not slow (see watch.ts).
+export const WATCH_SCHEDULE = "0 8 * * 1-6";
+
 export const TIMEZONE = "America/Sao_Paulo";
 
 // How many times a step tries again before the run gives up.

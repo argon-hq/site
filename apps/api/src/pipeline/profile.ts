@@ -75,8 +75,18 @@ export const PROFILES: Record<Deployment, Profile> = {
 
 // Read at import, not by injection: the search tool builds its arguments when the module loads and
 // has no Nest around it, the same reason `models.ts` reads MODEL_<AGENT> from the environment.
-// An unknown value is refused here; a missing one is a development machine.
-export const DEPLOYMENT: Deployment = deploymentSchema.parse(process.env.ARGON_ENV ?? "local");
+// An unknown value is refused here, in the same words `loadConfig` would use — this runs first,
+// while the modules are still loading, so its message is the one that gets seen; a missing one is
+// a development machine.
+export const DEPLOYMENT: Deployment = readDeployment(process.env.ARGON_ENV);
+
+export function readDeployment(value: string | undefined): Deployment {
+  const parsed = deploymentSchema.safeParse(value ?? "local");
+  if (!parsed.success) {
+    throw new Error(`Invalid configuration: ARGON_ENV must be one of ${deploymentSchema.options.join(", ")}, got "${value}"`);
+  }
+  return parsed.data;
+}
 export const PROFILE: Profile = PROFILES[DEPLOYMENT];
 
 // What a run actually does. Outside production the caller may ask for the other mode — the point of

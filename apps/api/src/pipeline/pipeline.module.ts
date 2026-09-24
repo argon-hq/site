@@ -2,10 +2,12 @@ import { DynamicModule, Module } from "@nestjs/common";
 import type { Config } from "../config";
 import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
 import { ORIGINS } from "../subscriber/urls";
+import { EditionLock } from "./lock";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
 import { PipelineScheduler } from "./scheduler";
+import { EditionWatch } from "./watch";
 
 @Module({})
 export class PipelineModule {
@@ -22,6 +24,9 @@ export class PipelineModule {
         { provide: UNSUBSCRIBE_SECRET, useValue: config.UNSUBSCRIBE_TOKEN_SECRET },
         PipelineService,
         OwnerAlert,
+        // The lock opens a connection of its own, outside the pool, so it takes the URL directly.
+        { provide: EditionLock, useFactory: () => new EditionLock(config.DATABASE_URL) },
+        EditionWatch,
         // The clock is only wired where it should tick. An environment with it off has no timer at
         // all, instead of a timer nobody wanted: the run is still one POST /pipeline/run away.
         ...(config.SCHEDULER_ENABLED ? [PipelineScheduler] : []),

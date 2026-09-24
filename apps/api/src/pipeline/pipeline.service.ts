@@ -17,6 +17,7 @@ import { buildReason, loadEdition, saveBuilt } from "./build";
 import { agentCollect, fixtureCollect } from "./collect-source";
 import type { CollectResult } from "./collect.schema";
 import { generateStructured } from "./generate";
+import { EditionBusy, EditionLock, LockDbFailed } from "./lock";
 import { OwnerAlert } from "./owner-alert";
 import { personalize } from "./personalize";
 import { dedupeCandidates, persistCandidate, type Outcome } from "./persist";
@@ -132,6 +133,10 @@ export type RunReport = EditionRun & { runId: string; durationMs: number };
 // or works over the fixture. Both have a default, so a step can still be called bare in a test.
 export type StepRun = { mode?: Mode; now?: Date };
 
+// The send may name the edition it is for. Without a date it is today's, as the 7h clock means it;
+// with one it is a resume — an edition a run left `sending` and the calendar has moved past.
+export type SendRun = StepRun & { date?: Date };
+
 const startOf = (p: StepRun) => ({ mode: resolveMode(DEPLOYMENT, p.mode), now: p.now ?? new Date() });
 
 @Injectable()
@@ -155,14 +160,31 @@ export class PipelineService {
     private readonly mail: MailService,
     @Inject(ORIGINS) private readonly origins: Origins,
     @Inject(UNSUBSCRIBE_SECRET) private readonly unsubscribeSecret: string,
+    private readonly lock: EditionLock,
   ) {}
+
+  // Every step runs holding the day's lock (see EditionLock): a busy edition is a failure of the
+  // step, in the step's own words, so the route and the alert read it like any other.
+  private locked<A, E extends { reason: string }>(
+    day: string,
+    step: string,
+    body: Effect.Effect<A, E>,
+    fail: (reason: string) => E,
+  ): Effect.Effect<A, E> {
+    return this.lock.hold(day, step, body).pipe(
+      Effect.catchIf(
+        (error): error is EditionBusy | LockDbFailed => error instanceof EditionBusy || error instanceof LockDbFailed,
+        (error) => Effect.fail(fail(error.reason)),
+      ),
+    );
+  }
 
   // Collection step: the Editor loads the `collect` skill and works inside the rules set here. A
   // mocked run swaps where the news comes from and nothing else — what is stored is decided by the
   // same code either way.
   collect(run: StepRun = {}): Effect.Effect<CollectReport, CollectFailed> {
     const { mode, now } = startOf(run);
-    return Effect.gen(this, function* () {
+    const body = Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -210,7 +232,8 @@ export class PipelineService {
       };
       this.logger.log({ msg: "collect finished", mode, saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, durationMs: report.durationMs, usage: report.usage });
       return report;
-    }).pipe(
+    });
+    return this.locked(runDate(now), "collect", body, (reason) => new CollectFailed({ reason })).pipe(
       // The alert is not here: with a retry per step, alerting inside the step would mail the owners
       // once per attempt. The run alerts once when the workflow gives up, and the per-step route
       // alerts for its own step.
@@ -223,7 +246,7 @@ export class PipelineService {
   // turns the stored text into what the e-mail carries.
   write(run: StepRun = {}): Effect.Effect<WriteReport, WriteFailed> {
     const { mode, now } = startOf(run);
-    return Effect.gen(this, function* () {
+    const body = Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -328,7 +351,8 @@ export class PipelineService {
         usage: done.usage,
       });
       return done;
-    }).pipe(
+    });
+    return this.locked(runDate(now), "write", body, (reason) => new WriteFailed({ reason })).pipe(
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason }))),
     );
   }
@@ -338,7 +362,7 @@ export class PipelineService {
   // passes. Same edition in, same e-mail out.
   build(run: StepRun = {}): Effect.Effect<BuildReport, BuildFailed> {
     const { now } = startOf(run);
-    return Effect.gen(this, function* () {
+    const body = Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -379,7 +403,8 @@ export class PipelineService {
       };
       this.logger.log({ msg: "build finished", ...report });
       return report;
-    }).pipe(
+    });
+    return this.locked(runDate(now), "build", body, (reason) => new BuildFailed({ reason })).pipe(
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason }))),
     );
   }
@@ -387,12 +412,14 @@ export class PipelineService {
   // left becomes one message per confirmed subscriber, handed to the provider in batches. It is a
   // run of its own, at 7h, and not a fourth step of the generation workflow: the edition is ready
   // long before it, and a resend has nothing to do with generating anything.
-  send(run: StepRun = {}): Effect.Effect<SendReport, SendFailed> {
+  send(run: SendRun = {}): Effect.Effect<SendReport, SendFailed> {
     const { now } = startOf(run);
+    const date = run.date ?? editionDate(now);
+    const day = date.toISOString().slice(0, 10);
     return Effect.suspend(() => {
       if (this.sending) return new SendFailed({ reason: "a send is already in flight" });
       this.sending = true;
-      return this.startSend(now).pipe(
+      return this.locked(day, "send", this.startSend(date, now), (reason) => new SendFailed({ reason })).pipe(
         Effect.ensuring(
           Effect.sync(() => {
             this.sending = false;
@@ -404,14 +431,13 @@ export class PipelineService {
     });
   }
 
-  private startSend(now: Date): Effect.Effect<SendReport, SendFailed> {
+  private startSend(date: Date, now: Date): Effect.Effect<SendReport, SendFailed> {
     return Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
         catch: (error) => new SendFailed({ reason: `settings: ${String(error)}` }),
       });
-      const date = editionDate(now);
       const day = date.toISOString().slice(0, 10);
       const failed = (error: { reason: string }) => new SendFailed({ reason: error.reason });
 
