@@ -74,7 +74,7 @@ ol, ul { padding: 0; list-style: none; }
 .lnk--under { justify-self: start; text-decoration: underline; text-underline-offset: 4px; }
 
 /* Logo */
-/* Logo: símbolo da rodada 2 (Núcleo) + ARGON por extenso. */
+/* Logo: símbolo da rodada 3 (Órbita) + ARGON por extenso. */
 .logo { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
 .logo__mark { width: 28px; height: 28px; flex: none; }
 .logo__wm { display: block; height: 17px; width: auto; aspect-ratio: 264 / 44; flex: none; }

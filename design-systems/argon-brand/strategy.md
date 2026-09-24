@@ -137,7 +137,19 @@ elétrons do argônio). Seis conceitos, cada um apoiado numa lei: proximidade, f
 semelhança, pregnância, continuidade e fechamento. O nome continua ARGON, com o A sem barra. A
 logo completa é símbolo + ARGON.
 
+## 4e. Rodada 3 — referências
+
+Cinco conceitos a partir das referências enviadas: A entrelaçado num anel (Órbita), anel e A em
+linha fina com o mesmo traço do nome (Linha), A completado por um ponto (Ponto), A de três peças
+(Três peças) e três triângulos que formam um A maior (Três vértices). O símbolo recomendado é o
+21, Órbita: o anel é a órbita e o A é o núcleo, é sólido e se lê bem em 16 px. O 24, Linha, é o
+seu par em traço fino para usos grandes. A referência do A com anel lembra o logo dos Vingadores,
+por isso a versão da Argon é simétrica e sem cauda.
+
 ## 5. Recomendação
+
+**Atualização (rodada 3):** a recomendação é o 21, Órbita, ao lado do ARGON por extenso, com o 24,
+Linha, como versão em traço fino. Substitui a recomendação da rodada 2 (16, Núcleo).
 
 **Atualização (rodada 2):** a recomendação é o conceito 16, Núcleo. Um disco sólido, o átomo,
 cortado por um A vazado com a mesma inclinação do A do ARGON; o corte divide o disco em três

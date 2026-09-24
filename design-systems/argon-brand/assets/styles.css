@@ -595,3 +595,11 @@ main { max-width: var(--max); margin-inline: auto; }
 .r2__mark { width: min(100%, 260px); }
 .r2__lockup { font-size: 44px; }
 .lockup--h .mark { width: 0.84em; height: 0.84em; }
+
+/* Rodada 3 · referências */
+.r3__refs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+.r3__ref { display: grid; gap: 8px; align-content: start; font-size: 0.875rem; color: var(--ink-2); }
+.r3__img { display: grid; place-items: center; aspect-ratio: 1; max-width: 100%; padding: 12px; background: #fff; border: 1px solid var(--rule); overflow: hidden; }
+.r3__img img { max-height: 100%; width: auto; object-fit: contain; }
+@media (max-width: 960px) { .r3__refs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .r3__refs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
