@@ -1,5 +1,7 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import type { Agent } from "@mastra/core/agent";
+import type { MastraScorers } from "@mastra/core/evals";
+import type { TracingContext } from "@mastra/core/observability";
 import { MastraService } from "@mastra/nestjs";
 import { Data, Effect } from "effect";
 import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
@@ -7,6 +9,7 @@ import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
+import { liveScorers } from "../mastra/scorers";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
@@ -89,7 +92,9 @@ export type RunReport = EditionRun & { runId: string; durationMs: number };
 
 // What a step is told before it starts: which clock to read and whether this run pays for judgement
 // or works over the fixture. Both have a default, so a step can still be called bare in a test.
-export type StepRun = { mode?: Mode; now?: Date };
+// The tracing context is the workflow step's, when a run is what called: the agent's calls then show
+// in the Studio as children of the step instead of traces of their own.
+export type StepRun = { mode?: Mode; now?: Date; tracingContext?: TracingContext };
 
 // The send may name the edition it is for. Without a date it is today's, as the 7h clock means it;
 // with one it is a resume — an edition a run left `sending` and the calendar has moved past.
@@ -160,9 +165,13 @@ export class PipelineService {
           ? fixtureCollect
           : agentCollect({ mastra: this.mastra, prisma: this.prisma, profile: PROFILE, logger: this.logger });
 
-      const collected = yield* source({ now, since, cutoff: settings.score_cutoff, max: settings.max_articles }).pipe(
-        Effect.mapError((error) => new CollectFailed({ reason: error.reason })),
-      );
+      const collected = yield* source({
+        now,
+        since,
+        cutoff: settings.score_cutoff,
+        max: settings.max_articles,
+        tracingContext: run.tracingContext,
+      }).pipe(Effect.mapError((error) => new CollectFailed({ reason: error.reason })));
 
       // The list is persisted by code, a few candidates at a time, in score order, one row per
       // canonical URL: the answer is deduplicated first, and the unique index catches what the
@@ -246,11 +255,16 @@ export class PipelineService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
       const editor: Agent = this.mastra.getAgent("editor");
       const generating =
-        <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
+        <S extends z.ZodType>(schema: S, scorers?: MastraScorers): Generate<z.infer<S>> =>
         (text) =>
           Effect.tryPromise({
             try: async () => {
-              const generated = await generateStructured(editor, text, { schema });
+              const generated = await generateStructured(editor, text, {
+                schema,
+                tracingContext: run.tracingContext,
+                metadata: { step: "write", mode, date: day },
+                scorers,
+              });
               return { object: generated.object, usage: generated.usage };
             },
             catch: (error) => new ItemFailed({ reason: String(error) }),
@@ -262,7 +276,11 @@ export class PipelineService {
       const items = yield* Effect.forEach(
         candidates,
         (candidate) =>
-          writeItem(candidate, mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema), this.logger),
+          writeItem(
+            candidate,
+            mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema, liveScorers.write),
+            this.logger,
+          ),
         { concurrency: 3 },
       );
       const written = items.filter((item): item is WrittenResult => item.outcome === "written");

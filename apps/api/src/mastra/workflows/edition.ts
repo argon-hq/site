@@ -1,3 +1,4 @@
+import type { TracingContext } from "@mastra/core/observability";
 import { createWorkflow } from "@mastra/core/workflows";
 import { Data, Effect } from "effect";
 import { z } from "zod";
@@ -74,7 +75,11 @@ const forToday = (date: string): Effect.Effect<void, StaleRun> => {
 const generationStep = <A>(
   id: string,
   description: string,
-  run: (pipeline: PipelinePort, input: EditionRun) => Effect.Effect<A, { reason: string }>,
+  run: (
+    pipeline: PipelinePort,
+    input: EditionRun,
+    tracingContext?: TracingContext,
+  ) => Effect.Effect<A, { reason: string }>,
   fold: (previous: EditionRun, report: A) => EditionRun,
   skip?: (previous: EditionRun) => boolean,
 ) =>
@@ -85,11 +90,11 @@ const generationStep = <A>(
     outputSchema: editionRunSchema,
     retries: STEP_RETRIES,
     alert: true,
-    run: (pipeline, input) =>
+    run: (pipeline, input, tracingContext) =>
       skip?.(input)
         ? Effect.succeed(input)
         : forToday(input.date).pipe(
-            Effect.andThen(run(pipeline, input)),
+            Effect.andThen(run(pipeline, input, tracingContext)),
             Effect.map((report) => fold(input, report)),
           ),
   });
@@ -102,13 +107,13 @@ export const collectStep = stepOf({
   outputSchema: editionRunSchema,
   retries: STEP_RETRIES,
   alert: true,
-  run: (pipeline, request) => {
+  run: (pipeline, request, tracingContext) => {
     const run: EditionRun = {
       date: request.date ?? runDate(new Date()),
       mode: resolveMode(DEPLOYMENT, request.mode),
     };
     return forToday(run.date).pipe(
-      Effect.andThen(pipeline.collect({ mode: run.mode })),
+      Effect.andThen(pipeline.collect({ mode: run.mode, tracingContext })),
       Effect.map((report): EditionRun => ({
         ...run,
         collect: {
@@ -125,7 +130,7 @@ export const collectStep = stepOf({
 export const writeStep = generationStep(
   "write",
   "The Editor writes each stored article and the header; below the minimum the edition is skipped.",
-  (pipeline, run) => pipeline.write({ mode: run.mode }),
+  (pipeline, run, tracingContext) => pipeline.write({ mode: run.mode, tracingContext }),
   (previous, report) => ({
     ...previous,
     write: {

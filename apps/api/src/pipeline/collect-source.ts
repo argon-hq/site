@@ -1,10 +1,12 @@
 import type { LoggerService } from "@nestjs/common";
 import type { Agent } from "@mastra/core/agent";
+import type { TracingContext } from "@mastra/core/observability";
 import type { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
 import { twoAttempts } from "../mastra/attempts";
-import { PageUnreadable, fetchArticle } from "../mastra/tools/read-page";
+import { liveScorers } from "../mastra/scorers";
+import { PageUnreadable, readScreened } from "../mastra/tools/read-page";
 import type { CollectContext } from "../mastra/tools/context";
 import type { PrismaClient } from "../generated/prisma/client";
 import { collectResultSchema, type CollectResult } from "./collect.schema";
@@ -18,7 +20,7 @@ export class CollectSourceFailed extends Data.TaggedError("CollectSourceFailed")
 
 // What one collection run looks for. The window and the cutoff come from the rules and the settings;
 // the source only answers within them.
-export type CollectRun = { now: Date; since: Date; cutoff: number; max: number };
+export type CollectRun = { now: Date; since: Date; cutoff: number; max: number; tracingContext?: TracingContext };
 
 // What a source answers: the candidates, what the run cost, and how to read each page. The reading
 // travels with the answer because it is part of where the news came from — the live source reads the
@@ -57,6 +59,9 @@ export const agentCollect = (deps: {
                 schema: collectResultSchema,
                 requestContext,
                 maxSteps: profile.maxSteps,
+                tracingContext: run.tracingContext,
+                metadata: { step: "collect", mode: "live" },
+                scorers: liveScorers.collect,
               }),
             catch: (error) => new CollectSourceFailed({ reason: String(error) }),
           }),
@@ -72,7 +77,7 @@ export const agentCollect = (deps: {
         evaluated: generated.object.candidates.length,
       });
 
-      return { result: generated.object, usage: generated.usage, read: fetchArticle };
+      return { result: generated.object, usage: generated.usage, read: (url) => readScreened(url) };
     });
 };
 

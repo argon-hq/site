@@ -9,6 +9,7 @@ import { RetentionService } from "./retention";
 import { ScheduleRegistry, type ScheduleChange } from "./schedules";
 import { SUNDAY_SCHEDULE, SUNDAY_SEND_SCHEDULE, TIMEZONE } from "./run";
 import { EditionWatch } from "./watch";
+import { WriteDataset } from "./write-dataset";
 
 // The application as the Mastra side sees it: the workflows' steps and the operator's tools call
 // these, and nothing else. Bound when the module starts, so a run the Studio or the scheduler starts
@@ -24,6 +25,7 @@ export class PipelinePortAdapter implements PipelinePort, OnModuleInit, OnModule
     private readonly owners: OwnerAlert,
     private readonly registry: ScheduleRegistry,
     private readonly prisma: PrismaService,
+    private readonly dataset: WriteDataset,
   ) {}
 
   onModuleInit(): void {
@@ -46,6 +48,7 @@ export class PipelinePortAdapter implements PipelinePort, OnModuleInit, OnModule
   changeSchedule = (change: ScheduleChange) => this.registry.change(change);
   runSchedule = (id: string) => this.registry.run(id);
   resetSchedules = (id: string | undefined) => this.registry.reset(id);
+  addToWriteDataset = (date: string | undefined) => this.dataset.addEdition(date);
 
   // Sunday has no edition, but the CloudWatch alarms count `schedule fired` and `send finished` per
   // calendar day. The scheduler writes the first for every fire; the send's line is written here,

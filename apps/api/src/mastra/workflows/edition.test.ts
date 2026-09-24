@@ -46,6 +46,7 @@ const steps = (over: Partial<PipelinePort> = {}): PipelinePort => ({
   changeSchedule: unused,
   runSchedule: unused,
   resetSchedules: unused,
+  addToWriteDataset: unused,
   ...over,
 });
 

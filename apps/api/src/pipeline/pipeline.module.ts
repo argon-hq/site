@@ -11,6 +11,7 @@ import { PipelineService } from "./pipeline.service";
 import { PipelinePortAdapter } from "./port";
 import { RetentionService } from "./retention";
 import { ScheduleRegistry } from "./schedules";
+import { WriteDataset } from "./write-dataset";
 import { EditionWatch } from "./watch";
 
 @Module({})
@@ -34,6 +35,7 @@ export class PipelineModule {
         EditionWatch,
         RetentionService,
         ScheduleRegistry,
+        WriteDataset,
         // What the workflows and the operator's tools reach the application through.
         PipelinePortAdapter,
         // The clock is only started where it should tick. An environment with it off has no timer at

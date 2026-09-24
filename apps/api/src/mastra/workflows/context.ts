@@ -9,6 +9,7 @@ import type {
   WriteReport,
 } from "../../pipeline/pipeline.service";
 import type { DeliveryStatus } from "../../pipeline/delivery-status";
+import type { DatasetAdded } from "../../pipeline/write-dataset";
 import type { RetentionReport } from "../../pipeline/retention";
 import type { ScheduleView, ScheduleChange } from "../../pipeline/schedules";
 import type { StuckEdition } from "../../pipeline/watch";
@@ -33,6 +34,7 @@ export type PipelinePort = {
   changeSchedule(change: ScheduleChange): Failing<ScheduleView>;
   runSchedule(id: string): Failing<{ scheduleId: string; runId: string }>;
   resetSchedules(id: string | undefined): Failing<ScheduleView[]>;
+  addToWriteDataset(date: string | undefined): Failing<DatasetAdded>;
 };
 
 export type EditionContext = { pipeline: PipelinePort };

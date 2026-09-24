@@ -130,10 +130,36 @@ export const deliveryStatus = createTool({
     ),
 });
 
+const datasetInput = z.object({
+  date: z.iso
+    .date()
+    .optional()
+    .describe("YYYY-MM-DD, São Paulo: the edition whose articles become items. Empty: today."),
+});
+
+export const datasetAddEdition = createTool({
+  id: "dataset_add_edition",
+  description:
+    "Adds a day's articles to the `write` dataset, each as the exact prompt the writing step gives the Editor. Run an experiment on it (Datasets → write) to compare versions of the Editor's instructions on the same articles.",
+  inputSchema: datasetInput,
+  outputSchema: z.object({
+    dataset: z.string(),
+    date: z.string(),
+    added: z.number(),
+    alreadyThere: z.number(),
+    withoutText: z.number(),
+  }),
+  execute: (input, context) =>
+    operate("dataset_add_edition", (pipeline) => pipeline.addToWriteDataset(datasetInput.parse(input).date))(
+      context.requestContext,
+    ),
+});
+
 export const operatorTools = {
   schedules_list: schedulesList,
   schedule_update: scheduleUpdate,
   schedule_run: scheduleRun,
   schedule_reset: scheduleReset,
   delivery_status: deliveryStatus,
+  dataset_add_edition: datasetAddEdition,
 };

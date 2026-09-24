@@ -7,6 +7,7 @@ import { lookup as dnsLookup } from "node:dns/promises";
 import { z } from "zod";
 import { PROFILE } from "../../pipeline/profile";
 import { isAllowedDomain } from "../../pipeline/rules";
+import { screenPage, type Verdict } from "../guard";
 import { extractedArticleSchema, type ExtractedArticle } from "../schemas/article";
 
 // Hard rules live here, not in the prompt.
@@ -197,6 +198,28 @@ export const fetchArticle = (url: string, deps: FetchDeps = liveDeps) =>
     }),
   );
 
+// What the agent reads and what the code stores: the page, screened for text aimed at the reader
+// (see guard.ts). A refused page is unreadable, with the detector's reason, and is never stored.
+export const readScreened = (
+  url: string,
+  screen: (url: string, text: string) => Effect.Effect<Verdict> = screenPage,
+  deps: FetchDeps = liveDeps,
+): Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable | UrlNotAllowed> =>
+  fetchArticle(url, deps).pipe(
+    Effect.flatMap((article) =>
+      screen(article.canonicalUrl, `${article.originalTitle}\n\n${article.extractedText}`).pipe(
+        Effect.flatMap((verdict) =>
+          verdict.flagged
+            ? new PageUnreadable({
+                url: article.canonicalUrl,
+                reason: `suspected prompt injection: ${verdict.reason ?? "no reason given"}`,
+              })
+            : Effect.succeed(article),
+        ),
+      ),
+    ),
+  );
+
 const readPageInput = z.object({ url: z.url() });
 
 export const readPage = createTool({
@@ -207,5 +230,5 @@ export const readPage = createTool({
   outputSchema: extractedArticleSchema,
   // Promise boundary: Mastra calls the tool, the effect runs here. The input is parsed again on
   // the way in: what Mastra types it as depends on its zod version, not on this schema.
-  execute: (input) => Effect.runPromise(fetchArticle(readPageInput.parse(input).url)),
+  execute: (input) => Effect.runPromise(readScreened(readPageInput.parse(input).url)),
 });

@@ -157,6 +157,7 @@ rest is in **Tools**, which the Studio runs with a form and no model:
 - `schedule_run`: fires one now, with its own input; the history marks it `manual`.
 - `schedule_reset`: one clock, or all of them, back to the code.
 - `delivery_status`: a day's edition on its way out — its state, the rows by status, each batch, the first errors.
+- `dataset_add_edition`: a day's articles into the `write` dataset (see Studio below).
 
 To test a clock locally, turn `SCHEDULER_ENABLED` on, `schedule_update` the `edition` to `*/2 * * * *`
 in `mock`, watch it run under Workflows, and `schedule_reset` it after.

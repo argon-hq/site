@@ -28,6 +28,8 @@
   "dependencies": {
     "@mastra/core": "^1.68.0",
     "@mastra/editor": "^0.15.1",
+    "@mastra/evals": "^1.10.2",
+    "@mastra/mcp": "1.18.0",
     "@mastra/nestjs": "^0.2.27",
     "@mastra/observability": "^1.18.0",
     "@mastra/pg": "^1.26.0",

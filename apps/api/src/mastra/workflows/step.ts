@@ -1,5 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
 import { Effect, Exit } from "effect";
+import type { TracingContext } from "@mastra/core/observability";
 import type { z } from "zod";
 import { failureReason } from "../../effect/reason";
 import { editionContext, type EditionRequestContext, type PipelinePort } from "./context";
@@ -13,7 +14,12 @@ type StepSpec<I extends z.ZodType, O extends z.ZodType> = {
   // Whether the owners hear about this step giving up. The generation and the send say so; the
   // watch and the retention only log, as they did when Nest held the clock.
   alert: boolean;
-  run: (pipeline: PipelinePort, input: z.infer<I>) => Effect.Effect<z.infer<O>, { reason: string }>;
+  // The span of this step, for the agent calls the run makes to hang under.
+  run: (
+    pipeline: PipelinePort,
+    input: z.infer<I>,
+    tracingContext: TracingContext | undefined,
+  ) => Effect.Effect<z.infer<O>, { reason: string }>;
 };
 
 // One shape for every step of every workflow: read the pipeline, run its effect, hand the result on.
@@ -31,7 +37,7 @@ export const stepOf = <I extends z.ZodType, O extends z.ZodType>(spec: StepSpec<
     inputSchema: spec.inputSchema,
     outputSchema: spec.outputSchema,
     retries: spec.retries,
-    execute: async ({ inputData, requestContext, retryCount }) => {
+    execute: async ({ inputData, requestContext, retryCount, tracingContext }) => {
       // Parsed again on the way in: what Mastra types the input as depends on its zod version.
       const input = spec.inputSchema.parse(inputData);
       const lastAttempt = (retryCount ?? 0) >= spec.retries;
@@ -40,7 +46,7 @@ export const stepOf = <I extends z.ZodType, O extends z.ZodType>(spec: StepSpec<
         editionContext(spec.id, requestContext as EditionRequestContext).pipe(
           Effect.flatMap(({ pipeline }) =>
             spec
-              .run(pipeline, input)
+              .run(pipeline, input, tracingContext)
               .pipe(
                 Effect.tapError((error) =>
                   spec.alert && lastAttempt ? pipeline.alert(spec.id, error.reason) : Effect.void,
