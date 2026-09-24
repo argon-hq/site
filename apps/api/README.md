@@ -47,13 +47,12 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   are frozen at creation, a subscriber who confirms later starts a batch of their own, and the rows of a batch keep a
   stable order. A batch refused whole leaves its rows `pending`, never `failed` — `failed` means the provider looked at
   that one message and said no.
-  `personalize.ts` is where the stored edition becomes one subscriber's copy, and today it hands it over untouched: the
-  raw unsubscribe token cannot be read back (only its SHA-256 is stored), so ARG-114 is what makes the substitution
-  possible. Until then there is no `List-Unsubscribe` either — a one-click URI carrying the placeholder would have the
-  mail client post it, fail, and tell the subscriber they were unsubscribed when they were not. `sendRefusal` is the
-  guard that follows from that: **production refuses to send at all** while the marker is unsubstituted, whoever asks,
-  the same deal `resolveMode` makes about a mocked run. Dev and lab do send, which is how the pipeline is exercised end
-  to end — so their subscriber lists must hold only team addresses until ARG-114 lands.
+  `personalize.ts` is where the stored edition becomes one subscriber's copy: the marker in both copies gives way to
+  the subscriber's own unsubscribe token, and the `List-Unsubscribe` headers (RFC 8058) carry the same token. The token
+  is derived, never stored — `<subscriber id>.<HMAC-SHA256 of the id under UNSUBSCRIBE_TOKEN_SECRET>`
+  (`src/subscriber/token.ts`) — so the sending step asks for it as often as it likes and the database keeps only a
+  hash. A copy with no place for the token settles as `failed` without leaving; rotating the secret invalidates
+  every link already in an inbox, so it is a deliberate act.
   A failure mails the `owner_emails` from the settings (`owner-alert.ts`) **once**: the alert lives at the boundaries —
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.

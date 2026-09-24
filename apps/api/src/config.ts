@@ -8,6 +8,10 @@ const schema = z.object({
   DATABASE_URL: z.string().url(),
   ANTHROPIC_API_KEY: z.string().min(1),
   INTERNAL_API_SECRET: z.string().min(16),
+  // What the unsubscribe tokens are derived from (src/subscriber/token.ts). Its own secret, apart from
+  // the internal one: the internal secret is shared with the site and rotates with it, and rotating
+  // this one invalidates every unsubscribe link already in an inbox.
+  UNSUBSCRIBE_TOKEN_SECRET: z.string().min(32),
   PORT: z.coerce.number().default(3001),
 
   // The internal clock: 5h30 generation, Monday to Saturday. Off by default, so a machine that only

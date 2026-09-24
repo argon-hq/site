@@ -27,6 +27,7 @@ import { SmtpTransport } from "../src/mail/transports/smtp.transport";
 import { PrismaService } from "../src/prisma/prisma.service";
 import { SettingsService } from "../src/settings/settings.service";
 import { normalizeEmail, SubscriberService } from "../src/subscriber/subscriber.service";
+import { hashToken } from "../src/subscriber/token";
 import { unsubscribeHeaders, unsubscribePageUrl } from "../src/subscriber/urls";
 
 async function main() {
@@ -45,7 +46,7 @@ async function main() {
 
   try {
     const identity = await settings.load();
-    const token = await unsubscribeTokenFor(to, config, prisma, new SubscriberService(prisma, settings));
+    const token = await unsubscribeTokenFor(to, config, prisma, new SubscriberService(prisma, settings, undefined as never, origins, config.UNSUBSCRIBE_TOKEN_SECRET));
     const built = await Effect.runPromise(
       buildEdition({
         ...editionFixture,
@@ -73,9 +74,9 @@ async function main() {
   }
 }
 
-// A real token needs a subscriber to belong to, so the recipient becomes one — locally only.
-// The confirmation route does not exist yet, so the last step is done here by hand: the check
-// constraint wants a confirmed row to carry both the consent and the unsubscribe token.
+// A real token needs a subscriber to belong to, so the recipient becomes one — locally only. The
+// confirmation is done here by hand instead of through the e-mail: the check constraint wants a
+// confirmed row to carry both the consent and the hash of the unsubscribe token.
 async function unsubscribeTokenFor(
   email: string,
   config: Config,
@@ -86,10 +87,16 @@ async function unsubscribeTokenFor(
 
   await subscribers.signUp({ email });
   const subscriber = await prisma.subscriber.findUniqueOrThrow({ where: { email: normalizeEmail(email) } });
-  const token = await subscribers.issueUnsubscribeToken(subscriber.id);
+  const token = subscribers.unsubscribeTokenFor(subscriber.id);
   await prisma.subscriber.update({
     where: { id: subscriber.id },
-    data: { status: "confirmed", confirmedAt: new Date(), tokenHash: null, tokenExpiresAt: null },
+    data: {
+      status: "confirmed",
+      confirmedAt: new Date(),
+      tokenHash: null,
+      tokenExpiresAt: null,
+      unsubscribeTokenHash: hashToken(token),
+    },
   });
   return token;
 }
