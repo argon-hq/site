@@ -23,6 +23,9 @@ jobs:
       # Some things only break at build time — a route, a server/client boundary, the Nest bundle.
       - run: pnpm build
       - run: pnpm test
+      # Coverage floor on the pipeline, the mail and the subscriber code: it fails when a module
+      # loses its tests, which is the one thing a coverage number is good at saying.
+      - run: pnpm -C apps/api test:coverage
       # Informational: the result is in the log, and the fix is a Dependabot PR or an override in
       # pnpm-workspace.yaml, not a blocked CI.
       - name: pnpm audit

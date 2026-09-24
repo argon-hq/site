@@ -32,7 +32,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
   and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
-  `POST /pipeline/send` is the distributor, and a run of its own: not a fourth step of the workflow, because the edition
+  `POST /pipeline/send` is the distributor (`delivery.service.ts`), and a run of its own: not a fourth step of the workflow, because the edition
   is ready long before it and a resend generates nothing. `send.ts` reads the built edition — accepting `ready` and also
   `sending`, which is the state a run that stopped halfway leaves and the only way out of — creates one `delivery` row
   per confirmed subscriber as `pending`, and hands them to the provider in batches of 100 under the idempotency key
