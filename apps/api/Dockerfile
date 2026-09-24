@@ -11,6 +11,9 @@ COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --filter api...
 COPY apps/api apps/api
 RUN pnpm --filter api build
+# The Studio bundle travels with the `mastra` CLI, a devDependency that the runtime stage does not
+# install. Copied out of node_modules here, dereferenced (pnpm links it), for the stage below.
+RUN cp -rL apps/api/node_modules/mastra/dist/studio apps/api/studio
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -28,6 +31,8 @@ COPY --from=deps --chown=app:app /repo/node_modules ./node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=app:app /repo/apps/api/dist ./apps/api/dist
+# Static files of Mastra Studio, served under /studio when STUDIO_ENABLED is on.
+COPY --from=build --chown=app:app /repo/apps/api/studio ./apps/api/studio
 # Prisma CLI + migrations: deploy.sh runs `prisma migrate deploy` from this image.
 COPY --from=build --chown=app:app /repo/apps/api/prisma ./apps/api/prisma
 COPY --from=build --chown=app:app /repo/apps/api/prisma.config.ts ./apps/api/prisma.config.ts

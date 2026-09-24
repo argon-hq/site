@@ -14,6 +14,11 @@ const schema = z.object({
   // runs the API for a while never wakes the agents up on its own; the run stays one POST away.
   SCHEDULER_ENABLED: z.stringbool().default(false),
 
+  // Mastra Studio, served by this API under /studio (src/studio). Off by default: it is a working
+  // tool for dev and lab, where looking at the agents is the point, and production has no reason to
+  // answer anything there. The bundle it serves is public; the agents behind it are not.
+  STUDIO_ENABLED: z.stringbool().default(false),
+
   // Which environment this is. The value decides how much a run may cost — the model, how far the
   // agent may search and whether it runs at all or over a fixture (see pipeline/profile.ts). Nothing
   // reads it from here: the profile resolves it, and this entry is what refuses an unknown value and
