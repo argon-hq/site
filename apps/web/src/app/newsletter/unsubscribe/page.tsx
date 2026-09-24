@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
+import { PageHeading } from "@/components/ui/page-heading";
+import { PrimaryCta } from "@/components/ui/primary-cta";
 import { UnsubscribePanel } from "@/components/unsubscribe-panel";
 import { lookupSubscription } from "@/lib/subscription";
 import { firstParam, tokenSchema } from "@/lib/token";
@@ -64,16 +65,11 @@ async function InvalidLink() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-        {t("heading")}
-      </h1>
+      <PageHeading>{t("heading")}</PageHeading>
       <p className="max-w-xl text-lg text-muted text-pretty">{t("body")}</p>
-      <Link
-        href="/"
-        className="w-fit rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
+      <PrimaryCta href="/" className="w-fit">
         {t("cta")}
-      </Link>
+      </PrimaryCta>
     </div>
   );
 }

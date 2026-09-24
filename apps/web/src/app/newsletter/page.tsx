@@ -5,6 +5,7 @@ import { BackButton } from "@/components/back-button";
 import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
 import { NewsletterForm } from "@/components/newsletter-form";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("newsletter");
@@ -32,9 +33,7 @@ export default function NewsletterPage() {
           <BrandMark />
 
           <div className="flex flex-col gap-3">
-            <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              {t("heading")}
-            </h1>
+            <PageHeading>{t("heading")}</PageHeading>
             <p className="max-w-xl text-lg text-muted text-pretty">{t("subheading")}</p>
           </div>
 

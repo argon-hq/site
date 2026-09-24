@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { EntryPathTracker } from "@/components/entry-path-tracker";
+import { siteOrigin } from "@/lib/site";
 import { getUserTheme } from "@/theme/theme";
 import "./globals.css";
 
@@ -18,13 +19,25 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("brand");
+  const locale = await getLocale();
 
   return {
+    // Base of every relative URL in the metadata, the Open Graph image included.
+    metadataBase: new URL(siteOrigin()),
     title: {
       default: t("name"),
       template: `%s | ${t("name")}`,
     },
     description: t("tagline"),
+    openGraph: {
+      title: t("name"),
+      description: t("tagline"),
+      siteName: t("name"),
+      // Open Graph spells locales with an underscore.
+      locale: locale.replace("-", "_"),
+      type: "website",
+    },
+    twitter: { card: "summary_large_image" },
   };
 }
 

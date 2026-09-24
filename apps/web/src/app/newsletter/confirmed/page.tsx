@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
+import { PageHeading } from "@/components/ui/page-heading";
+import { PrimaryCta } from "@/components/ui/primary-cta";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("confirmed");
@@ -32,9 +34,7 @@ export default function ConfirmedPage() {
           </div>
 
           <div className="flex flex-col gap-5">
-            <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              {t("heading")}
-            </h1>
+            <PageHeading>{t("heading")}</PageHeading>
             <p className="max-w-xl text-lg text-muted text-pretty">
               {t("body")}
             </p>
@@ -42,12 +42,7 @@ export default function ConfirmedPage() {
 
           <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
             {/* TODO: a plataforma ainda não existe — o destino é placeholder. */}
-            <Link
-              href="/"
-              className="rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              {t("primaryCta")}
-            </Link>
+            <PrimaryCta href="/">{t("primaryCta")}</PrimaryCta>
             <Link
               href="/"
               className="text-base font-medium text-accent transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

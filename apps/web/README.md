@@ -85,7 +85,9 @@ src/
 │   │   ├── page.tsx              → /
 │   │   └── privacy/page.tsx      → /privacy
 │   ├── newsletter/page.tsx       → /newsletter (fora do grupo: tela cheia)
-│   ├── layout.tsx        # html/body, fontes e metadata base
+│   ├── layout.tsx        # html/body, fontes, skip link e metadata base (Open Graph)
+│   ├── opengraph-image.tsx       # imagem do preview ao compartilhar o link
+│   ├── robots.ts / sitemap.ts    # gerados por requisição, com o WEB_ORIGIN do ambiente
 │   └── globals.css       # tokens de cor e tema do Tailwind
 ├── components/
 │   ├── back-button.tsx
@@ -98,7 +100,8 @@ src/
 │   ├── site-footer.tsx
 │   ├── site-header.tsx
 │   ├── unsubscribe-panel.tsx
-│   └── theme-switcher.tsx
+│   ├── theme-switcher.tsx
+│   └── ui/               # PageHeading e PrimaryCta das telas cheias
 ├── i18n/
 │   ├── config.ts         # idiomas disponíveis e padrão
 │   ├── locale.ts         # server actions de leitura/escrita do cookie
@@ -106,13 +109,18 @@ src/
 ├── theme/
 │   ├── config.ts         # temas disponíveis e padrão
 │   └── theme.ts          # server actions de leitura/escrita do cookie
-├── actions/
-│   ├── subscribe.ts      # server action do cadastro: chama a API
-│   └── unsubscribe.ts    # server action do cancelamento (só o POST)
-└── lib/
-    ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
-    ├── email.ts          # normalização e validação de formato
-    └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
+├── actions/              # server actions; Zod valida a entrada antes de chamar a API
+│   ├── subscribe.ts      # cadastro
+│   ├── confirm.ts        # confirmação (POST, nunca no GET da página)
+│   └── unsubscribe.ts    # cancelamento (só o POST)
+├── lib/
+│   ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
+│   ├── email.ts          # normalização e validação de formato
+│   ├── site.ts           # origem pública do site (WEB_ORIGIN)
+│   ├── token.ts          # esquema do token e normalização do query param
+│   └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
+└── test/
+    └── render.tsx        # render com as mensagens reais, para os testes de componente
 ```
 
 ## Cadastro
