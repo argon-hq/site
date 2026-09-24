@@ -5,6 +5,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
 import { UnsubscribePanel } from "@/components/unsubscribe-panel";
 import { lookupSubscription } from "@/lib/subscription";
+import { firstParam, tokenSchema } from "@/lib/token";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("unsubscribe");
@@ -20,13 +21,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function UnsubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string | string[] }>;
 }) {
-  const { token } = await searchParams;
+  const params = await searchParams;
+  // A malformed token is an invalid link right away, without a round trip.
+  const token = tokenSchema.safeParse(firstParam(params.token));
   const preview = await getTranslations("preview");
 
   // Só consulta. O cancelamento sai no POST do botão, dentro do painel.
-  const subscription = token ? await lookupSubscription(token) : null;
+  const subscription = token.success ? await lookupSubscription(token.data) : null;
 
   return (
     <div className="grid min-h-svh flex-1 lg:grid-cols-[16fr_9fr]">
@@ -34,9 +37,9 @@ export default async function UnsubscribePage({
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <BrandMark />
 
-          {subscription && token ? (
+          {subscription && token.success ? (
             <UnsubscribePanel
-              token={token}
+              token={token.data}
               email={subscription.email}
               cancelled={subscription.status !== "confirmed" && subscription.status !== "pending"}
             />

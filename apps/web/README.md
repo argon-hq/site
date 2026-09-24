@@ -29,6 +29,26 @@ vez. O README da raiz conta por que o site local é https.
 
 Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 
+## Testes
+
+Unitários e de componente com Vitest + Testing Library, em `src/**/*.test.{ts,tsx}`, no jsdom.
+Os componentes são renderizados com as mensagens reais de `messages/pt-BR.json`, pelo helper em
+`src/test/render.tsx`, e as server actions são testadas com `@/lib/api` simulado.
+
+```bash
+pnpm -C apps/web test        # também roda no `pnpm test` da raiz, pelo turbo
+```
+
+Ponta a ponta com Playwright, em `e2e/`. Fica fora do `pnpm test` porque depende do navegador
+instalado. O `playwright.config.ts` sobe o site sozinho, em http simples (`dev:http`), com
+`API_URL` apontando para uma porta fechada: server action não dá para interceptar do navegador,
+então o fluxo de cadastro é verificado até a mensagem de erro da API.
+
+```bash
+pnpm -C apps/web exec playwright install chromium   # uma vez
+pnpm -C apps/web test:e2e
+```
+
 ## Rotas
 
 | Rota | Descrição |
