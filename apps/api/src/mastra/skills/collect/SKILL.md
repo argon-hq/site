@@ -16,8 +16,8 @@ Temas a cobrir em toda coleta: juros e crédito; impostos e regulação; empresa
 ## Processo
 
 1. Chame `recent_articles` uma vez. O que vier ali já foi visto: não escolha o mesmo link nem o mesmo assunto com outra fonte.
-2. Faça as buscas. Separe os resultados publicados dentro da janela informada no pedido; ignore o que for mais velho ou sem data confiável. Páginas "ao vivo" que mudam o dia todo (cotações, plantão) não são notícia: descarte.
-3. Para cada resultado promissor, chame `read_page` e leia o texto inteiro. Sem texto legível, descarte.
+2. Faça as buscas. Descarte sem ler apenas três coisas: o que está fora do escopo da newsletter, o que a busca já mostra ser mais velho que a janela, e páginas "ao vivo" que mudam o dia todo (cotações, plantão). Resultado sem data no trecho da busca não é motivo para descartar — é motivo para abrir: a data que vale é a da página.
+3. Abra o que sobrou com `read_page`, do candidato mais forte para o mais fraco, até o número de leituras do pedido. O mínimo é piso, não meta: só pare antes dele se acabarem os resultados na janela ou se já tiver o máximo de notícias acima do corte. Sem texto legível, descarte. Se a página mostrar data fora da janela, descarte também — o sistema rejeitaria de qualquer forma.
 4. Dê a nota de 0 a 5 pela rubrica abaixo e escreva uma justificativa de uma frase.
 5. Se duas notícias tratam do mesmo fato, fique com a de fonte mais confiável e nota maior; a outra recebe nota 0 e entra na lista mesmo assim.
 6. Pare quando tiver o número máximo de notícias pedido acima do corte ou quando esgotar os temas.

@@ -16,6 +16,12 @@ export type Profile = {
   // One collection run: how much the agent may search and how many turns it gets in total.
   minSearches: number;
   maxSearches: number;
+  // How many pages one collection opens. The search brings a title and a snippet; only the page
+  // says whether the news is real, recent and worth a line — so reading is the work of the step and
+  // not a cost to be spared. The floor is what keeps a run from judging thirty results by their
+  // headlines and reading three.
+  minReads: number;
+  maxReads: number;
   maxSteps: number;
   maxTextChars: number;
   // Defaults of the settings that shape the edition. A row in the settings table still wins.
@@ -32,6 +38,8 @@ export const PROFILES: Record<Deployment, Profile> = {
     model: "claude-sonnet-5",
     minSearches: 6,
     maxSearches: 12,
+    minReads: 12,
+    maxReads: 20,
     maxSteps: 60,
     maxTextChars: 12_000,
     scoreCutoff: 3,
@@ -43,7 +51,9 @@ export const PROFILES: Record<Deployment, Profile> = {
     model: "claude-haiku-4-5-20251001",
     minSearches: 3,
     maxSearches: 5,
-    maxSteps: 25,
+    minReads: 8,
+    maxReads: 14,
+    maxSteps: 40,
     maxTextChars: 6_000,
     scoreCutoff: 2,
     minArticles: 2,
@@ -54,7 +64,9 @@ export const PROFILES: Record<Deployment, Profile> = {
     model: "claude-haiku-4-5-20251001",
     minSearches: 2,
     maxSearches: 3,
-    maxSteps: 12,
+    minReads: 3,
+    maxReads: 6,
+    maxSteps: 18,
     maxTextChars: 4_000,
     scoreCutoff: 2,
     minArticles: 1,
@@ -65,7 +77,9 @@ export const PROFILES: Record<Deployment, Profile> = {
     model: "claude-haiku-4-5-20251001",
     minSearches: 2,
     maxSearches: 3,
-    maxSteps: 12,
+    minReads: 3,
+    maxReads: 6,
+    maxSteps: 18,
     maxTextChars: 4_000,
     scoreCutoff: 2,
     minArticles: 1,

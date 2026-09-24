@@ -105,6 +105,7 @@ export function collectPrompt(p: CollectRun & { profile: Profile }): string {
     `Janela: só notícias publicadas depois de ${fmt.format(p.since)}.`,
     `Corte: nota ${p.cutoff}. Pare ao ter ${p.max} notícias acima do corte ou ao esgotar as fontes.`,
     `Buscas: de ${p.profile.minSearches} a ${p.profile.maxSearches}, sem repetir a mesma consulta.`,
+    `Leituras: abra de ${p.profile.minReads} a ${p.profile.maxReads} páginas.`,
     "Fontes disponíveis na busca, e as únicas que o sistema guarda:",
     ...SOURCES.map((source) => `- ${source.name} (${source.domain}): ${source.covers}`),
     // A fase de trabalho responde em prosa, sem o schema à vista, então o pedido diz por extenso o
