@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param, Req, Res } from "@nestjs/common";
+import { BeforeApplicationShutdown, Controller, Get, NotFoundException, Param, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { Public } from "../auth/public.decorator";
 import { StudioService } from "./studio.service";
@@ -9,20 +9,35 @@ import { StudioService } from "./studio.service";
 // from there on. Registered only where STUDIO_ENABLED says so, so production serves nothing.
 @Public()
 @Controller("studio")
-export class StudioController {
+export class StudioController implements BeforeApplicationShutdown {
   constructor(private readonly studio: StudioService) {}
+
+  // Streams open right now, so shutdown can end them. See beforeApplicationShutdown.
+  private readonly streams = new Set<Response>();
 
   // The bundle's inline script opens this stream to learn about a restart of the `mastra dev`
   // server. There is nothing to reload here, but an open stream keeps the browser from reconnecting
   // in a loop for the life of the page.
   @Get("refresh-events")
-  events(@Res() response: Response) {
+  events(@Req() request: Request, @Res() response: Response) {
     response.writeHead(200, {
       "content-type": "text/event-stream",
       "cache-control": "no-store",
       connection: "keep-alive",
     });
     response.write(": open\n\n");
+    this.streams.add(response);
+    request.on("close", () => this.streams.delete(response));
+  }
+
+  // A stream that never ends is a socket that never closes, and the HTTP server does not finish
+  // closing while one is open: without this, SIGTERM waits for every Studio tab anyone left open,
+  // and the deploy kills the container on the grace period instead of stopping it. It has to be
+  // this hook and not onApplicationShutdown, which Nest runs only after the server is closed —
+  // that is, after the very wait this exists to avoid.
+  beforeApplicationShutdown() {
+    for (const stream of this.streams) stream.end();
+    this.streams.clear();
   }
 
   @Get()
