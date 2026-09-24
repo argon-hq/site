@@ -178,18 +178,26 @@ Effect is the standard for typed errors (`Data.TaggedError`), pattern matching (
 
 ## Database
 
-Until the first production deploy the schema lives in a single migration, `prisma/migrations/20260917190000_init`. There is no data worth keeping in any environment yet, so a schema change is an edit to that one migration rather than a new one:
+Every schema change is a new migration under `prisma/migrations/`, named by timestamp, and the init
+migration is frozen: dev, lab and prod all carry it applied. What the schema cannot express — check
+constraints, triggers, partial indexes, seed rows — goes in the migration's SQL by hand, with a
+comment saying why, and a line in `schema.prisma` pointing at it.
 
 ```bash
-# 1. edit schema.prisma, then regenerate the generated part of the init migration
-pnpm db:migrate --create-only --name init   # writes the SQL; keep the hand-written tail below the fold
-# 2. re-apply from scratch
-pnpm db:reset      # drops the local database and replays init (schema, constraints, triggers, initial settings)
+pnpm db:migrate --name <what_changed>   # edit schema.prisma first; writes and applies the SQL locally
 pnpm db:deploy     # applies pending migrations only (what deploy.sh runs in AWS)
+pnpm db:reset      # drops the local database and replays everything, seed rows included
 pnpm db:studio     # browse the local database
 ```
 
-The tail of the init migration (check constraints, triggers, the initial `setting` rows) is hand-written and Prisma does not regenerate it — keep it when rewriting the file. Dev is reset by `db:reset`; the lab environment is reset by redeploying against an empty database. Once we go to production this stops: from then on every schema change is a new migration and init is frozen.
+Migrations run before the new container starts and never run backwards, so every one has to be
+compatible with the code already running: expand first (a new column, a new table), contract later
+(drop the old one), in separate deploys.
+
+Retention runs inside the API, behind `SCHEDULER_ENABLED`, at 4h every day (`src/pipeline/retention.ts`):
+the text of an article is cleared after 30 days, a seen link is forgotten after 30, and a cancelled
+subscriber is purged after 90 — in batches of a thousand, so a table that grew for months is trimmed
+without holding a lock. Bounced and blocked addresses stay, so they are never written to again.
 
 Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database is the Postgres container on the instance (`deploy/README.md`). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
