@@ -37,12 +37,34 @@ resource "aws_iam_role_policy_attachment" "ec2_ecr" {
 }
 
 # backup-db.sh writes the dumps; it never lists or reads them back.
+# The backup bucket also carries the deploy files under deploy/<tag>/ (AWS_DEPLOY_BUCKET in the
+# GitHub variables): the workflow writes them, the instance reads them back.
 data "aws_iam_policy_document" "ec2_backups" {
   statement {
     sid       = "EscreveDumpsDoPostgres"
     effect    = "Allow"
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.backups.arn}/postgres/*"]
+  }
+
+  statement {
+    sid       = "LeArquivosDeDeploy"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/deploy/*"]
+  }
+
+  statement {
+    sid       = "ListaArquivosDeDeploy"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.backups.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["deploy/*"]
+    }
   }
 }
 
@@ -220,6 +242,13 @@ data "aws_iam_policy_document" "github_deploy" {
       "ssm:ListCommandInvocations",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid       = "PublicaArquivosDeDeploy"
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/deploy/*"]
   }
 }
 

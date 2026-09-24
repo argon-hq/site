@@ -3,7 +3,7 @@ import { Cron } from "@nestjs/schedule";
 import { Effect } from "effect";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineService } from "./pipeline.service";
-import { SCHEDULE, SEND_SCHEDULE, TIMEZONE, WATCH_SCHEDULE } from "./run";
+import { SCHEDULE, SEND_SCHEDULE, SUNDAY_SCHEDULE, SUNDAY_SEND_SCHEDULE, TIMEZONE, WATCH_SCHEDULE } from "./run";
 import { EditionWatch } from "./watch";
 
 // The two clocks of the day, inside the API, which is a process that never goes to sleep. They only
@@ -40,5 +40,29 @@ export class PipelineScheduler {
   async watchEditions(): Promise<void> {
     this.logger.log({ msg: "schedule fired", schedule: WATCH_SCHEDULE, timeZone: TIMEZONE });
     await Effect.runPromise(Effect.ignore(this.watch.check()));
+  }
+
+  // Sunday: no edition, only the heartbeat. `schedule fired` and `send finished` are the lines the
+  // CloudWatch alarms count per day; without them Sunday looks like a morning the API slept through.
+  @Cron(SUNDAY_SCHEDULE, { name: "edition-sunday", timeZone: TIMEZONE })
+  sundayGenerate(): void {
+    this.logger.log({
+      msg: "schedule fired",
+      schedule: SUNDAY_SCHEDULE,
+      timeZone: TIMEZONE,
+      sunday: true,
+      edition: false,
+    });
+  }
+
+  @Cron(SUNDAY_SEND_SCHEDULE, { name: "send-sunday", timeZone: TIMEZONE })
+  sundaySend(): void {
+    this.logger.log({
+      msg: "send finished",
+      schedule: SUNDAY_SEND_SCHEDULE,
+      timeZone: TIMEZONE,
+      sunday: true,
+      sent: 0,
+    });
   }
 }
