@@ -1,7 +1,9 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Data, Effect } from "effect";
+import type { Failure } from "../effect/failure";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
-import { ConfirmationMail } from "./confirmation-mail";
+import { ConfirmationMail, type ConfirmationMailFailed } from "./confirmation-mail";
 import { ORIGINS, type Origins } from "./urls";
 import {
   CONFIRMATION_RESEND_WINDOW_SECONDS,
@@ -41,9 +43,16 @@ export type UnsubscribeResult =
   | { status: "already_cancelled"; email: string }
   | { status: "invalid" };
 
+// The database did not answer. Nothing the caller can do about it: a 500, like every other.
+export class SubscriberDbFailed extends Data.TaggedError("SubscriberDbFailed")<Failure> {}
+
 @Injectable()
 export class SubscriberService {
   private readonly logger = new Logger(SubscriberService.name);
+
+  private db<A>(what: string, run: () => Promise<A>): Effect.Effect<A, SubscriberDbFailed> {
+    return Effect.tryPromise({ try: run, catch: (error) => new SubscriberDbFailed({ reason: `${what}: ${String(error)}` }) });
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -54,143 +63,146 @@ export class SubscriberService {
   ) {}
 
   // Sign-up is idempotent by e-mail: the same address never becomes a second row.
-  async signUp(input: SignUpInput): Promise<SignUpResult> {
-    const email = normalizeEmail(input.email);
-    const existing = await this.prisma.subscriber.findUnique({
-      where: { email },
+  signUp(input: SignUpInput): Effect.Effect<SignUpResult, SubscriberDbFailed | ConfirmationMailFailed> {
+    return Effect.gen(this, function* () {
+      const email = normalizeEmail(input.email);
+      const existing = yield* this.db("find subscriber", () => this.prisma.subscriber.findUnique({ where: { email } }));
+
+      // Already in: confirming twice, or signing up again, changes nothing.
+      if (existing?.status === "confirmed") {
+        this.logger.log({ msg: "sign-up ignored, already confirmed", subscriberId: existing.id });
+        return { status: "already_confirmed" } as const;
+      }
+
+      // A permanent bounce or a block is not undone by a form: no new attempt is made to this address.
+      if (existing?.status === "bounced" || existing?.status === "blocked") {
+        this.logger.log({ msg: "sign-up ignored", status: existing.status, subscriberId: existing.id });
+        return { status: "ignored" } as const;
+      }
+
+      // Already waiting for a confirmation sent moments ago: the link in that e-mail stays valid.
+      // Issuing another one here would break it and send a second e-mail for the same click.
+      if (existing?.status === "pending" && withinResendWindow(existing.lastConfirmationSentAt)) {
+        this.logger.log({ msg: "sign-up throttled, confirmation already sent", subscriberId: existing.id });
+        return { status: "throttled" } as const;
+      }
+
+      // New, still pending or cancelled: a fresh token, which invalidates any previous one.
+      const now = new Date();
+      const token = createConfirmationToken(now);
+      const policyVersion = yield* this.db("read policy version", () => this.settings.get("policy_version"));
+      // `undefined` keeps what is already stored: signing up again from a client that sends no
+      // IP or user agent must not erase the proof of opt-in recorded the first time.
+      const consent = {
+        consentAt: now,
+        consentIp: input.consentIp,
+        consentUserAgent: input.consentUserAgent,
+        policyVersion,
+      };
+
+      const subscriber = yield* this.db("upsert subscriber", () =>
+        this.prisma.subscriber.upsert({
+          where: { email },
+          create: {
+            email,
+            status: "pending",
+            tokenHash: token.hash,
+            tokenExpiresAt: token.expiresAt,
+            confirmationSends: 1,
+            lastConfirmationSentAt: now,
+            ...consent,
+          },
+          update: {
+            status: "pending",
+            tokenHash: token.hash,
+            tokenExpiresAt: token.expiresAt,
+            // Signing up again reopens a cancelled subscription.
+            cancelledAt: null,
+            confirmationSends: { increment: 1 },
+            lastConfirmationSentAt: now,
+            ...consent,
+          },
+        }),
+      );
+
+      this.logger.log({ msg: "sign-up pending", subscriberId: subscriber.id, returning: Boolean(existing) });
+
+      yield* this.sendConfirmation(subscriber.id, email, token.token);
+      return { status: "pending", token: token.token } as const;
     });
-    // Already in: confirming twice, or signing up again, changes nothing.
-    if (existing?.status === "confirmed") {
-      this.logger.log({
-        msg: "sign-up ignored, already confirmed",
-        subscriberId: existing.id,
-      });
-      return { status: "already_confirmed" };
-    }
-
-    // A permanent bounce or a block is not undone by a form: no new attempt is made to this address.
-    if (existing?.status === "bounced" || existing?.status === "blocked") {
-      this.logger.log({
-        msg: "sign-up ignored",
-        status: existing.status,
-        subscriberId: existing.id,
-      });
-      return { status: "ignored" };
-    }
-
-    // Already waiting for a confirmation sent moments ago: the link in that e-mail stays valid.
-    // Issuing another one here would break it and send a second e-mail for the same click.
-    if (
-      existing?.status === "pending" &&
-      withinResendWindow(existing.lastConfirmationSentAt)
-    ) {
-      this.logger.log({
-        msg: "sign-up throttled, confirmation already sent",
-        subscriberId: existing.id,
-      });
-      return { status: "throttled" };
-    }
-
-    // New, still pending or cancelled: a fresh token, which invalidates any previous one.
-    const now = new Date();
-    const token = createConfirmationToken(now);
-    // `undefined` keeps what is already stored: signing up again from a client that sends no
-    // IP or user agent must not erase the proof of opt-in recorded the first time.
-    const consent = {
-      consentAt: now,
-      consentIp: input.consentIp,
-      consentUserAgent: input.consentUserAgent,
-      policyVersion: await this.settings.get("policy_version"),
-    };
-
-    const subscriber = await this.prisma.subscriber.upsert({
-      where: { email },
-      create: {
-        email,
-        status: "pending",
-        tokenHash: token.hash,
-        tokenExpiresAt: token.expiresAt,
-        confirmationSends: 1,
-        lastConfirmationSentAt: now,
-        ...consent,
-      },
-      update: {
-        status: "pending",
-        tokenHash: token.hash,
-        tokenExpiresAt: token.expiresAt,
-        // Signing up again reopens a cancelled subscription.
-        cancelledAt: null,
-        confirmationSends: { increment: 1 },
-        lastConfirmationSentAt: now,
-        ...consent,
-      },
-    });
-
-    this.logger.log({
-      msg: "sign-up pending",
-      subscriberId: subscriber.id,
-      returning: Boolean(existing),
-    });
-
-    await this.sendConfirmation(subscriber.id, email, token.token);
-    return { status: "pending", token: token.token };
   }
 
   // The row is already written when the e-mail goes out, so a provider failure would leave a
   // subscriber holding a token nobody sent — and the resend window would block the retry for a
-  // minute. Clearing the mark is what lets the person press the button again right away.
-  private async sendConfirmation(id: string, email: string, token: string): Promise<void> {
-    try {
-      await this.confirmation.send(email, token, this.origins);
-    } catch (error) {
-      this.logger.error({ msg: "confirmation not sent", subscriberId: id, error: String(error) });
-      await this.prisma.subscriber.update({
+  // minute. Clearing the mark is what lets the person press the button again right away. The
+  // clearing is best effort: if it fails too, that is logged, and what the caller hears about is
+  // still the e-mail that did not go out, not the bookkeeping behind it.
+  private sendConfirmation(id: string, email: string, token: string): Effect.Effect<void, ConfirmationMailFailed> {
+    const clearSendMark = this.db("clear send mark", () =>
+      this.prisma.subscriber.update({
         where: { id },
         data: { lastConfirmationSentAt: null, confirmationSends: { decrement: 1 } },
-      });
-      throw error;
-    }
+      }),
+    ).pipe(
+      Effect.catchAll((failure) =>
+        Effect.sync(() => this.logger.error({ msg: "send mark not cleared", subscriberId: id, reason: failure.reason })),
+      ),
+    );
+
+    return this.confirmation.send(email, token, this.origins).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => this.logger.error({ msg: "confirmation not sent", subscriberId: id, reason: error.reason })).pipe(
+          Effect.andThen(clearSendMark),
+        ),
+      ),
+    );
   }
 
   // Turns the one-time token into a confirmed subscription, and records the hash of the permanent
   // unsubscribe token in the same write: the check constraint requires a confirmed row to carry one.
   // The token itself is derived (see `unsubscribeTokenFor`), so the hash is a record, not a lookup.
-  async confirm(token: string): Promise<ConfirmResult> {
-    const subscriber = await this.prisma.subscriber.findFirst({ where: { tokenHash: hashToken(token) } });
+  confirm(token: string): Effect.Effect<ConfirmResult, SubscriberDbFailed> {
+    return Effect.gen(this, function* () {
+      const subscriber = yield* this.db("find by confirmation token", () =>
+        this.prisma.subscriber.findFirst({ where: { tokenHash: hashToken(token) } }),
+      );
 
-    if (!subscriber) {
-      this.logger.warn({ msg: "confirmation with unknown token" });
-      return { status: "invalid" };
-    }
+      if (!subscriber) {
+        this.logger.warn({ msg: "confirmation with unknown token" });
+        return { status: "invalid" } as const;
+      }
 
-    // Confirming twice is the same click arriving twice, or a mail client prefetching the link.
-    if (subscriber.status === "confirmed") {
-      return { status: "already_confirmed", email: subscriber.email };
-    }
+      // Confirming twice is the same click arriving twice, or a mail client prefetching the link.
+      if (subscriber.status === "confirmed") {
+        return { status: "already_confirmed", email: subscriber.email } as const;
+      }
 
-    if (subscriber.status !== "pending") {
-      this.logger.warn({ msg: "confirmation for a subscription that is off", status: subscriber.status });
-      return { status: "invalid" };
-    }
+      if (subscriber.status !== "pending") {
+        this.logger.warn({ msg: "confirmation for a subscription that is off", status: subscriber.status });
+        return { status: "invalid" } as const;
+      }
 
-    if (!subscriber.tokenExpiresAt || subscriber.tokenExpiresAt.getTime() < Date.now()) {
-      return { status: "expired", email: subscriber.email };
-    }
+      if (!subscriber.tokenExpiresAt || subscriber.tokenExpiresAt.getTime() < Date.now()) {
+        return { status: "expired", email: subscriber.email } as const;
+      }
 
-    await this.prisma.subscriber.update({
-      where: { id: subscriber.id },
-      data: {
-        status: "confirmed",
-        confirmedAt: new Date(),
-        unsubscribeTokenHash: hashToken(unsubscribeTokenFor(this.unsubscribeSecret, subscriber.id)),
-        // The hash stays: what makes the token single use is the status guard above, and keeping
-        // it is what lets a second click on the same link answer "already confirmed" instead of
-        // "this link is broken" — the same click arriving twice is not an error.
-      },
+      yield* this.db("confirm subscriber", () =>
+        this.prisma.subscriber.update({
+          where: { id: subscriber.id },
+          data: {
+            status: "confirmed",
+            confirmedAt: new Date(),
+            unsubscribeTokenHash: hashToken(unsubscribeTokenFor(this.unsubscribeSecret, subscriber.id)),
+            // The hash stays: what makes the token single use is the status guard above, and keeping
+            // it is what lets a second click on the same link answer "already confirmed" instead of
+            // "this link is broken" — the same click arriving twice is not an error.
+          },
+        }),
+      );
+
+      this.logger.log({ msg: "confirmed", subscriberId: subscriber.id });
+      return { status: "confirmed", email: subscriber.email } as const;
     });
-
-    this.logger.log({ msg: "confirmed", subscriberId: subscriber.id });
-    return { status: "confirmed", email: subscriber.email };
   }
 
   // The permanent token of one subscriber, the one every edition and the List-Unsubscribe header
@@ -202,42 +214,49 @@ export class SubscriberService {
   // Who a token belongs to. A signed token names its subscriber and is checked without a query; a
   // token from before the derivation — random, only its hash kept — is still looked up by that hash,
   // so an edition already in an inbox keeps its link working.
-  private async resolveUnsubscribeToken(token: string) {
+  private resolveUnsubscribeToken(token: string) {
     const subscriberId = verifyUnsubscribeToken(this.unsubscribeSecret, token);
-    return subscriberId
-      ? this.prisma.subscriber.findUnique({ where: { id: subscriberId } })
-      : this.prisma.subscriber.findFirst({ where: { unsubscribeTokenHash: hashToken(token) } });
+    return this.db("find by unsubscribe token", () =>
+      subscriberId
+        ? this.prisma.subscriber.findUnique({ where: { id: subscriberId } })
+        : this.prisma.subscriber.findFirst({ where: { unsubscribeTokenHash: hashToken(token) } }),
+    );
   }
 
   // Read-only: the page shows who is about to be unsubscribed and confirms before cancelling.
   // A GET must never cancel — the link scanners in e-mail clients follow it on their own.
-  async findByUnsubscribeToken(token: string): Promise<{ email: string; status: string } | null> {
-    const subscriber = await this.resolveUnsubscribeToken(token);
-    return subscriber ? { email: subscriber.email, status: subscriber.status } : null;
+  findByUnsubscribeToken(token: string): Effect.Effect<{ email: string; status: string } | null, SubscriberDbFailed> {
+    return this.resolveUnsubscribeToken(token).pipe(
+      Effect.map((subscriber) => (subscriber ? { email: subscriber.email, status: subscriber.status } : null)),
+    );
   }
 
   // Cancelling twice is not an error: the second click just confirms the subscription is off.
-  async unsubscribe(token: string): Promise<UnsubscribeResult> {
-    const subscriber = await this.resolveUnsubscribeToken(token);
+  unsubscribe(token: string): Effect.Effect<UnsubscribeResult, SubscriberDbFailed> {
+    return Effect.gen(this, function* () {
+      const subscriber = yield* this.resolveUnsubscribeToken(token);
 
-    if (!subscriber) {
-      this.logger.warn({ msg: "unsubscribe with unknown token" });
-      return { status: "invalid" };
-    }
+      if (!subscriber) {
+        this.logger.warn({ msg: "unsubscribe with unknown token" });
+        return { status: "invalid" } as const;
+      }
 
-    // Cancelled, bounced or blocked: already off the list, so nothing is rewritten. A spam
-    // complaint in particular must not be turned back into an ordinary cancellation.
-    if (subscriber.status !== "confirmed" && subscriber.status !== "pending") {
-      return { status: "already_cancelled", email: subscriber.email };
-    }
+      // Cancelled, bounced or blocked: already off the list, so nothing is rewritten. A spam
+      // complaint in particular must not be turned back into an ordinary cancellation.
+      if (subscriber.status !== "confirmed" && subscriber.status !== "pending") {
+        return { status: "already_cancelled", email: subscriber.email } as const;
+      }
 
-    await this.prisma.subscriber.update({
-      where: { id: subscriber.id },
-      data: { status: "cancelled", cancelledAt: new Date() },
+      yield* this.db("cancel subscriber", () =>
+        this.prisma.subscriber.update({
+          where: { id: subscriber.id },
+          data: { status: "cancelled", cancelledAt: new Date() },
+        }),
+      );
+
+      this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id });
+      return { status: "cancelled", email: subscriber.email } as const;
     });
-
-    this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id });
-    return { status: "cancelled", email: subscriber.email };
   }
 }
 
