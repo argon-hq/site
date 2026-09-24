@@ -2,8 +2,9 @@
 //   pnpm email:send [destinatário]
 // In development that inbox is Mailpit: http://localhost:8025. Nothing leaves the machine.
 //
-// The content is the fixture's, but the identity comes from the settings of this environment:
-// the fixture points at a domain that does not exist, so its images would arrive broken.
+// The content is the fixture's, but the identity comes from this environment: sender and policy
+// from the settings, images from WEB_ORIGIN. The fixture points at a domain that does not exist,
+// so left alone its images would arrive broken.
 //
 // Locally it also makes the unsubscribe link real: the recipient is recorded as a confirmed
 // subscriber and gets a token, so the footer link and the one-click header actually cancel it.
@@ -17,6 +18,7 @@ import { Effect } from "effect";
 import { createTransport } from "nodemailer";
 import { Resend } from "resend";
 import { loadConfig, type Config } from "../src/config";
+import { assetBaseUrl } from "../src/email/assets";
 import { buildEdition } from "../src/email/edition/build";
 import { editionFixture } from "../src/email/fixtures/edition";
 import { MailService } from "../src/mail/mail.service";
@@ -49,7 +51,7 @@ async function main() {
         ...editionFixture,
         sender: identity.sender,
         social: identity.social,
-        assetBaseUrl: identity.asset_base_url,
+        assetBaseUrl: assetBaseUrl(config.WEB_ORIGIN),
         privacyPolicyUrl: identity.privacy_policy_url,
         unsubscribeUrl: unsubscribePageUrl(origins, token),
       }),
@@ -63,7 +65,7 @@ async function main() {
       headers: unsubscribeHeaders(origins, token),
     });
     console.log(`Enviado para ${to} por ${transport.name} (id ${sent.id}).`);
-    console.log(`Imagens: ${identity.asset_base_url}/logo.png`);
+    console.log(`Imagens: ${assetBaseUrl(config.WEB_ORIGIN)}/logo.png`);
     console.log(`Cancelamento: ${unsubscribePageUrl(origins, token)}`);
     if (transport.name === "smtp") console.log("Caixa local: http://localhost:8025");
   } finally {

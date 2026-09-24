@@ -114,7 +114,6 @@ describe("unsubscribe placeholder", () => {
   const settings = {
     sender: editionFixture.sender,
     privacy_policy_url: editionFixture.privacyPolicyUrl,
-    asset_base_url: editionFixture.assetBaseUrl,
     social: editionFixture.social,
   };
   const edition: EditionRow = { date, title: "Três notícias", subject: "Crédito, SELIC e IA" };
@@ -128,7 +127,10 @@ describe("unsubscribe placeholder", () => {
   }));
 
   it("validates clean and reaches both formats", async () => {
-    const context = editionContext(settings, unsubscribePlaceholderUrl(origins));
+    const context = editionContext(settings, {
+      webOrigin: origins.web,
+      unsubscribeUrl: unsubscribePlaceholderUrl(origins),
+    });
     const built = await Effect.runPromise(
       toEditionInput(edition, articles, context).pipe(
         Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((e) => validateEdition(input, e)))),

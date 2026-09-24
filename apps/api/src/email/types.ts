@@ -49,6 +49,7 @@ export type ValidationCode =
   | "html_unparseable"
   | "script_present"
   | "stylesheet_not_allowed"
+  | "image_not_absolute"
   | "image_not_allowed"
   | "image_alt_missing"
   | "link_not_absolute"

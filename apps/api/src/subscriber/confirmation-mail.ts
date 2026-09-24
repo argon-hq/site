@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Effect } from "effect";
+import { assetBaseUrl } from "../email/assets";
 import { buildConfirmation } from "../email/confirmation/build";
 import { MailService } from "../mail/mail.service";
 import { SettingsService } from "../settings/settings.service";
@@ -26,7 +27,7 @@ export class ConfirmationMail {
         expiresInHours: CONFIRMATION_TTL_HOURS,
         sender: identity.sender,
         privacyPolicyUrl: identity.privacy_policy_url,
-        assetBaseUrl: identity.asset_base_url,
+        assetBaseUrl: assetBaseUrl(origins.web),
         social: identity.social,
       }),
     );

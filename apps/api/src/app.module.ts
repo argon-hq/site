@@ -4,6 +4,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { MastraModule } from "@mastra/nestjs";
 import { InternalSecretGuard } from "./auth/internal-secret.guard";
 import { loadConfig } from "./config";
+import { EmailModule } from "./email/email.module";
 import { MailModule } from "./mail/mail.module";
 import { HealthController } from "./health/health.controller";
 import { mastra } from "./mastra";
@@ -20,6 +21,7 @@ const config = loadConfig();
     ScheduleModule.forRoot(),
     PrismaModule.forRoot(config.DATABASE_URL),
     SettingsModule,
+    EmailModule.forRoot(config),
     MailModule.forRoot(config),
     PipelineModule.forRoot(config),
     SubscriberModule.forRoot(config),
