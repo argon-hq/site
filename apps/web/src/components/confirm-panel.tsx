@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { confirm } from "@/actions/confirm";
+import { PageHeading } from "@/components/ui/page-heading";
+import { PrimaryCta } from "@/components/ui/primary-cta";
 
 type Stage = "confirming" | "expired" | "invalid" | "error";
 
@@ -32,9 +33,7 @@ export function ConfirmPanel({ token }: { token: string | null }) {
   if (stage === "confirming") {
     return (
       <div role="status" className="flex flex-col gap-5">
-        <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-          {t("confirming.heading")}
-        </h1>
+        <PageHeading>{t("confirming.heading")}</PageHeading>
         <p className="max-w-xl text-lg text-muted text-pretty">{t("confirming.body")}</p>
       </div>
     );
@@ -42,16 +41,11 @@ export function ConfirmPanel({ token }: { token: string | null }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-        {t(`${stage}.heading`)}
-      </h1>
+      <PageHeading>{t(`${stage}.heading`)}</PageHeading>
       <p className="max-w-xl text-lg text-muted text-pretty">{t(`${stage}.body`)}</p>
-      <Link
-        href="/newsletter"
-        className="w-fit rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
+      <PrimaryCta href="/newsletter" className="w-fit">
         {t(`${stage}.cta`)}
-      </Link>
+      </PrimaryCta>
     </div>
   );
 }

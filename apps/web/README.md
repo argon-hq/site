@@ -29,6 +29,26 @@ vez. O README da raiz conta por que o site local é https.
 
 Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 
+## Testes
+
+Unitários e de componente com Vitest + Testing Library, em `src/**/*.test.{ts,tsx}`, no jsdom.
+Os componentes são renderizados com as mensagens reais de `messages/pt-BR.json`, pelo helper em
+`src/test/render.tsx`, e as server actions são testadas com `@/lib/api` simulado.
+
+```bash
+pnpm -C apps/web test        # também roda no `pnpm test` da raiz, pelo turbo
+```
+
+Ponta a ponta com Playwright, em `e2e/`. Fica fora do `pnpm test` porque depende do navegador
+instalado. O `playwright.config.ts` sobe o site sozinho, em http simples (`dev:http`), com
+`API_URL` apontando para uma porta fechada: server action não dá para interceptar do navegador,
+então o fluxo de cadastro é verificado até a mensagem de erro da API.
+
+```bash
+pnpm -C apps/web exec playwright install chromium   # uma vez
+pnpm -C apps/web test:e2e
+```
+
 ## Rotas
 
 | Rota | Descrição |
@@ -65,7 +85,9 @@ src/
 │   │   ├── page.tsx              → /
 │   │   └── privacy/page.tsx      → /privacy
 │   ├── newsletter/page.tsx       → /newsletter (fora do grupo: tela cheia)
-│   ├── layout.tsx        # html/body, fontes e metadata base
+│   ├── layout.tsx        # html/body, fontes, skip link e metadata base (Open Graph)
+│   ├── opengraph-image.tsx       # imagem do preview ao compartilhar o link
+│   ├── robots.ts / sitemap.ts    # gerados por requisição, com o WEB_ORIGIN do ambiente
 │   └── globals.css       # tokens de cor e tema do Tailwind
 ├── components/
 │   ├── back-button.tsx
@@ -78,7 +100,8 @@ src/
 │   ├── site-footer.tsx
 │   ├── site-header.tsx
 │   ├── unsubscribe-panel.tsx
-│   └── theme-switcher.tsx
+│   ├── theme-switcher.tsx
+│   └── ui/               # PageHeading e PrimaryCta das telas cheias
 ├── i18n/
 │   ├── config.ts         # idiomas disponíveis e padrão
 │   ├── locale.ts         # server actions de leitura/escrita do cookie
@@ -86,13 +109,18 @@ src/
 ├── theme/
 │   ├── config.ts         # temas disponíveis e padrão
 │   └── theme.ts          # server actions de leitura/escrita do cookie
-├── actions/
-│   ├── subscribe.ts      # server action do cadastro: chama a API
-│   └── unsubscribe.ts    # server action do cancelamento (só o POST)
-└── lib/
-    ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
-    ├── email.ts          # normalização e validação de formato
-    └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
+├── actions/              # server actions; Zod valida a entrada antes de chamar a API
+│   ├── subscribe.ts      # cadastro
+│   ├── confirm.ts        # confirmação (POST, nunca no GET da página)
+│   └── unsubscribe.ts    # cancelamento (só o POST)
+├── lib/
+│   ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
+│   ├── email.ts          # normalização e validação de formato
+│   ├── site.ts           # origem pública do site (WEB_ORIGIN)
+│   ├── token.ts          # esquema do token e normalização do query param
+│   └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
+└── test/
+    └── render.tsx        # render com as mensagens reais, para os testes de componente
 ```
 
 ## Cadastro

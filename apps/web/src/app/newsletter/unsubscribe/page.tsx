@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
+import { PageHeading } from "@/components/ui/page-heading";
+import { PrimaryCta } from "@/components/ui/primary-cta";
 import { UnsubscribePanel } from "@/components/unsubscribe-panel";
 import { lookupSubscription } from "@/lib/subscription";
+import { firstParam, tokenSchema } from "@/lib/token";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("unsubscribe");
@@ -20,23 +22,25 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function UnsubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string | string[] }>;
 }) {
-  const { token } = await searchParams;
+  const params = await searchParams;
+  // A malformed token is an invalid link right away, without a round trip.
+  const token = tokenSchema.safeParse(firstParam(params.token));
   const preview = await getTranslations("preview");
 
   // Só consulta. O cancelamento sai no POST do botão, dentro do painel.
-  const subscription = token ? await lookupSubscription(token) : null;
+  const subscription = token.success ? await lookupSubscription(token.data) : null;
 
   return (
     <div className="grid min-h-svh flex-1 lg:grid-cols-[16fr_9fr]">
-      <section className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
+      <main id="main-content" className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <BrandMark />
 
-          {subscription && token ? (
+          {subscription && token.success ? (
             <UnsubscribePanel
-              token={token}
+              token={token.data}
               email={subscription.email}
               cancelled={subscription.status !== "confirmed" && subscription.status !== "pending"}
             />
@@ -44,7 +48,7 @@ export default async function UnsubscribePage({
             <InvalidLink />
           )}
         </div>
-      </section>
+      </main>
 
       <aside
         aria-label={preview("label")}
@@ -61,16 +65,11 @@ async function InvalidLink() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-        {t("heading")}
-      </h1>
+      <PageHeading>{t("heading")}</PageHeading>
       <p className="max-w-xl text-lg text-muted text-pretty">{t("body")}</p>
-      <Link
-        href="/"
-        className="w-fit rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
+      <PrimaryCta href="/" className="w-fit">
         {t("cta")}
-      </Link>
+      </PrimaryCta>
     </div>
   );
 }
