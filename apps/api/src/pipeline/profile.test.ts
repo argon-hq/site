@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deploymentSchema, PROFILES, resolveMode, type Deployment } from "./profile";
+import { deploymentSchema, PROFILES, readDeployment, resolveMode, type Deployment } from "./profile";
 
 const cheaperThan = (a: Deployment, b: Deployment) => {
   const cheap = PROFILES[a];
@@ -56,5 +56,13 @@ describe("resolveMode", () => {
   it("never runs production over a fixture, whoever asks", () => {
     expect(resolveMode("prod")).toBe("live");
     expect(resolveMode("prod", "mock")).toBe("live");
+  });
+});
+
+describe("readDeployment", () => {
+  it("is a development machine when nothing says otherwise, and refuses an unknown place by name", () => {
+    expect(readDeployment(undefined)).toBe("local");
+    expect(readDeployment("prod")).toBe("prod");
+    expect(() => readDeployment("staging")).toThrow(/ARGON_ENV must be one of local, lab, dev, prod/);
   });
 });
