@@ -10,6 +10,7 @@ import { mastra } from "./mastra";
 import { PipelineModule } from "./pipeline/pipeline.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SettingsModule } from "./settings/settings.module";
+import { StudioModule } from "./studio/studio.module";
 import { SubscriberModule } from "./subscriber/subscriber.module";
 
 const config = loadConfig();
@@ -22,6 +23,7 @@ const config = loadConfig();
     MailModule.forRoot(config),
     PipelineModule.forRoot(config),
     SubscriberModule.forRoot(config),
+    StudioModule.forRoot(config),
     // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.
     // Global so any module can inject MastraService without re-registering the instance.
     { ...MastraModule.register({ mastra, prefix: "/mastra" }), global: true },
@@ -31,7 +33,8 @@ const config = loadConfig();
     { provide: "CONFIG", useValue: config },
     {
       provide: APP_GUARD,
-      useFactory: (reflector: Reflector) => new InternalSecretGuard(reflector, config.INTERNAL_API_SECRET),
+      useFactory: (reflector: Reflector) =>
+        new InternalSecretGuard(reflector, config.INTERNAL_API_SECRET, config.STUDIO_ENABLED),
       inject: [Reflector],
     },
   ],

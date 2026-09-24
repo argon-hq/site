@@ -90,6 +90,40 @@ pnpm test
 pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
 ```
 
+## Studio
+
+`pnpm mastra:dev` is the Studio of a development machine, against the local database. The agents of
+a deployed environment are reached through the Studio this API serves itself, under `/studio`, where
+`STUDIO_ENABLED` is on — dev and lab, never prod:
+
+| Environment | Address |
+| --- | --- |
+| dev | <https://dev.argon.eduardofockink.com/studio> |
+| lab | <https://lab.argon.eduardofockink.com/studio> |
+
+It is the site's host, not the API's, on purpose: Caddy sends `/studio` and `/mastra` of that host to
+the API container (`deploy/Caddyfile`), so the Studio and the routes it calls share one origin. A
+browser cannot put `x-internal-secret` on a navigation, so the bundle under `/studio` is the one
+public thing here; everything under `/mastra` still answers 401 without the header.
+
+The first visit is a trip to Settings, in the Studio's own sidebar, to fill three fields: the
+instance URL (`https://dev.argon.eduardofockink.com`), the API prefix (`/mastra`) and a header named
+`x-internal-secret` carrying the secret of the environment. Save, and the lists fill in. The browser
+keeps all three in local storage, so it is once per browser, and the secret never travels in a URL
+nor lives in the page. Until it is saved, the pages are empty skeletons: every call is a 401.
+
+One Mastra route answers without the secret where the Studio is served — `GET /mastra/auth/capabilities`,
+which the Studio asks before it renders anything and which tells whether Mastra's own auth is on
+(`{"enabled":false,"login":null}`). Without that exception the page is a dead error screen, Settings
+included, and there is nowhere to type the secret (`src/studio/studio.paths.ts`).
+
+```bash
+aws ssm get-parameter --name /argon/dev/INTERNAL_API_SECRET --with-decryption --region sa-east-1 --query Parameter.Value --output text
+```
+
+The static files come from the `mastra` CLI, a devDependency: the Dockerfile copies them out of
+`node_modules` in the build stage, because the runtime stage installs production dependencies only.
+
 ## E-mail
 
 ```bash

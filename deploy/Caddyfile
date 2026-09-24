@@ -8,7 +8,17 @@ api.argon.eduardofockink.com {
 }
 
 dev.argon.eduardofockink.com {
-	reverse_proxy web-dev:3000
+	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
+	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
+	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
+	# the API serves anything there.
+	@studio path /studio /studio/* /mastra /mastra/*
+	handle @studio {
+		reverse_proxy api-dev:3001
+	}
+	handle {
+		reverse_proxy web-dev:3000
+	}
 }
 
 api.dev.argon.eduardofockink.com {
@@ -21,7 +31,17 @@ lab.argon.eduardofockink.com {
 	log {
 		output file /var/log/caddy/lab.log
 	}
-	reverse_proxy web-lab:3000
+	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
+	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
+	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
+	# the API serves anything there.
+	@studio path /studio /studio/* /mastra /mastra/*
+	handle @studio {
+		reverse_proxy api-lab:3001
+	}
+	handle {
+		reverse_proxy web-lab:3000
+	}
 	handle_errors {
 		respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
 	}
