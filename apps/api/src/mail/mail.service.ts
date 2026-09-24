@@ -28,7 +28,9 @@ export class MailService {
     const from = message.from ?? (await this.settings.get("sender"));
 
     const sent = await this.transport.send({ ...message, from });
-    this.logger.log({ msg: "mail sent", transport: this.transport.name, to: message.to, id: sent.id });
+    // No address in the log: the provider id is enough to find the message, and the address is
+    // personal data that has no business in a log kept for thirty days.
+    this.logger.log({ msg: "mail sent", transport: this.transport.name, id: sent.id });
     return sent;
   }
 

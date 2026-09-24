@@ -1,4 +1,5 @@
 import { Data, Effect } from "effect";
+import { CONFLICT, NOT_FOUND, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { MailService } from "../mail/mail.service";
 import type { BatchDelivery, Message, OnSettled } from "../mail/mail.types";
@@ -8,7 +9,7 @@ import type { Recipient } from "./personalize";
 // imposes no ceiling of its own.
 export const BATCH_SIZE = 100;
 
-export class SendDbFailed extends Data.TaggedError("SendDbFailed")<{ reason: string }> {}
+export class SendDbFailed extends Data.TaggedError("SendDbFailed")<Failure> {}
 export class BatchRefused extends Data.TaggedError("BatchRefused")<{ reason: string }> {}
 
 const db = <A>(run: () => Promise<A>) =>
@@ -45,17 +46,17 @@ export const loadSendable = (prisma: PrismaClient, date: Date): Effect.Effect<Se
     }),
   ).pipe(
     Effect.flatMap((row) =>
-      row === null ? new SendDbFailed({ reason: `edition ${day} does not exist yet` }) : Effect.succeed(row),
+      row === null ? new SendDbFailed({ reason: `edition ${day} does not exist yet`, status: NOT_FOUND }) : Effect.succeed(row),
     ),
     Effect.filterOrFail(
       (row) => row.status === "ready" || row.status === "sending",
-      (row) => new SendDbFailed({ reason: `edition ${day} is ${row.status}, not ready to send` }),
+      (row) => new SendDbFailed({ reason: `edition ${day} is ${row.status}, not ready to send`, status: CONFLICT }),
     ),
     // The three columns are nullable and a ready edition always carries them, so this is what
     // catches a row someone edited by hand — and what makes them strings without a cast.
     Effect.flatMap((row) =>
       row.subject === null || row.html === null || row.text === null
-        ? new SendDbFailed({ reason: `edition ${day} has no built e-mail` })
+        ? new SendDbFailed({ reason: `edition ${day} has no built e-mail`, status: CONFLICT })
         : Effect.succeed({ id: row.id, subject: row.subject, html: row.html, text: row.text }),
     ),
   );

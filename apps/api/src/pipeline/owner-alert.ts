@@ -20,12 +20,13 @@ export class OwnerAlert {
   send(step: string, reason: string): Effect.Effect<void> {
     return Effect.tryPromise(async () => {
       const owners = await this.settings.get("owner_emails");
-      if (owners.length === 0) return this.logger.warn({ msg: "pipeline failed with no owner to alert", step });
+      // The one failure the alert cannot report: an alarm on this line is what does it instead.
+      if (owners.length === 0) return this.logger.error({ msg: "owner alert skipped", step, reason: "owner_emails is empty" });
 
-      const text = `A etapa ${step} falhou em ${new Date().toISOString()}.\n\n${reason}`;
+      const text = `Step ${step} failed at ${new Date().toISOString()}.\n\n${reason}`;
       const html = `<pre>${text.replace(/[&<>]/g, (c) => ESCAPE[c])}</pre>`;
       await Promise.all(
-        owners.map((to) => this.mail.send({ to, subject: `[Argon] falha na etapa ${step}`, text, html })),
+        owners.map((to) => this.mail.send({ to, subject: `[Argon] step ${step} failed`, text, html })),
       );
       this.logger.log({ msg: "owners alerted", step, owners: owners.length });
     }).pipe(
