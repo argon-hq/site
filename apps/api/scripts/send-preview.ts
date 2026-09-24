@@ -85,7 +85,7 @@ async function unsubscribeTokenFor(
 ): Promise<string> {
   if (config.MAIL_TRANSPORT !== "smtp") return "preview";
 
-  await subscribers.signUp({ email });
+  await Effect.runPromise(subscribers.signUp({ email }));
   const subscriber = await prisma.subscriber.findUniqueOrThrow({ where: { email: normalizeEmail(email) } });
   const token = subscribers.unsubscribeTokenFor(subscriber.id);
   await prisma.subscriber.update({
