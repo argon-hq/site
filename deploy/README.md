@@ -14,7 +14,7 @@ Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 ## Variáveis
 
 Cada parâmetro `/argon/<env>/NOME` vira `NOME=valor` em `env/<env>.env` — **o mesmo arquivo para o
-site e para a API** do ambiente. Todo ambiente espera estas oito:
+site e para a API** do ambiente. Todo ambiente espera estas oito, e aceita uma nona:
 
 | Variável | Quem lê | Tipo |
 | --- | --- | --- |
@@ -25,10 +25,15 @@ site e para a API** do ambiente. Todo ambiente espera estas oito:
 | `API_URL` | site | String |
 | `WEB_ORIGIN`, `API_ORIGIN` | API | String |
 | `MAIL_TRANSPORT` | API | String |
+| `SCHEDULER_ENABLED` | API | String, opcional |
 
 `API_URL` alcança a API pela rede do compose: `http://api-<env>:3001`. `WEB_ORIGIN` e `API_ORIGIN`
 são absolutos e entram nos links de todo e-mail — o site serve a página de descadastro, a API o
 endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a API não sobe.
+
+`SCHEDULER_ENABLED` é o relógio interno. Sem ela o ambiente não tem relógio nenhum e a geração fica
+a um `POST /pipeline/run` de distância; com `true`, ele gera a edição sozinho às 5h30, de segunda a
+sábado. Hoje só `dev` a tem.
 
 `NODE_ENV` e `PORT` não entram. Já vêm nas imagens, e como o `env_file` é compartilhado, um `PORT`
 no arquivo derrubaria um dos dois containers — o site escuta 3000, a API 3001.
