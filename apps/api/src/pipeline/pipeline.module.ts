@@ -7,6 +7,7 @@ import { EditionLock } from "./lock";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
+import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
 import { EditionWatch } from "./watch";
 
@@ -31,7 +32,7 @@ export class PipelineModule {
         EditionWatch,
         // The clock is only wired where it should tick. An environment with it off has no timer at
         // all, instead of a timer nobody wanted: the run is still one POST /pipeline/run away.
-        ...(config.SCHEDULER_ENABLED ? [PipelineScheduler] : []),
+        ...(config.SCHEDULER_ENABLED ? [PipelineScheduler, RetentionScheduler] : []),
       ],
     };
   }
