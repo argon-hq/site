@@ -32,6 +32,28 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
   and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
+  `POST /pipeline/send` is the distributor, and a run of its own: not a fourth step of the workflow, because the edition
+  is ready long before it and a resend generates nothing. `send.ts` reads the built edition — accepting `ready` and also
+  `sending`, which is the state a run that stopped halfway leaves and the only way out of — creates one `delivery` row
+  per confirmed subscriber as `pending`, and hands them to the provider in batches of 100 under the idempotency key
+  `<edition>:<batch>`. The queue is whatever the database calls pending, so running again only picks up what is left; the
+  edition closes as `sent` when nothing is pending. `scheduler.ts` fires it at 7h, the same days, behind the same
+  `SCHEDULER_ENABLED`. Two things to know about what it means: the key the provider dedupes on **expires after 24h**, so
+  resuming the same morning is safe and resuming a two-day-old edition would deliver again; and without the delivery
+  webhook (ARG-100's second half) `sent` means the provider accepted the message, not that anyone received it —
+  `delivered`, the bounces and `complaint` are unreachable and `subscriber.soft_bounces` stays at zero.
+  A batch is all-or-nothing at the row level: either the provider answered and every row moved to `sent` or `failed`, or
+  it did not and every row is still `pending`. That is what makes the key honest, and it holds only while batch numbers
+  are frozen at creation, a subscriber who confirms later starts a batch of their own, and the rows of a batch keep a
+  stable order. A batch refused whole leaves its rows `pending`, never `failed` — `failed` means the provider looked at
+  that one message and said no.
+  `personalize.ts` is where the stored edition becomes one subscriber's copy, and today it hands it over untouched: the
+  raw unsubscribe token cannot be read back (only its SHA-256 is stored), so ARG-114 is what makes the substitution
+  possible. Until then there is no `List-Unsubscribe` either — a one-click URI carrying the placeholder would have the
+  mail client post it, fail, and tell the subscriber they were unsubscribed when they were not. `sendRefusal` is the
+  guard that follows from that: **production refuses to send at all** while the marker is unsubstituted, whoever asks,
+  the same deal `resolveMode` makes about a mocked run. Dev and lab do send, which is how the pipeline is exercised end
+  to end — so their subscriber lists must hold only team addresses until ARG-114 lands.
   A failure mails the `owner_emails` from the settings (`owner-alert.ts`) **once**: the alert lives at the boundaries —
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.
@@ -188,4 +210,8 @@ curl -X POST http://localhost:3001/pipeline/write -H "x-internal-secret: $INTERN
 
 ```bash
 curl -X POST http://localhost:3001/pipeline/build -H "x-internal-secret: $INTERNAL_API_SECRET"
+```
+
+```bash
+curl -X POST http://localhost:3001/pipeline/send -H "x-internal-secret: $INTERNAL_API_SECRET"
 ```

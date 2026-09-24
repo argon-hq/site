@@ -5,6 +5,12 @@ import { editionDate } from "./rules";
 // evented engine, whose pubsub is in memory and never started by `@mastra/nestjs`, so it would not
 // survive the process going down.
 export const SCHEDULE = "30 5 * * 1-6";
+
+// The edition goes out an hour and a half after the generation starts, so a run that had to try a
+// step again has still finished by then. Same days: an edition nobody generated has nothing to send,
+// and the sending step says so instead of mailing anything.
+export const SEND_SCHEDULE = "0 7 * * 1-6";
+
 export const TIMEZONE = "America/Sao_Paulo";
 
 // How many times a step tries again before the run gives up.
