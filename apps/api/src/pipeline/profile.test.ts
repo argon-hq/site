@@ -5,6 +5,7 @@ const cheaperThan = (a: Deployment, b: Deployment) => {
   const cheap = PROFILES[a];
   const rich = PROFILES[b];
   expect(cheap.maxSearches).toBeLessThan(rich.maxSearches);
+  expect(cheap.maxReads).toBeLessThan(rich.maxReads);
   expect(cheap.maxSteps).toBeLessThan(rich.maxSteps);
   expect(cheap.maxTextChars).toBeLessThan(rich.maxTextChars);
   expect(cheap.maxArticles).toBeLessThanOrEqual(rich.maxArticles);
@@ -32,6 +33,22 @@ describe("the environment profiles", () => {
     cheaperThan("dev", "prod");
     cheaperThan("lab", "dev");
     expect(PROFILES.local).toEqual(PROFILES.lab);
+  });
+
+  it("makes every environment open more pages than it needs articles, so the rubric decides and not the headline", () => {
+    for (const env of ["prod", "dev", "lab", "local"] as const) {
+      const profile = PROFILES[env];
+      expect(profile.minReads).toBeGreaterThanOrEqual(profile.maxArticles);
+      expect(profile.minReads).toBeLessThan(profile.maxReads);
+    }
+  });
+
+  it("leaves room for the reads inside the turns it allows", () => {
+    // Every read is a tool call, and the searches, the skill and `recent_articles` take their own.
+    for (const env of ["prod", "dev", "lab", "local"] as const) {
+      const profile = PROFILES[env];
+      expect(profile.maxSteps).toBeGreaterThan(profile.maxReads + profile.maxSearches);
+    }
   });
 
   it("accepts a weaker edition outside production, so a run there still closes", () => {
