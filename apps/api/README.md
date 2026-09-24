@@ -106,10 +106,16 @@ the API container (`deploy/Caddyfile`), so the Studio and the routes it calls sh
 browser cannot put `x-internal-secret` on a navigation, so the bundle under `/studio` is the one
 public thing here; everything under `/mastra` still answers 401 without the header.
 
-The first visit needs three fields in the Studio's own settings: the instance URL
-(`https://dev.argon.eduardofockink.com`), the API prefix (`/mastra`) and a header named
-`x-internal-secret` carrying the secret of the environment. The browser keeps them in local storage,
-so it is once per browser, and the secret never travels in a URL nor lives in the page.
+The first visit is a trip to Settings, in the Studio's own sidebar, to fill three fields: the
+instance URL (`https://dev.argon.eduardofockink.com`), the API prefix (`/mastra`) and a header named
+`x-internal-secret` carrying the secret of the environment. Save, and the lists fill in. The browser
+keeps all three in local storage, so it is once per browser, and the secret never travels in a URL
+nor lives in the page. Until it is saved, the pages are empty skeletons: every call is a 401.
+
+One Mastra route answers without the secret where the Studio is served — `GET /mastra/auth/capabilities`,
+which the Studio asks before it renders anything and which tells whether Mastra's own auth is on
+(`{"enabled":false,"login":null}`). Without that exception the page is a dead error screen, Settings
+included, and there is nowhere to type the secret (`src/studio/studio.paths.ts`).
 
 ```bash
 aws ssm get-parameter --name /argon/dev/INTERNAL_API_SECRET --with-decryption --region sa-east-1 --query Parameter.Value --output text

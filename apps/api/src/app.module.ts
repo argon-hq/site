@@ -33,7 +33,8 @@ const config = loadConfig();
     { provide: "CONFIG", useValue: config },
     {
       provide: APP_GUARD,
-      useFactory: (reflector: Reflector) => new InternalSecretGuard(reflector, config.INTERNAL_API_SECRET),
+      useFactory: (reflector: Reflector) =>
+        new InternalSecretGuard(reflector, config.INTERNAL_API_SECRET, config.STUDIO_ENABLED),
       inject: [Reflector],
     },
   ],

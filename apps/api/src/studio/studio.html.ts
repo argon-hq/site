@@ -7,8 +7,7 @@
 // the API same-origin: no CORS, and the `x-internal-secret` the operator saves in the Studio
 // travels on every call it makes.
 
-export const STUDIO_BASE_PATH = "/studio";
-export const MASTRA_API_PREFIX = "/mastra";
+import { MASTRA_API_PREFIX, STUDIO_BASE_PATH } from "./studio.paths";
 
 export function renderStudioHtml(template: string, origin: URL): string {
   const values: Record<string, string> = {
