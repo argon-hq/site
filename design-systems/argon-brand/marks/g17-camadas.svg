@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g17-camadas</title>
+  <defs><mask id="argon-g17" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 47 41 59 23 59Z" fill="#000"/></mask></defs>
+  <g fill="currentColor" mask="url(#argon-g17)"><path d="M32 5 40.15 21 23.85 21Z"/><path d="M21.3 26 42.7 26 49.32 39 14.68 39Z"/><path d="M12.13 44 51.87 44 59 58 5 58Z"/></g>
+</svg>

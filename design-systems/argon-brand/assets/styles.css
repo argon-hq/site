@@ -590,3 +590,8 @@ main { max-width: var(--max); margin-inline: auto; }
 
 /* Amostras fixas em tinta precisam de contorno quando o fundo da página também é escuro. */
 .card-front, .avatar, .tile, .system__cell--ink { box-shadow: inset 0 0 0 1px var(--rule); }
+
+/* Rodada 2 · Gestalt: símbolos sólidos pedem um pouco menos de altura ao lado do traço fino do nome. */
+.r2__mark { width: min(100%, 260px); }
+.r2__lockup { font-size: 44px; }
+.lockup--h .mark { width: 0.84em; height: 0.84em; }

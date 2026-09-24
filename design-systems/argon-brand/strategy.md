@@ -130,7 +130,18 @@ detalhes devem ser mantidos. Abaixo de 32 px, usa-se a versão de traço constan
 O símbolo é o A do nome. Na logo completa, ele entra no lugar da letra e o nome se completa com RGON,
 para nunca ler "A ARGON". Sem o símbolo, o nome se escreve ARGON, com o A sem barra.
 
+## 4d. Rodada 2 — Gestalt
+
+Recriação do símbolo a partir das leis da Gestalt e da ideia de três átomos (as três camadas de
+elétrons do argônio). Seis conceitos, cada um apoiado numa lei: proximidade, figura e fundo,
+semelhança, pregnância, continuidade e fechamento. O nome continua ARGON, com o A sem barra. A
+logo completa é símbolo + ARGON.
+
 ## 5. Recomendação
+
+**Atualização (rodada 2):** a recomendação é o conceito 16, Núcleo. Um disco sólido, o átomo,
+cortado por um A vazado com a mesma inclinação do A do ARGON; o corte divide o disco em três
+partes. Substitui as recomendações anteriores, que ficam registradas como histórico.
 
 **Atualização (rodada 1d):** a direção escolhida (variação 14 + ARGON) substitui a recomendação da
 variação 4 abaixo, que fica registrada como histórico.
