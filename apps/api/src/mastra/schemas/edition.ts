@@ -14,11 +14,20 @@ export const CATEGORIES = {
 
 export const categorySchema = z.enum(Object.keys(CATEGORIES) as [keyof typeof CATEGORIES, ...Array<keyof typeof CATEGORIES>]);
 
-// Models sometimes append zero-width characters; strip them before measuring length.
+// Models sometimes append zero-width characters; strip them before measuring length. Control
+// characters, line breaks included, become a space: every field here is one line — the subject
+// and the headline end up in e-mail headers, and the body is one paragraph — and the mail
+// transports must never receive a break they did not put there.
 const clean = (max: number) =>
   z
     .string()
-    .transform((s) => s.replace(/[\u200b-\u200d\ufeff]/g, "").trim())
+    .transform((s) =>
+      s
+        .replace(/[\u200b-\u200d\ufeff]/g, "")
+        .replace(/\p{Cc}/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
     .pipe(z.string().min(1).max(max));
 
 // Writer output for one item. The link never comes from the model: it is the canonical URL.
