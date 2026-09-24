@@ -137,11 +137,17 @@ the API container (`deploy/Caddyfile`), so the Studio and the routes it calls sh
 browser cannot put `x-internal-secret` on a navigation, so the bundle under `/studio` is the one
 public thing here; everything under `/mastra` still answers 401 without the header.
 
-The first visit is a trip to Settings, in the Studio's own sidebar, to fill three fields: the
-instance URL (`https://dev.argon.eduardofockink.com`), the API prefix (`/mastra`) and a header named
-`x-internal-secret` carrying the secret of the environment. Save, and the lists fill in. The browser
-keeps all three in local storage, so it is once per browser, and the secret never travels in a URL
-nor lives in the page. Until it is saved, the pages are empty skeletons: every call is a 401.
+The first visit is a trip to Settings, in the Studio's own sidebar, to fill four fields: the
+instance URL (`https://dev.argon.eduardofockink.com`), the API prefix (`/mastra`) and two headers —
+`x-internal-secret` carrying the secret of the environment, and `Authorization` carrying
+`Basic <base64 of user:password>` for the Caddy `basic_auth` in front of `/mastra` (`printf
+'argon:<password>' | base64`). Save, and the lists fill in. The browser keeps all of it in local
+storage, so it is once per browser, and nothing travels in a URL nor lives in the page. Until it is
+saved, the pages are empty skeletons: every call is a 401.
+
+The second header is not optional. A browser only reuses a `basic_auth` password for the path it was
+asked on — `/studio` — and every call the Studio makes to `/mastra/...` gets a fresh challenge, which
+is a login prompt at every click; with the header, the Studio answers the challenge itself.
 
 One Mastra route answers without the secret where the Studio is served — `GET /mastra/auth/capabilities`,
 which the Studio asks before it renders anything and which tells whether Mastra's own auth is on

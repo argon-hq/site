@@ -122,8 +122,12 @@ aws ssm put-parameter --profile argon-new --region sa-east-1 \
   --name /argon/caddy/STUDIO_AUTH_HASH --type SecureString --overwrite --value "$HASH"
 ```
 
-No Studio, o navegador pede a senha uma vez por host; o `x-internal-secret` continua guardado no
-próprio Studio. Para o `curl`: `curl -u argon https://api.dev.argon.eduardofockink.com/...`.
+No Studio, o navegador pede a senha ao abrir `/studio`, mas só a reaproveita para esse caminho:
+cada chamada do Studio a `/mastra/...` recebe um desafio novo, e vira um pedido de senha a cada
+clique. A saída é o próprio Studio mandar a credencial, como já manda o `x-internal-secret`: nas
+Settings dele, um header `Authorization` com `Basic <base64 de usuário:senha>` (`printf
+'argon:<senha>' | base64`). A senha em claro fica em `/argon/caddy/STUDIO_AUTH_PASSWORD`, para ler
+quando precisar. Para o `curl`: `curl -u argon https://api.dev.argon.eduardofockink.com/...`.
 
 ### Lab parado
 
