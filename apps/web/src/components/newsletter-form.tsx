@@ -104,10 +104,7 @@ export function NewsletterForm() {
       </div>
 
       {/* Honeypot: invisível para pessoas, atraente para bots. */}
-      <div
-        aria-hidden="true"
-        className="absolute left-[-9999px] h-0 w-0 overflow-hidden"
-      >
+      <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
         <label htmlFor="empresa-site">{t("honeypotLabel")}</label>
         <input
           id="empresa-site"
@@ -121,11 +118,7 @@ export function NewsletterForm() {
       </div>
 
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-sm font-medium text-danger"
-        >
+        <p id={errorId} role="alert" className="text-sm font-medium text-danger">
           {error}
         </p>
       )}
@@ -147,10 +140,7 @@ export function NewsletterForm() {
         <label htmlFor={consentId}>
           {t.rich("consent", {
             link: (chunks) => (
-              <Link
-                href="/privacy"
-                className="font-medium text-foreground underline underline-offset-2"
-              >
+              <Link href="/privacy" className="font-medium text-foreground underline underline-offset-2">
                 {chunks}
               </Link>
             ),
@@ -200,13 +190,7 @@ function ConfirmationNotice({ email }: { email: string }) {
 function MailIcon() {
   return (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-      <g
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+      <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.4" />
         <path d="m3.4 7.4 7.3 5.1a2.3 2.3 0 0 0 2.6 0l7.3-5.1" />
       </g>

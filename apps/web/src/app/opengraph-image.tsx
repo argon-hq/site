@@ -17,45 +17,43 @@ const ACCENT = "#8b74ff";
 
 export default function Image() {
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 80,
+        background: BACKGROUND,
+        color: FOREGROUND,
+        fontFamily: "sans-serif",
+      }}
+    >
       <div
         style={{
-          width: "100%",
-          height: "100%",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: 80,
-          background: BACKGROUND,
-          color: FOREGROUND,
-          fontFamily: "sans-serif",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 120,
+          height: 120,
+          borderRadius: 24,
+          background: FOREGROUND,
+          color: BACKGROUND,
+          fontSize: 64,
+          fontWeight: 700,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 120,
-            height: 120,
-            borderRadius: 24,
-            background: FOREGROUND,
-            color: BACKGROUND,
-            fontSize: 64,
-            fontWeight: 700,
-          }}
-        >
-          {name.charAt(0)}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <div style={{ fontSize: 96, fontWeight: 700, letterSpacing: -3 }}>{name}</div>
-          <div style={{ fontSize: 40, color: MUTED, maxWidth: 900 }}>{tagline}</div>
-        </div>
-
-        <div style={{ display: "flex", width: 160, height: 8, borderRadius: 4, background: ACCENT }} />
+        {name.charAt(0)}
       </div>
-    ),
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div style={{ fontSize: 96, fontWeight: 700, letterSpacing: -3 }}>{name}</div>
+        <div style={{ fontSize: 40, color: MUTED, maxWidth: 900 }}>{tagline}</div>
+      </div>
+
+      <div style={{ display: "flex", width: 160, height: 8, borderRadius: 4, background: ACCENT }} />
+    </div>,
     size,
   );
 }

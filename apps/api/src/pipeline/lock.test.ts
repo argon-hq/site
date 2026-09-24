@@ -31,7 +31,13 @@ describe("EditionLock", () => {
     const { fake, calls } = client(true);
     const lock = new EditionLock("postgresql://x", () => fake);
 
-    const value = await Effect.runPromise(lock.hold(day, "write", Effect.sync(() => calls.push("body") && 42)));
+    const value = await Effect.runPromise(
+      lock.hold(
+        day,
+        "write",
+        Effect.sync(() => calls.push("body") && 42),
+      ),
+    );
 
     expect(value).toBe(42);
     expect(calls).toEqual(["connect", "lock", "body", "unlock", "end"]);
@@ -55,7 +61,9 @@ describe("EditionLock", () => {
     const { fake, calls } = client(true);
     const lock = new EditionLock("postgresql://x", () => fake);
 
-    const exit = await Effect.runPromiseExit(lock.hold(day, "build", Effect.fail({ _tag: "Broken", reason: "x" } as const)));
+    const exit = await Effect.runPromiseExit(
+      lock.hold(day, "build", Effect.fail({ _tag: "Broken", reason: "x" } as const)),
+    );
 
     expect(Exit.isFailure(exit) && exit.cause._tag === "Fail" && exit.cause.error._tag).toBe("Broken");
     expect(calls).toEqual(["connect", "lock", "unlock", "end"]);

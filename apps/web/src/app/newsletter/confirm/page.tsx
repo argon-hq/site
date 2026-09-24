@@ -16,11 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ConfirmPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ token?: string | string[] }>;
-}) {
+export default async function ConfirmPage({ searchParams }: { searchParams: Promise<{ token?: string | string[] }> }) {
   const params = await searchParams;
   // A malformed token shows the invalid state right away, without a round trip.
   const token = tokenSchema.safeParse(firstParam(params.token));

@@ -13,7 +13,13 @@ export type Outcome =
   | { outcome: "below_cutoff"; url: string }
   | { outcome: "rejected"; url: string; reason: string };
 
-export type PersistContext = { prisma: PrismaClient; since: Date; cutoff: number; maxTextChars: number; logger: LoggerService };
+export type PersistContext = {
+  prisma: PrismaClient;
+  since: Date;
+  cutoff: number;
+  maxTextChars: number;
+  logger: LoggerService;
+};
 export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable | UrlNotAllowed>;
 
 class Rejected extends Data.TaggedError("Rejected")<{ url: string; reason: string }> {}
@@ -35,12 +41,17 @@ const findArticle = (prisma: PrismaClient, url: string) =>
 // loses the insert is a duplicate, not a broken database.
 const UNIQUE_VIOLATION = "P2002";
 const isUniqueViolation = (error: unknown): boolean =>
-  typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === UNIQUE_VIOLATION;
+  typeof error === "object" && error !== null && "code" in error && error.code === UNIQUE_VIOLATION;
 
-const createArticle = (prisma: PrismaClient, data: Parameters<PrismaClient["article"]["create"]>[0]["data"], url: string) =>
+const createArticle = (
+  prisma: PrismaClient,
+  data: Parameters<PrismaClient["article"]["create"]>[0]["data"],
+  url: string,
+) =>
   Effect.tryPromise({
     try: () => prisma.article.create({ data }),
-    catch: (error) => (isUniqueViolation(error) ? new Duplicate({ url }) : new DbFailed({ url, reason: String(error) })),
+    catch: (error) =>
+      isUniqueViolation(error) ? new Duplicate({ url }) : new DbFailed({ url, reason: String(error) }),
   });
 
 // The same article twice in one answer — two search hits, two tracking parameters — is one
@@ -76,15 +87,18 @@ const persist = (candidate: Candidate, ctx: PersistContext, read: ReadPage) =>
     // collapses into one row instead of two.
     const canonical = canonicalize(page.canonicalUrl);
     if (canonical !== url) {
-      if (!isAllowedDomain(canonical)) return yield* new Rejected({ url, reason: "canonical url outside the allowlist" });
+      if (!isAllowedDomain(canonical))
+        return yield* new Rejected({ url, reason: "canonical url outside the allowlist" });
       yield* markSeen(ctx.prisma, canonical);
       const twin = yield* findArticle(ctx.prisma, canonical);
       if (twin) return yield* new Duplicate({ url: canonical });
     }
 
     const publishedAt = page.publishedAt ? new Date(page.publishedAt) : null;
-    if (publishedAt && Number.isNaN(publishedAt.getTime())) return yield* new Rejected({ url: canonical, reason: "invalid publishedAt" });
-    if (publishedAt && publishedAt < ctx.since) return yield* new Rejected({ url: canonical, reason: "outside window" });
+    if (publishedAt && Number.isNaN(publishedAt.getTime()))
+      return yield* new Rejected({ url: canonical, reason: "invalid publishedAt" });
+    if (publishedAt && publishedAt < ctx.since)
+      return yield* new Rejected({ url: canonical, reason: "outside window" });
 
     yield* createArticle(
       ctx.prisma,
@@ -103,7 +117,11 @@ const persist = (candidate: Candidate, ctx: PersistContext, read: ReadPage) =>
   });
 
 // Expected results become data; only database failures stay errors.
-export const persistCandidate = (candidate: Candidate, ctx: PersistContext, read: ReadPage = fetchArticle): Effect.Effect<Outcome, DbFailed> =>
+export const persistCandidate = (
+  candidate: Candidate,
+  ctx: PersistContext,
+  read: ReadPage = fetchArticle,
+): Effect.Effect<Outcome, DbFailed> =>
   persist(candidate, ctx, read).pipe(
     Effect.catchTags({
       Rejected: (e) => Effect.succeed({ outcome: "rejected", url: e.url, reason: e.reason } satisfies Outcome),
@@ -113,9 +131,15 @@ export const persistCandidate = (candidate: Candidate, ctx: PersistContext, read
     Effect.tap((o) =>
       Effect.sync(() =>
         Match.value(o).pipe(
-          Match.when({ outcome: "saved" }, (s) => ctx.logger.log({ msg: "article saved", url: s.url, score: candidate.score })),
-          Match.when({ outcome: "rejected" }, (r) => ctx.logger.warn({ msg: "article rejected", url: r.url, reason: r.reason })),
-          Match.orElse((other) => ctx.logger.log({ msg: `article ${other.outcome}`, url: other.url })),
+          Match.when({ outcome: "saved" }, (s) => {
+            ctx.logger.log({ msg: "article saved", url: s.url, score: candidate.score });
+          }),
+          Match.when({ outcome: "rejected" }, (r) => {
+            ctx.logger.warn({ msg: "article rejected", url: r.url, reason: r.reason });
+          }),
+          Match.orElse((other) => {
+            ctx.logger.log({ msg: `article ${other.outcome}`, url: other.url });
+          }),
         ),
       ),
     ),

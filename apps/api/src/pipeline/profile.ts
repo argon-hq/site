@@ -83,7 +83,9 @@ export const DEPLOYMENT: Deployment = readDeployment(process.env.ARGON_ENV);
 export function readDeployment(value: string | undefined): Deployment {
   const parsed = deploymentSchema.safeParse(value ?? "local");
   if (!parsed.success) {
-    throw new Error(`Invalid configuration: ARGON_ENV must be one of ${deploymentSchema.options.join(", ")}, got "${value}"`);
+    throw new Error(
+      `Invalid configuration: ARGON_ENV must be one of ${deploymentSchema.options.join(", ")}, got "${value}"`,
+    );
   }
   return parsed.data;
 }

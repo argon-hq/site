@@ -1,7 +1,13 @@
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaService } from "../prisma/prisma.service";
-import { CANCELLED_RETENTION_DAYS, RETENTION_BATCH, RetentionScheduler, SEEN_URL_RETENTION_DAYS, TEXT_RETENTION_DAYS } from "./retention";
+import {
+  CANCELLED_RETENTION_DAYS,
+  RETENTION_BATCH,
+  RetentionScheduler,
+  SEEN_URL_RETENTION_DAYS,
+  TEXT_RETENTION_DAYS,
+} from "./retention";
 
 const now = new Date("2026-09-24T07:00:00Z");
 const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
@@ -49,6 +55,8 @@ describe("RetentionScheduler", () => {
     const exit = await Effect.runPromiseExit(broken.run(now));
 
     expect(exit._tag).toBe("Failure");
-    expect(exit._tag === "Failure" && exit.cause._tag === "Fail" && exit.cause.error.reason).toContain("clear article text");
+    expect(exit._tag === "Failure" && exit.cause._tag === "Fail" && exit.cause.error.reason).toContain(
+      "clear article text",
+    );
   });
 });

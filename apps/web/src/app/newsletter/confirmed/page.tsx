@@ -35,9 +35,7 @@ export default function ConfirmedPage() {
 
           <div className="flex flex-col gap-5">
             <PageHeading>{t("heading")}</PageHeading>
-            <p className="max-w-xl text-lg text-muted text-pretty">
-              {t("body")}
-            </p>
+            <p className="max-w-xl text-lg text-muted text-pretty">{t("body")}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -51,7 +49,6 @@ export default function ConfirmedPage() {
             </Link>
           </div>
         </div>
-
       </main>
 
       <aside

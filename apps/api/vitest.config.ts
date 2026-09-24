@@ -8,7 +8,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/pipeline/**/*.ts", "src/mail/**/*.ts", "src/subscriber/**/*.ts"],
-      exclude: ["**/*.test.ts", "src/pipeline/fixtures/**", "src/pipeline/scheduler.ts", "src/pipeline/pipeline.controller.ts"],
+      exclude: [
+        "**/*.test.ts",
+        "src/pipeline/fixtures/**",
+        "src/pipeline/scheduler.ts",
+        "src/pipeline/pipeline.controller.ts",
+      ],
       reporter: ["text-summary", "text"],
       thresholds: { lines: 70, functions: 70 },
     },

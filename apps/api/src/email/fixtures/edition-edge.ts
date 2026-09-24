@@ -5,7 +5,8 @@ import { editionFixture } from "./edition";
 // Edge cases: six items, subject, headline and body at the maximum length, long category,
 // short body. Lets the snapshot catch bad line breaks before the visual review.
 
-const exact = (text: string, length: number) => (text.length >= length ? text.slice(0, length) : text.padEnd(length, "."));
+const exact = (text: string, length: number) =>
+  text.length >= length ? text.slice(0, length) : text.padEnd(length, ".");
 
 const longHeadline = exact(
   "Governo anuncia pacote de crédito para pequenas empresas com juros abaixo da SELIC e prazo de dez anos para pagar, diz ministério",
@@ -17,14 +18,30 @@ const longBody = exact(
 );
 
 const items: EditionItem[] = [
-  { category: "Mercado de Trabalho e Carreira", headline: longHeadline, body: longBody, url: "https://example.com/noticias/credito-pequenas-empresas" },
-  { category: "Economia", headline: "SELIC cai", body: "Copom reduz a taxa para 10,5% ao ano.", url: "https://example.com/noticias/selic" },
+  {
+    category: "Mercado de Trabalho e Carreira",
+    headline: longHeadline,
+    body: longBody,
+    url: "https://example.com/noticias/credito-pequenas-empresas",
+  },
+  {
+    category: "Economia",
+    headline: "SELIC cai",
+    body: "Copom reduz a taxa para 10,5% ao ano.",
+    url: "https://example.com/noticias/selic",
+  },
   ...editionFixture.items.slice(0, 4),
 ];
 
 export const editionEdgeFixture: EditionInput = {
   ...editionFixture,
-  title: exact("Crédito para pequenas, SELIC em queda e mais quatro notícias que importam para quem empreende hoje", 80),
-  subject: exact("Crédito de R$ 20 bi para pequenas empresas e SELIC em queda: o que muda para você", limits.subjectMax),
+  title: exact(
+    "Crédito para pequenas, SELIC em queda e mais quatro notícias que importam para quem empreende hoje",
+    80,
+  ),
+  subject: exact(
+    "Crédito de R$ 20 bi para pequenas empresas e SELIC em queda: o que muda para você",
+    limits.subjectMax,
+  ),
   items,
 };

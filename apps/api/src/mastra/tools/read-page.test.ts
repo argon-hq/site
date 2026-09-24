@@ -13,7 +13,7 @@ type Answer = { status?: number; headers?: Record<string, string>; body?: string
 function deps(answers: Record<string, Answer>, addresses: Record<string, string> = {}) {
   const calls: string[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input);
+    const url = input instanceof URL ? input.href : typeof input === "string" ? input : input.url;
     calls.push(url);
     const answer = answers[url];
     if (!answer) throw new Error(`no answer for ${url}`);
@@ -38,7 +38,20 @@ const failure = async (effect: ReturnType<typeof fetchArticle>) => {
 
 describe("isPublicAddress", () => {
   it("refuses loopback, link-local, private and mapped addresses", () => {
-    for (const ip of ["127.0.0.1", "169.254.169.254", "10.0.0.5", "172.16.0.1", "172.31.255.255", "192.168.1.1", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:169.254.169.254"]) {
+    for (const ip of [
+      "127.0.0.1",
+      "169.254.169.254",
+      "10.0.0.5",
+      "172.16.0.1",
+      "172.31.255.255",
+      "192.168.1.1",
+      "100.64.0.1",
+      "0.0.0.0",
+      "::1",
+      "fe80::1",
+      "fd00::1",
+      "::ffff:169.254.169.254",
+    ]) {
       expect(isPublicAddress(ip), ip).toBe(false);
     }
   });
@@ -142,7 +155,9 @@ describe("fetchArticle", () => {
   }, 15_000);
 
   it("refuses a response that is not html", async () => {
-    const { deps: d } = deps({ "https://valor.globo.com/file.pdf": { body: "%PDF", headers: { "content-type": "application/pdf" } } });
+    const { deps: d } = deps({
+      "https://valor.globo.com/file.pdf": { body: "%PDF", headers: { "content-type": "application/pdf" } },
+    });
     const error = await failure(fetchArticle("https://valor.globo.com/file.pdf", d));
     expect(error?._tag).toBe("PageUnreadable");
   });

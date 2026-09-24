@@ -14,6 +14,8 @@ describe("loadConfig", () => {
   });
 
   it("names the missing variables", () => {
-    expect(() => loadConfig({ DATABASE_URL: valid.DATABASE_URL })).toThrow(/ANTHROPIC_API_KEY, INTERNAL_API_SECRET, UNSUBSCRIBE_TOKEN_SECRET/);
+    expect(() => loadConfig({ DATABASE_URL: valid.DATABASE_URL })).toThrow(
+      /ANTHROPIC_API_KEY, INTERNAL_API_SECRET, UNSUBSCRIBE_TOKEN_SECRET/,
+    );
   });
 });

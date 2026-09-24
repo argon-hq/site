@@ -26,7 +26,11 @@ function grantingLock() {
 }
 
 // A run of the Mastra workflow that answers what it is told to, after a tick, so two calls can overlap.
-function workflow(result: { status: string; result?: unknown; steps?: Record<string, { status: string; error?: unknown }> }) {
+function workflow(result: {
+  status: string;
+  result?: unknown;
+  steps?: Record<string, { status: string; error?: unknown }>;
+}) {
   const start = vi.fn(async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     return result;
@@ -53,7 +57,9 @@ function service(p: { mastra?: unknown; delivery?: { send?: unknown } } = {}) {
 }
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) =>
-  Exit.isFailure(exit) && exit.cause._tag === "Fail" ? (exit.cause.error as { reason: string; status?: number; step?: string }) : null;
+  Exit.isFailure(exit) && exit.cause._tag === "Fail"
+    ? (exit.cause.error as { reason: string; status?: number; step?: string })
+    : null;
 
 describe("PipelineService.run", () => {
   it("refuses a second run while one is in flight, with a conflict, and lets the next one through after", async () => {
@@ -77,7 +83,10 @@ describe("PipelineService.run", () => {
   });
 
   it("opens the gate again after a failed run, and alerts once for the step that failed", async () => {
-    const { mastra, start } = workflow({ status: "failed", steps: { collect: { status: "success" }, write: { status: "failed", error: new Error("no news") } } });
+    const { mastra, start } = workflow({
+      status: "failed",
+      steps: { collect: { status: "success" }, write: { status: "failed", error: new Error("no news") } },
+    });
     const { pipeline, alert } = service({ mastra });
 
     const exit = await Effect.runPromiseExit(pipeline.run({ mode: "mock" }));
@@ -129,7 +138,11 @@ describe("PipelineService.send", () => {
 
   it("keeps the failure the delivery reports, status included", async () => {
     const { pipeline } = service({
-      delivery: { send: vi.fn(() => Effect.fail({ _tag: "SendFailed", reason: "edition 2026-09-24 does not exist yet", status: 404 })) },
+      delivery: {
+        send: vi.fn(() =>
+          Effect.fail({ _tag: "SendFailed", reason: "edition 2026-09-24 does not exist yet", status: 404 }),
+        ),
+      },
     });
 
     const exit = await Effect.runPromiseExit(pipeline.send());

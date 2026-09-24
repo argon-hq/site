@@ -46,7 +46,9 @@ export const loadSendable = (prisma: PrismaClient, date: Date): Effect.Effect<Se
     }),
   ).pipe(
     Effect.flatMap((row) =>
-      row === null ? new SendDbFailed({ reason: `edition ${day} does not exist yet`, status: NOT_FOUND }) : Effect.succeed(row),
+      row === null
+        ? new SendDbFailed({ reason: `edition ${day} does not exist yet`, status: NOT_FOUND })
+        : Effect.succeed(row),
     ),
     Effect.filterOrFail(
       (row) => row.status === "ready" || row.status === "sending",
@@ -138,18 +140,18 @@ export const recordBatch = (
   p.rows.length === 0
     ? Effect.void
     : db(() =>
-    prisma.$transaction(
-      p.rows.map(({ id, result }) =>
-        prisma.delivery.update({
-          where: { id },
-          data:
-            result.outcome === "sent"
-              ? { status: "sent", providerEmailId: result.id, sentAt: p.now, error: null }
-              : { status: "failed", error: result.reason },
-        }),
-      ),
-    ),
-  ).pipe(Effect.asVoid);
+        prisma.$transaction(
+          p.rows.map(({ id, result }) =>
+            prisma.delivery.update({
+              where: { id },
+              data:
+                result.outcome === "sent"
+                  ? { status: "sent", providerEmailId: result.id, sentAt: p.now, error: null }
+                  : { status: "failed", error: result.reason },
+            }),
+          ),
+        ),
+      ).pipe(Effect.asVoid);
 
 export const countPending = (prisma: PrismaClient, p: { editionId: string }): Effect.Effect<number, SendDbFailed> =>
   db(() => prisma.delivery.count({ where: { editionId: p.editionId, status: "pending" } }));

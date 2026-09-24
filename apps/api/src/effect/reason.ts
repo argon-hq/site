@@ -21,7 +21,9 @@ export function failureStep<E extends Failure>(cause: Cause.Cause<E>): string | 
 // defect, is the server's problem.
 export function failureStatus<E extends Failure>(cause: Cause.Cause<E>): HttpStatus {
   const failure = Cause.failureOption(cause);
-  return failure._tag === "Some" ? (failure.value.status ?? HttpStatus.INTERNAL_SERVER_ERROR) : HttpStatus.INTERNAL_SERVER_ERROR;
+  return failure._tag === "Some"
+    ? (failure.value.status ?? HttpStatus.INTERNAL_SERVER_ERROR)
+    : HttpStatus.INTERNAL_SERVER_ERROR;
 }
 
 // Whether the cause is a declared failure at all. A defect is logged whole and answered in one word.

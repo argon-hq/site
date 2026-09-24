@@ -71,7 +71,7 @@ describe("EmailAssets", () => {
   it("survives a site that does not answer at all", async () => {
     fetchReturning([new Error("timeout"), png, png, png]);
     const statuses = await Effect.runPromise(new EmailAssets(WEB_ORIGIN).check());
-    expect(statuses[0].ok).toBe(false);
-    expect(statuses[0].detail).toContain("timeout");
+    expect(statuses[0]?.ok).toBe(false);
+    expect(statuses[0]?.detail).toContain("timeout");
   });
 });

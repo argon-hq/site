@@ -37,7 +37,8 @@ export function flatten(message: unknown): unknown {
 
   // Not one of ours: let ConsoleLogger print the object as it always did.
   if (head === undefined) return message;
-  return [head, ...pairs].join(" ");
+  const title = typeof head === "string" ? head : JSON.stringify(head);
+  return [title, ...pairs].join(" ");
 }
 
 function render(value: unknown): string {

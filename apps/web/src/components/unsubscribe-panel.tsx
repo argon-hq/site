@@ -9,15 +9,7 @@ import { PageHeading } from "@/components/ui/page-heading";
 
 type Stage = "confirm" | "cancelling" | "cancelled" | "already" | "reactivating" | "reactivated";
 
-export function UnsubscribePanel({
-  token,
-  email,
-  cancelled,
-}: {
-  token: string;
-  email: string;
-  cancelled: boolean;
-}) {
+export function UnsubscribePanel({ token, email, cancelled }: { token: string; email: string; cancelled: boolean }) {
   const t = useTranslations("unsubscribe");
   const [stage, setStage] = useState<Stage>(cancelled ? "already" : "confirm");
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +49,10 @@ export function UnsubscribePanel({
       <div className="flex flex-col gap-5">
         <PageHeading>{t("heading")}</PageHeading>
         <p className="max-w-xl text-lg text-muted text-pretty">
-          {t.rich("body", { email, strong: (chunks) => <strong className="font-semibold text-foreground">{chunks}</strong> })}
+          {t.rich("body", {
+            email,
+            strong: (chunks) => <strong className="font-semibold text-foreground">{chunks}</strong>,
+          })}
         </p>
       </div>
 

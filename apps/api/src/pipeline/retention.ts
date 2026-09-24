@@ -71,7 +71,11 @@ export class RetentionScheduler {
       const report = { textsCleared, seenUrlsDeleted, subscribersPurged };
       this.logger.log({ msg: "retention finished", ...report });
       return report;
-    }).pipe(Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "retention failed", reason: error.reason }))));
+    }).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => this.logger.error({ msg: "retention failed", reason: error.reason })),
+      ),
+    );
   }
 
   // Repeats a statement until it touches fewer rows than the batch, adding up what it did.

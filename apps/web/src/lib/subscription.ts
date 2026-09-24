@@ -10,8 +10,6 @@ export type Subscription = { email: string; status: string };
  * a página sem ninguém clicar em nada.
  */
 export async function lookupSubscription(token: string): Promise<Subscription | null> {
-  const result = await apiFetch<Subscription>(
-    `/subscriber/unsubscribe?token=${encodeURIComponent(token)}`,
-  );
+  const result = await apiFetch<Subscription>(`/subscriber/unsubscribe?token=${encodeURIComponent(token)}`);
   return result.ok ? result.data : null;
 }

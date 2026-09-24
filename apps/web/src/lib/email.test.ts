@@ -8,12 +8,9 @@ describe("normalizeEmail", () => {
 });
 
 describe("isValidEmail", () => {
-  it.each(["ana@example.com", "  ANA@EXAMPLE.COM ", "a.b+c@sub.domain.co"])(
-    "accepts %j",
-    (value) => {
-      expect(isValidEmail(value)).toBe(true);
-    },
-  );
+  it.each(["ana@example.com", "  ANA@EXAMPLE.COM ", "a.b+c@sub.domain.co"])("accepts %j", (value) => {
+    expect(isValidEmail(value)).toBe(true);
+  });
 
   it.each(["", "ana", "ana@", "@example.com", "ana@example", "ana@example.c", "a na@example.com"])(
     "rejects %j",

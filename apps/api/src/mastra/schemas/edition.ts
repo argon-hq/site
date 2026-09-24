@@ -12,7 +12,9 @@ export const CATEGORIES = {
   politics: "Política",
 } as const;
 
-export const categorySchema = z.enum(Object.keys(CATEGORIES) as [keyof typeof CATEGORIES, ...Array<keyof typeof CATEGORIES>]);
+export const categorySchema = z.enum(
+  Object.keys(CATEGORIES) as [keyof typeof CATEGORIES, ...Array<keyof typeof CATEGORIES>],
+);
 
 // Models sometimes append zero-width characters; strip them before measuring length. Control
 // characters, line breaks included, become a space: every field here is one line — the subject

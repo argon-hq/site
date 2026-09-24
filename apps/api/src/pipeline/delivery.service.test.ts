@@ -25,7 +25,12 @@ type Row = { id: string; batch: number; subscriber: { id: string; email: string;
 
 // The database as the send sees it: today's edition, whoever is confirmed with no row yet, and the
 // pending rows grouped by batch. Writes are recorded so a test can read them back.
-function world(p: { pending: Row[]; newSubscribers?: { id: string; email: string }[]; paused?: boolean; pausedLater?: boolean }) {
+function world(p: {
+  pending: Row[];
+  newSubscribers?: { id: string; email: string }[];
+  paused?: boolean;
+  pausedLater?: boolean;
+}) {
   const updates: { where: { id: string }; data: Record<string, unknown> }[] = [];
   const editionUpdates: Record<string, unknown>[] = [];
   let pendingLeft = p.pending.length;
@@ -40,9 +45,13 @@ function world(p: { pending: Row[]; newSubscribers?: { id: string; email: string
     },
     subscriber: { findMany: vi.fn(async () => p.newSubscribers ?? []) },
     delivery: {
-      aggregate: vi.fn(async () => ({ _max: { batch: p.pending.length ? Math.max(...p.pending.map((r) => r.batch)) : null } })),
+      aggregate: vi.fn(async () => ({
+        _max: { batch: p.pending.length ? Math.max(...p.pending.map((r) => r.batch)) : null },
+      })),
       createMany: vi.fn(async () => ({ count: 0 })),
-      count: vi.fn(async ({ where }: { where: { status: unknown } }) => (typeof where.status === "string" ? pendingLeft : p.pending.length - pendingLeft)),
+      count: vi.fn(async ({ where }: { where: { status: unknown } }) =>
+        typeof where.status === "string" ? pendingLeft : p.pending.length - pendingLeft,
+      ),
       findMany: vi.fn(async () => p.pending),
       update: vi.fn((args: { where: { id: string }; data: Record<string, unknown> }) => {
         updates.push(args);
@@ -86,7 +95,10 @@ describe("DeliveryService.send", () => {
 
     // One message, to the one still confirmed, carrying that subscriber's token in copy and header.
     expect(w.sendBatch).toHaveBeenCalledTimes(1);
-    const [messages, options] = w.sendBatch.mock.calls[0] as unknown as [Message[], { idempotencyKey: string; onSettled?: OnSettled }];
+    const [messages, options] = w.sendBatch.mock.calls[0] as unknown as [
+      Message[],
+      { idempotencyKey: string; onSettled?: OnSettled },
+    ];
     expect(messages).toHaveLength(1);
     expect(messages[0]?.to).toBe("d1@example.com");
     const token = unsubscribeTokenFor(secret, "s-d1");
@@ -102,7 +114,12 @@ describe("DeliveryService.send", () => {
     // Edition went `sending` first and closed as `sent` when nothing was pending.
     expect(w.editionUpdates[0]).toEqual({ status: "sending" });
     expect(w.editionUpdates.at(-1)).toEqual({ status: "sent", sentAt: now });
-    expect(report).toMatchObject({ status: "sent", sent: 1, failed: 1, batches: [{ batch: 1, size: 2, sent: 1, failed: 1 }] });
+    expect(report).toMatchObject({
+      status: "sent",
+      sent: 1,
+      failed: 1,
+      batches: [{ batch: 1, size: 2, sent: 1, failed: 1 }],
+    });
   });
 
   it("refuses to record a batch the provider answered out of step, leaving its rows pending", async () => {
@@ -154,7 +171,8 @@ describe("DeliveryService.send", () => {
 
     const report = await Effect.runPromise(w.service.send(date, now));
 
-    const created = w.prisma.delivery.createMany.mock.calls[0]?.[0 as never] as { data: { batch: number }[] } | undefined;
+    const created = w.prisma.delivery.createMany.mock.calls[0]?.[0 as never] as
+      { data: { batch: number }[] } | undefined;
     expect(created?.data[0]?.batch).toBe(4);
     expect(report.created).toBe(1);
   });

@@ -23,7 +23,12 @@ describe("runEffect", () => {
   });
 
   it("answers with the status the failure asks for, and its reason", async () => {
-    const error = await thrown(runEffect("send", Effect.fail(new Missing({ reason: "edition 2026-09-24 does not exist yet", status: NOT_FOUND }))));
+    const error = await thrown(
+      runEffect(
+        "send",
+        Effect.fail(new Missing({ reason: "edition 2026-09-24 does not exist yet", status: NOT_FOUND })),
+      ),
+    );
     expect(error.getStatus()).toBe(404);
     expect(error.getResponse()).toEqual({ step: "send", reason: "edition 2026-09-24 does not exist yet" });
   });
@@ -46,7 +51,9 @@ describe("runEffect", () => {
   });
 
   it("passes a conflict through as 409", async () => {
-    const error = await thrown(runEffect("run", Effect.fail(new Missing({ reason: "a run is already in flight", status: CONFLICT }))));
+    const error = await thrown(
+      runEffect("run", Effect.fail(new Missing({ reason: "a run is already in flight", status: CONFLICT }))),
+    );
     expect(error.getStatus()).toBe(409);
   });
 });

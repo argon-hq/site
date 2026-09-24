@@ -4,8 +4,7 @@ import { apiFetch } from "@/lib/api";
 import { tokenSchema } from "@/lib/token";
 
 type ConfirmResult =
-  | { ok: true; status: "confirmed" | "already_confirmed" }
-  | { ok: false; reason: "expired" | "invalid" | "error" };
+  { ok: true; status: "confirmed" | "already_confirmed" } | { ok: false; reason: "expired" | "invalid" | "error" };
 
 /**
  * Confirma a inscrição. É um POST: scanner de link de cliente de e-mail abre toda

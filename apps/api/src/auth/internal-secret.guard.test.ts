@@ -63,7 +63,9 @@ describe("InternalSecretGuard", () => {
   // The reason @Public keys its metadata on a symbol: Mastra marks the system routes it registers
   // under our global guard with a key named "isPublic", and a string key would exempt them too.
   it("still asks the secret of a route Mastra marked public", () => {
-    expect(() => guard(false).canActivate(context({ handler: Routes.prototype.theirs }))).toThrow(UnauthorizedException);
+    expect(() => guard(false).canActivate(context({ handler: Routes.prototype.theirs }))).toThrow(
+      UnauthorizedException,
+    );
     expect(guard(false).canActivate(context({ handler: Routes.prototype.theirs, secret }))).toBe(true);
   });
 
