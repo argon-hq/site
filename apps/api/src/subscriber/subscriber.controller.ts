@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Header, HttpCode, NotFoundException, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpCode, NotFoundException, Post, Query, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { Public } from "../auth/public.decorator";
+import { SignupThrottleGuard } from "../auth/signup-throttle.guard";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { SubscriberService } from "./subscriber.service";
 
@@ -30,8 +31,10 @@ export class SubscriberController {
 
   // POST /subscriber { email, consentIp?, consentUserAgent? } → pending subscriber. Internal secret required.
   // The response never carries the token: it only reaches the subscriber through the confirmation e-mail.
+  // Rate limited by the visitor's address: see SignupThrottleGuard.
   @Post()
   @HttpCode(200)
+  @UseGuards(SignupThrottleGuard)
   async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>) {
     const result = await this.subscribers.signUp(body);
     return { status: result.status };
@@ -74,6 +77,7 @@ export class SubscriberController {
   @Public()
   @Post("unsubscribe/one-click")
   @HttpCode(200)
+  @UseGuards(SignupThrottleGuard)
   @Header("Referrer-Policy", "no-referrer")
   async oneClick(@Query("token") token: string) {
     const parsed = unsubscribeToken.safeParse(token);
