@@ -103,6 +103,32 @@ resource "aws_iam_role_policy" "ec2_params_and_logs" {
   policy = data.aws_iam_policy_document.ec2_params_and_logs.json
 }
 
+# The alert on a failed backup and the BackupOk heartbeat leave the instance through these two
+# calls, and through nothing else.
+data "aws_iam_policy_document" "ec2_alerts" {
+  statement {
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.alerts.arn]
+  }
+
+  statement {
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["Argon"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "ec2_alerts" {
+  name   = "argon-alerts-and-metrics"
+  role   = aws_iam_role.ec2.name
+  policy = data.aws_iam_policy_document.ec2_alerts.json
+}
+
 # ---- GitHub Actions deploy role ------------------------------------------------------------
 
 resource "aws_iam_openid_connect_provider" "github" {

@@ -2,8 +2,11 @@
 # instead of creating a copy. Ids were read from the account; nothing was changed to get them.
 # Once the first apply has run, this file can be deleted — the state remembers.
 #
-# Not listed, because they do not exist yet: the SNS topics, the /argon/prod/api log group, the
-# metric filters, the alarms and the Route 53 health check.
+# The SNS topics, the /argon/prod/api log group, the metric filters, the alarms, the Route 53
+# health check and the alerts policy of the instance role were created by hand on 2026-09-24,
+# with the names this code uses, so they are imported too. The e-mail subscriptions are not: a
+# subscription still pending confirmation has no importable ARN, and once confirmed Terraform's
+# own `aws_sns_topic_subscription` for `var.alert_email` adopts the endpoint it names.
 
 # ---- EC2 ----------------------------------------------------------------------------------
 
@@ -159,10 +162,9 @@ import {
 
 # ---- Logs ---------------------------------------------------------------------------------
 
-# /argon/prod/api is missing from this list on purpose: it did not exist on 2026-09-24. If the
-# awslogs driver creates it before the first apply, add it here.
 import {
   for_each = toset([
+    "/argon/prod/api",
     "/argon/prod/web",
     "/argon/dev/web",
     "/argon/dev/api",
@@ -180,4 +182,78 @@ import {
   for_each = local.parameters
   to       = aws_ssm_parameter.argon[each.key]
   id       = each.key
+}
+
+# ---- Alerts (created by hand on 2026-09-24) ------------------------------------------------
+
+import {
+  to = aws_sns_topic.alerts
+  id = "arn:aws:sns:sa-east-1:382597877834:argon-alerts"
+}
+
+import {
+  to = aws_sns_topic.alerts_us_east_1
+  id = "arn:aws:sns:us-east-1:382597877834:argon-alerts"
+}
+
+import {
+  for_each = {
+    schedule_fired      = "schedule-fired"
+    send_finished       = "send-finished"
+    edition_stuck       = "edition-stuck"
+    owner_alert_skipped = "owner-alert-skipped"
+    errors              = "errors"
+  }
+  to = aws_cloudwatch_log_metric_filter.prod_api[each.key]
+  id = "/argon/prod/api:argon-prod-api-${each.value}"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.schedule_fired
+  id = "argon-prod-schedule-not-fired"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.send_finished
+  id = "argon-prod-send-not-finished"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.backup_ok
+  id = "argon-backup-missing"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.api_errors
+  id = "argon-prod-api-errors"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.edition_stuck
+  id = "argon-prod-edition-stuck"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.owner_alert_skipped
+  id = "argon-prod-owner-alert-skipped"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.ec2_system_check
+  id = "argon-ec2-system-check-failed"
+}
+
+import {
+  to = aws_route53_health_check.api
+  id = "39eccec0-fa72-4def-add0-aaeae57f9098"
+}
+
+import {
+  to = aws_cloudwatch_metric_alarm.api_health
+  id = "argon-prod-api-health"
+}
+
+import {
+  to = aws_iam_role_policy.ec2_alerts
+  id = "argon-ec2:argon-alerts-and-metrics"
 }
