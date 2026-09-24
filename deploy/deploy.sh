@@ -43,11 +43,19 @@ grep -E '^(API_URL|INTERNAL_API_SECRET|ARGON_ENV)=' "env/$ENV_NAME.env" > "env/$
 # on the first boot of an empty volume: changing the parameter later does not change the password.
 params_to_env "/argon/postgres/" "env/postgres.env"
 grep -q '^POSTGRES_PASSWORD=' env/postgres.env || { echo "deploy: /argon/postgres/POSTGRES_PASSWORD is missing" >&2; exit 1; }
-# Caddy's basic_auth for the Studio and the non-production API hosts. Both parameters are required:
-# Caddy refuses to load a basic_auth with an empty hash, which would take every site down with it.
+# Caddy's basic_auth for the Studio and the non-production API hosts, and the operator session
+# cookie. All three are required: Caddy refuses to load a basic_auth with an empty hash, which would
+# take every site down with it.
 params_to_env "/argon/caddy/" "env/caddy.env"
-for k in STUDIO_AUTH_USER STUDIO_AUTH_HASH; do
+for k in STUDIO_AUTH_USER STUDIO_AUTH_HASH OPERATOR_SESSION; do
   grep -qE "^$k=\".+\"$" env/caddy.env || { echo "deploy: /argon/caddy/$k is missing (see deploy/README.md, Acesso do operador)" >&2; exit 1; }
+done
+# Caddy adds each environment's internal secret to the Studio's calls under /mastra once the
+# operator is logged in, so it needs the secret of dev and of lab, whichever environment is deploying.
+for e in dev lab; do
+  params_to_env "/argon/$e/" "env/.caddy-$e.tmp"
+  grep '^INTERNAL_API_SECRET=' "env/.caddy-$e.tmp" | sed "s/^/$(echo "$e" | tr a-z A-Z)_/" >> env/caddy.env
+  rm -f "env/.caddy-$e.tmp"
 done
 # `>` keeps the mode of a file that already exists: files from before the umask stay readable otherwise.
 chmod 600 env/*.env

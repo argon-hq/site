@@ -26,6 +26,36 @@
 	}
 }
 
+# The Studio, with one login. The password is asked once, at /studio, and the answer sets a session
+# cookie; from then on every call the Studio makes under /mastra carries the cookie, the proxy lets it
+# through and adds the environment's internal secret itself — nothing to type into the Studio's
+# settings. A browser would otherwise be asked for the password on every path under /mastra, because
+# it only reuses a basic_auth password below the path it was challenged on. Without the cookie the
+# password still works (curl -u). The cookie value is a secret of its own (/argon/caddy/OPERATOR_SESSION):
+# whoever holds it is the operator, so it is HttpOnly, Secure, same-site and thirty days long.
+# `route` forces the order: the cookie is only set after basic_auth let the request through.
+# Args: the API upstream and the internal secret of that environment.
+(studio) {
+	@studio path /studio /studio/*
+	handle @studio {
+		route {
+			import operator
+			header +Set-Cookie "argon_operator={$OPERATOR_SESSION}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=2592000"
+			reverse_proxy {args[0]}
+		}
+	}
+	@mastra path /mastra /mastra/*
+	handle @mastra {
+		@no_session not header Cookie *argon_operator={$OPERATOR_SESSION}*
+		basic_auth @no_session {
+			{$STUDIO_AUTH_USER} {$STUDIO_AUTH_HASH}
+		}
+		reverse_proxy {args[0]} {
+			header_up x-internal-secret "{args[1]}"
+		}
+	}
+}
+
 # What a non-production API host still answers without a password: the health check the deploy
 # smoke-tests, and the one-click unsubscribe that mail clients call on their own (RFC 8058).
 (open_api_routes) {
@@ -53,14 +83,10 @@ api.argon.eduardofockink.com {
 dev.argon.eduardofockink.com {
 	import secure
 	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
-	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
-	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
-	# the API serves anything there.
-	@studio path /studio /studio/* /mastra /mastra/*
-	handle @studio {
-		import operator
-		reverse_proxy api-dev:3001
-	}
+	# under /mastra on this same host, so the browser calls them same-origin — no CORS. The login
+	# and the internal secret are the proxy's business here (see the studio snippet). STUDIO_ENABLED
+	# still decides whether the API serves anything there.
+	import studio api-dev:3001 "{$DEV_INTERNAL_API_SECRET}"
 	handle {
 		reverse_proxy web-dev:3000
 	}
@@ -100,14 +126,10 @@ lab.argon.eduardofockink.com {
 		output file /var/log/caddy/lab.log
 	}
 	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
-	# under /mastra on this same host, so the browser calls them same-origin — no CORS, and the
-	# internal secret travels on every call the Studio makes. STUDIO_ENABLED still decides whether
-	# the API serves anything there.
-	@studio path /studio /studio/* /mastra /mastra/*
-	handle @studio {
-		import operator
-		reverse_proxy api-lab:3001
-	}
+	# under /mastra on this same host, so the browser calls them same-origin — no CORS. The login
+	# and the internal secret are the proxy's business here (see the studio snippet). STUDIO_ENABLED
+	# still decides whether the API serves anything there.
+	import studio api-lab:3001 "{$LAB_INTERNAL_API_SECRET}"
 	handle {
 		reverse_proxy web-lab:3000
 	}

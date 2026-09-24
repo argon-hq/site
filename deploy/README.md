@@ -120,14 +120,22 @@ aws ssm put-parameter --profile argon-new --region sa-east-1 \
   --name /argon/caddy/STUDIO_AUTH_USER --type String --overwrite --value 'argon'
 aws ssm put-parameter --profile argon-new --region sa-east-1 \
   --name /argon/caddy/STUDIO_AUTH_HASH --type SecureString --overwrite --value "$HASH"
+aws ssm put-parameter --profile argon-new --region sa-east-1 \
+  --name /argon/caddy/OPERATOR_SESSION --type SecureString --overwrite --value "$(openssl rand -hex 32)"
 ```
 
-No Studio, o navegador pede a senha ao abrir `/studio`, mas só a reaproveita para esse caminho:
-cada chamada do Studio a `/mastra/...` recebe um desafio novo, e vira um pedido de senha a cada
-clique. A saída é o próprio Studio mandar a credencial, como já manda o `x-internal-secret`: nas
-Settings dele, um header `Authorization` com `Basic <base64 de usuário:senha>` (`printf
-'argon:<senha>' | base64`). A senha em claro fica em `/argon/caddy/STUDIO_AUTH_PASSWORD`, para ler
-quando precisar. Para o `curl`: `curl -u argon https://api.dev.argon.eduardofockink.com/...`.
+No Studio a senha é pedida uma vez, ao abrir `/studio`, e a resposta grava um cookie de sessão
+(`argon_operator`, trinta dias, `HttpOnly`, `Secure`, `SameSite=Strict`). Com o cookie, o Caddy deixa
+passar as chamadas a `/mastra/...` e acrescenta ele mesmo o `x-internal-secret` do ambiente —
+nada a configurar nas Settings do Studio. O navegador só reaproveitaria a senha do `basic_auth`
+abaixo do caminho em que ela foi pedida, e cada chamada do Studio a um caminho novo viraria outro
+pedido de senha; o cookie é o que resolve isso. O valor do cookie é um segredo próprio,
+`/argon/caddy/OPERATOR_SESSION`; trocá-lo desloga todo mundo. A senha em claro fica em
+`/argon/caddy/STUDIO_AUTH_PASSWORD`. Para o `curl`: `curl -u argon https://api.dev.argon.eduardofockink.com/...`.
+
+O `deploy.sh` grava em `env/caddy.env`, além dos três parâmetros de `/argon/caddy/`, o
+`INTERNAL_API_SECRET` de dev e de lab (`DEV_INTERNAL_API_SECRET`, `LAB_INTERNAL_API_SECRET`), que é o
+que o Caddy injeta.
 
 ### Lab parado
 
