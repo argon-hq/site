@@ -35,7 +35,8 @@ pnpm dev; pnpm build; pnpm lint; pnpm check-types; pnpm test
 ```
 
 Em um pacote só: `pnpm -C apps/api <script>`. Na API: `db:up` sobe o Postgres local,
-`db:migrate` cria migration, `mastra:dev` abre o Studio, `email:preview` renderiza o e-mail.
+`db:migrate` cria migration, `email:preview` renderiza o e-mail. O Studio é o da própria API, em
+`http://localhost:3001/studio`, com `STUDIO_ENABLED=true`.
 
 O cliente Prisma é gerado em `apps/api/src/generated/prisma`, fora do git, antes de build, dev,
 test e check-types.

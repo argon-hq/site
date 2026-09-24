@@ -175,9 +175,10 @@ ambiente (`ARGON_ENV`, que o `deploy.sh` escreve), e o deploy copia `apps/web/pu
 de reiniciar os containers (`aws/README.md`, "Arquivos públicos"). `PUBLIC_ASSETS_ORIGIN` só entra
 se um ambiente precisar apontar para outro lugar.
 
-`SCHEDULER_ENABLED` é o relógio interno. Sem ela o ambiente não tem relógio nenhum e a geração fica
-a um `POST /pipeline/run` de distância; com `true`, ele gera a edição sozinho às 5h30, de segunda a
-sábado. Hoje só `dev` a tem.
+`SCHEDULER_ENABLED` liga o relógio do Mastra dentro da API: os agendamentos do schema `mastra`
+(geração às 5h30, envio às 7h, vigia às 8h, retenção às 4h) só disparam onde ela é `true`. Sem ela
+as linhas existem e aparecem no Studio, mas nada dispara, e a geração fica a um `POST /pipeline/run`
+de distância. Hoje só `dev` a tem.
 
 `NODE_ENV` e `PORT` não entram. Já vêm nas imagens, e um `PORT` no arquivo derrubaria o container —
 o site escuta 3000, a API 3001.
