@@ -1,5 +1,6 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import type { Config } from "../config";
+import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
 import { ORIGINS } from "../subscriber/urls";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
@@ -17,6 +18,8 @@ export class PipelineModule {
       controllers: [PipelineController],
       providers: [
         { provide: ORIGINS, useValue: { web: config.WEB_ORIGIN, api: config.API_ORIGIN } },
+        // The sending step derives each subscriber's unsubscribe token itself, as the confirmation does.
+        { provide: UNSUBSCRIBE_SECRET, useValue: config.UNSUBSCRIBE_TOKEN_SECRET },
         PipelineService,
         OwnerAlert,
         // The clock is only wired where it should tick. An environment with it off has no timer at

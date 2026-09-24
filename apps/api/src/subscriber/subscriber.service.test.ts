@@ -3,7 +3,7 @@ import type { PrismaService } from "../prisma/prisma.service";
 import type { SettingsService } from "../settings/settings.service";
 import type { ConfirmationMail } from "./confirmation-mail";
 import { SubscriberService, type SignUpResult } from "./subscriber.service";
-import { hashToken } from "./token";
+import { hashToken, unsubscribeTokenFor } from "./token";
 
 // Only the fields these tests assert on, so the mock stays readable.
 type Write = {
@@ -23,6 +23,7 @@ type UpsertArgs = { where: { email: string }; create: Write; update: Write };
 type Row = { id: string; status: string; lastConfirmationSentAt?: Date | null } | null;
 
 const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+const SECRET = "0123456789abcdef0123456789abcdef";
 
 function service(existing: Row) {
   const row = existing && { lastConfirmationSentAt: null, ...existing };
@@ -43,6 +44,7 @@ function service(existing: Row) {
       settings as unknown as SettingsService,
       confirmation as unknown as ConfirmationMail,
       origins,
+      SECRET,
     ),
   };
 }
@@ -228,8 +230,10 @@ type UpdateArgs = {
 function unsubscribeService(row: Cancelled | null) {
   const prisma = {
     subscriber: {
+      // A signed token is looked up by the id it names; a token from before the derivation by its hash.
+      findUnique: vi.fn(async (args: { where: { id: string } }) => (row && args.where.id === row.id ? row : null)),
       findFirst: vi.fn(async (args: { where: { unsubscribeTokenHash: string } }) =>
-        args.where.unsubscribeTokenHash ? row : null,
+        args.where.unsubscribeTokenHash === hashToken(TOKEN) ? row : null,
       ),
       update: vi.fn(async (args: UpdateArgs) => ({ id: args.where.id })),
     },
@@ -243,6 +247,7 @@ function unsubscribeService(row: Cancelled | null) {
       settings as unknown as SettingsService,
       confirmation as unknown as ConfirmationMail,
       origins,
+      SECRET,
     ),
   };
 }
@@ -266,6 +271,7 @@ describe("SubscriberService.confirm", () => {
         settings as unknown as SettingsService,
         confirmation as unknown as ConfirmationMail,
         origins,
+        SECRET,
       ),
     };
   }
@@ -284,8 +290,9 @@ describe("SubscriberService.confirm", () => {
 
     const { data } = prisma.subscriber.update.mock.calls[0]?.[0] ?? { data: {} };
     expect(data.status).toBe("confirmed");
-    // The confirmed row has to carry an unsubscribe token; the check constraint requires it.
-    expect(data.unsubscribeTokenHash).toEqual(expect.any(String));
+    // The confirmed row has to carry the hash of its unsubscribe token; the check constraint
+    // requires it, and it is the hash of the token the editions will carry.
+    expect(data.unsubscribeTokenHash).toBe(hashToken(unsubscribeTokenFor(SECRET, "abc")));
     // The confirmation hash is kept on purpose: the status is what stops a second confirmation,
     // and the row has to stay findable so the same link clicked twice is not an error.
     expect(data.tokenHash).toBeUndefined();
@@ -372,13 +379,21 @@ describe("SubscriberService.unsubscribe", () => {
     expect(prisma.subscriber.update).toHaveBeenCalled();
   });
 
-  it("stores only the hash of the unsubscribe token it issues", async () => {
+  it("accepts the subscriber's own derived token, looked up by the id it names", async () => {
     const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
 
-    const token = await subscribers.issueUnsubscribeToken("abc");
+    const result = await subscribers.unsubscribe(subscribers.unsubscribeTokenFor("abc"));
 
-    const stored = prisma.subscriber.update.mock.calls[0]?.[0].data.unsubscribeTokenHash;
-    expect(stored).toBe(hashToken(token));
-    expect(stored).not.toBe(token);
+    expect(result).toEqual({ status: "cancelled", email: "joao@example.com" });
+    expect(prisma.subscriber.findUnique.mock.calls[0]?.[0].where.id).toBe("abc");
+    expect(prisma.subscriber.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("refuses a derived token whose signature is not this secret's", async () => {
+    const { prisma, subscribers } = unsubscribeService({ id: "abc", email: "joao@example.com", status: "confirmed" });
+
+    const forged = unsubscribeTokenFor("another-secret-of-thirty-two-chars", "abc");
+    expect(await subscribers.unsubscribe(forged)).toEqual({ status: "invalid" });
+    expect(prisma.subscriber.update).not.toHaveBeenCalled();
   });
 });

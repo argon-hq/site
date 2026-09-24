@@ -6,8 +6,10 @@ import { ORIGINS, type Origins } from "./urls";
 import {
   CONFIRMATION_RESEND_WINDOW_SECONDS,
   createConfirmationToken,
-  createUnsubscribeToken,
   hashToken,
+  UNSUBSCRIBE_SECRET,
+  unsubscribeTokenFor,
+  verifyUnsubscribeToken,
 } from "./token";
 
 export type SignUpInput = {
@@ -48,6 +50,7 @@ export class SubscriberService {
     private readonly settings: SettingsService,
     private readonly confirmation: ConfirmationMail,
     @Inject(ORIGINS) private readonly origins: Origins,
+    @Inject(UNSUBSCRIBE_SECRET) private readonly unsubscribeSecret: string,
   ) {}
 
   // Sign-up is idempotent by e-mail: the same address never becomes a second row.
@@ -149,8 +152,9 @@ export class SubscriberService {
     }
   }
 
-  // Turns the one-time token into a confirmed subscription, and issues the permanent unsubscribe
-  // token in the same write: the check constraint requires a confirmed row to carry one.
+  // Turns the one-time token into a confirmed subscription, and records the hash of the permanent
+  // unsubscribe token in the same write: the check constraint requires a confirmed row to carry one.
+  // The token itself is derived (see `unsubscribeTokenFor`), so the hash is a record, not a lookup.
   async confirm(token: string): Promise<ConfirmResult> {
     const subscriber = await this.prisma.subscriber.findFirst({ where: { tokenHash: hashToken(token) } });
 
@@ -173,13 +177,12 @@ export class SubscriberService {
       return { status: "expired", email: subscriber.email };
     }
 
-    const unsubscribe = createUnsubscribeToken();
     await this.prisma.subscriber.update({
       where: { id: subscriber.id },
       data: {
         status: "confirmed",
         confirmedAt: new Date(),
-        unsubscribeTokenHash: unsubscribe.hash,
+        unsubscribeTokenHash: hashToken(unsubscribeTokenFor(this.unsubscribeSecret, subscriber.id)),
         // The hash stays: what makes the token single use is the status guard above, and keeping
         // it is what lets a second click on the same link answer "already confirmed" instead of
         // "this link is broken" — the same click arriving twice is not an error.
@@ -190,21 +193,32 @@ export class SubscriberService {
     return { status: "confirmed", email: subscriber.email };
   }
 
+  // The permanent token of one subscriber, the one every edition and the List-Unsubscribe header
+  // carry. Derived, so the sending step asks for it as many times as it likes.
+  unsubscribeTokenFor(subscriberId: string): string {
+    return unsubscribeTokenFor(this.unsubscribeSecret, subscriberId);
+  }
+
+  // Who a token belongs to. A signed token names its subscriber and is checked without a query; a
+  // token from before the derivation — random, only its hash kept — is still looked up by that hash,
+  // so an edition already in an inbox keeps its link working.
+  private async resolveUnsubscribeToken(token: string) {
+    const subscriberId = verifyUnsubscribeToken(this.unsubscribeSecret, token);
+    return subscriberId
+      ? this.prisma.subscriber.findUnique({ where: { id: subscriberId } })
+      : this.prisma.subscriber.findFirst({ where: { unsubscribeTokenHash: hashToken(token) } });
+  }
+
   // Read-only: the page shows who is about to be unsubscribed and confirms before cancelling.
   // A GET must never cancel — the link scanners in e-mail clients follow it on their own.
   async findByUnsubscribeToken(token: string): Promise<{ email: string; status: string } | null> {
-    const subscriber = await this.prisma.subscriber.findFirst({
-      where: { unsubscribeTokenHash: hashToken(token) },
-      select: { email: true, status: true },
-    });
-    return subscriber;
+    const subscriber = await this.resolveUnsubscribeToken(token);
+    return subscriber ? { email: subscriber.email, status: subscriber.status } : null;
   }
 
   // Cancelling twice is not an error: the second click just confirms the subscription is off.
   async unsubscribe(token: string): Promise<UnsubscribeResult> {
-    const subscriber = await this.prisma.subscriber.findFirst({
-      where: { unsubscribeTokenHash: hashToken(token) },
-    });
+    const subscriber = await this.resolveUnsubscribeToken(token);
 
     if (!subscriber) {
       this.logger.warn({ msg: "unsubscribe with unknown token" });
@@ -224,17 +238,6 @@ export class SubscriberService {
 
     this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id });
     return { status: "cancelled", email: subscriber.email };
-  }
-
-  // Issued when the subscription is confirmed, which is where the confirmation route will call
-  // it. The plain token goes into every edition; the database keeps only the hash.
-  async issueUnsubscribeToken(subscriberId: string): Promise<string> {
-    const { token, hash } = createUnsubscribeToken();
-    await this.prisma.subscriber.update({
-      where: { id: subscriberId },
-      data: { unsubscribeTokenHash: hash },
-    });
-    return token;
   }
 }
 

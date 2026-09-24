@@ -11,13 +11,14 @@ import { MailService } from "../mail/mail.service";
 import type { BatchDelivery, Message } from "../mail/mail.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
+import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
 import { buildReason, loadEdition, saveBuilt } from "./build";
 import { agentCollect, fixtureCollect } from "./collect-source";
 import type { CollectResult } from "./collect.schema";
 import { generateStructured } from "./generate";
 import { OwnerAlert } from "./owner-alert";
-import { personalize, sendRefusal, SUBSTITUTES_UNSUBSCRIBE_TOKEN } from "./personalize";
+import { personalize } from "./personalize";
 import { persistCandidate, type Outcome } from "./persist";
 import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
@@ -153,6 +154,7 @@ export class PipelineService {
     private readonly alert: OwnerAlert,
     private readonly mail: MailService,
     @Inject(ORIGINS) private readonly origins: Origins,
+    @Inject(UNSUBSCRIBE_SECRET) private readonly unsubscribeSecret: string,
   ) {}
 
   // Collection step: the Editor loads the `collect` skill and works inside the rules set here. A
@@ -402,11 +404,6 @@ export class PipelineService {
 
   private startSend(now: Date): Effect.Effect<SendReport, SendFailed> {
     return Effect.gen(this, function* () {
-      // Before any read and any write: production does not mail an edition whose unsubscribe link is
-      // still a placeholder, whoever asks.
-      const refusal = sendRefusal(DEPLOYMENT, SUBSTITUTES_UNSUBSCRIBE_TOKEN);
-      if (refusal !== null) return yield* new SendFailed({ reason: refusal });
-
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -484,7 +481,7 @@ export class PipelineService {
 
   // One batch: the stored edition becomes one message per row, the provider answers one result per
   // message, and the whole answer is written in a single transaction — a batch settles or it does
-  // not. A row that cannot be personalised never enters the payload; only ARG-114 can produce one.
+  // not. A row that cannot be personalised never enters the payload: it settles as failed on its own.
   private sendOneBatch(
     edition: SendableEdition,
     batch: PendingBatch,
@@ -498,7 +495,7 @@ export class PipelineService {
       const addressed: string[] = [];
 
       for (const row of batch.rows) {
-        const copy = personalize(edition);
+        const copy = personalize(edition, row.recipient, this.origins, this.unsubscribeSecret);
         if (copy.outcome === "unpersonalizable") {
           results.push({ id: row.id, result: { outcome: "refused", reason: copy.reason } });
           continue;
