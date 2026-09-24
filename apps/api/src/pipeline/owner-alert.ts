@@ -26,10 +26,13 @@ export class OwnerAlert implements OnApplicationBootstrap {
       Effect.tryPromise(() => this.settings.get("owner_emails")).pipe(
         Effect.tap((owners) =>
           Effect.sync(() => {
-            if (owners.length === 0) this.logger.error({ msg: "owner alert skipped", step: "boot", reason: "owner_emails is empty" });
+            if (owners.length === 0)
+              this.logger.error({ msg: "owner alert skipped", step: "boot", reason: "owner_emails is empty" });
           }),
         ),
-        Effect.catchAll((error) => Effect.sync(() => this.logger.error({ msg: "owner alert skipped", step: "boot", reason: String(error) }))),
+        Effect.catchAll((error) =>
+          Effect.sync(() => this.logger.error({ msg: "owner alert skipped", step: "boot", reason: String(error) })),
+        ),
       ),
     );
   }
@@ -39,13 +42,12 @@ export class OwnerAlert implements OnApplicationBootstrap {
     return Effect.tryPromise(async () => {
       const owners = await this.settings.get("owner_emails");
       // The one failure the alert cannot report: an alarm on this line is what does it instead.
-      if (owners.length === 0) return this.logger.error({ msg: "owner alert skipped", step, reason: "owner_emails is empty" });
+      if (owners.length === 0)
+        return this.logger.error({ msg: "owner alert skipped", step, reason: "owner_emails is empty" });
 
       const text = `Step ${step} failed at ${new Date().toISOString()}.\n\n${reason}`;
-      const html = `<pre>${text.replace(/[&<>]/g, (c) => ESCAPE[c])}</pre>`;
-      await Promise.all(
-        owners.map((to) => this.mail.send({ to, subject: `[Argon] step ${step} failed`, text, html })),
-      );
+      const html = `<pre>${text.replace(/[&<>]/g, (c) => ESCAPE[c] ?? c)}</pre>`;
+      await Promise.all(owners.map((to) => this.mail.send({ to, subject: `[Argon] step ${step} failed`, text, html })));
       this.logger.log({ msg: "owners alerted", step, owners: owners.length });
     }).pipe(
       Effect.catchAll((error) =>
