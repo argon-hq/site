@@ -46,6 +46,13 @@ aws ssm put-parameter --profile argon-new --region sa-east-1 \
 O perfil importa: `argon-new` é a conta do deploy (382597877834); o `default` aponta para a conta
 do DNS. O valor só chega aos containers no deploy seguinte, que é quem regera `env/<env>.env`.
 
+## Infraestrutura como código
+
+Os recursos da conta estão descritos em Terraform em [`aws/`](aws/README.md): instância, IP,
+security groups, papéis, ECR, bucket de backup, orçamento, grupos de log, alarmes e os nomes dos
+parâmetros. A tabela abaixo continua valendo como resumo, mas a fonte passa a ser o código, e o
+que ela lista sem estar lá (DNS na outra conta, a stack do Compose) o README de lá explica.
+
 ## Recursos criados (17/09/2026, conta 382597877834, sa-east-1)
 
 | Recurso | Id |
