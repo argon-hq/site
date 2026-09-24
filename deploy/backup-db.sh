@@ -24,3 +24,6 @@ for db in $dbs; do
   rm -f "$tmp/$db.dump"
   echo "backup: $db -> s3://$BUCKET/postgres/$db/$stamp.dump"
 done
+# A backup that ran is a data point; the alarm on this metric is what notices the night it did not
+# (deploy/README.md). A failure above never gets here, and the unit's OnFailure raises the alert.
+aws cloudwatch put-metric-data --region "$REGION" --namespace Argon --metric-name BackupOk --value 1

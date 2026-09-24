@@ -1,5 +1,5 @@
-# Local dependencies for development: Postgres, with the same major version and extensions as the
-# RDS instance, and Mailpit, which accepts every message and delivers none.
+# Local dependencies for development: Postgres, the same image as the one deployed on the instance
+# (deploy/compose.yml), and Mailpit, which accepts every message and delivers none.
 #   pnpm db:up    →  postgresql://argon:argon@localhost:5432/argon_dev
 #                 →  smtp://localhost:1025, inbox at http://localhost:8025
 services:

@@ -2,6 +2,11 @@ packages:
   - apps/*
   - packages/*
 
+# multer < 2.4 (through @nestjs/platform-express) carries three high advisories; the override holds
+# until Nest moves on its own. pnpm 11 reads overrides here, not from package.json.
+overrides:
+  multer: ">=2.4.0"
+
 allowBuilds:
   '@parcel/watcher': false
   '@swc/core': false
