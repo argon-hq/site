@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <defs><mask id="st02" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 10 52 56 44 56 32 27 20 56 12 56Z" fill="#000"/><path d="M32 33 39.50 43 35 43 35 56 29 56 29 43 24.50 43Z" fill="#000"/></mask></defs>
+  <g fill="currentColor"><rect x="4" y="4" width="56" height="56" mask="url(#st02)"/></g>
+</svg>
