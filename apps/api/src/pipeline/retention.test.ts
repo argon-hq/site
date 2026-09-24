@@ -4,37 +4,50 @@ import type { PrismaService } from "../prisma/prisma.service";
 import {
   CANCELLED_RETENTION_DAYS,
   RETENTION_BATCH,
-  RetentionScheduler,
+  RetentionService,
   SEEN_URL_RETENTION_DAYS,
   TEXT_RETENTION_DAYS,
+  TRACES_RETENTION_DAYS,
 } from "./retention";
 
 const now = new Date("2026-09-24T07:00:00Z");
 const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
 
 // The database as the trims see it: each statement answers how many rows it touched, in order.
-function scheduler(answers: number[]) {
+function scheduler(answers: number[], traced = false) {
   const calls: { sql: string; values: unknown[] }[] = [];
   const $executeRaw = vi.fn(async (query: { strings: string[]; values: unknown[] }) => {
     calls.push({ sql: query.strings.join("?"), values: query.values });
     return answers.shift() ?? 0;
   });
-  return { service: new RetentionScheduler({ $executeRaw } as unknown as PrismaService), calls };
+  const $queryRaw = vi.fn(async () => [{ exists: traced }]);
+  return { service: new RetentionService({ $executeRaw, $queryRaw } as unknown as PrismaService), calls };
 }
 
-describe("RetentionScheduler", () => {
+describe("RetentionService", () => {
   it("clears old article text, deletes old seen links and purges long-cancelled subscribers, each past its window", async () => {
     const { service, calls } = scheduler([3, 2, 1]);
 
     const report = await Effect.runPromise(service.run(now));
 
-    expect(report).toEqual({ textsCleared: 3, seenUrlsDeleted: 2, subscribersPurged: 1 });
+    expect(report).toEqual({ textsCleared: 3, seenUrlsDeleted: 2, subscribersPurged: 1, tracesDeleted: 0 });
+    expect(calls).toHaveLength(3);
     expect(calls[0]?.sql).toMatch(/UPDATE "article" SET "extracted_text" = NULL/);
     expect(calls[0]?.values).toEqual([daysAgo(TEXT_RETENTION_DAYS), RETENTION_BATCH]);
     expect(calls[1]?.sql).toMatch(/DELETE FROM "seen_url"/);
     expect(calls[1]?.values).toEqual([daysAgo(SEEN_URL_RETENTION_DAYS), RETENTION_BATCH]);
     expect(calls[2]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'cancelled'/);
     expect(calls[2]?.values).toEqual([daysAgo(CANCELLED_RETENTION_DAYS), RETENTION_BATCH]);
+  });
+
+  it("deletes old traces where tracing was ever on", async () => {
+    const { service, calls } = scheduler([0, 0, 0, 5], true);
+
+    const report = await Effect.runPromise(service.run(now));
+
+    expect(report.tracesDeleted).toBe(5);
+    expect(calls[3]?.sql).toMatch(/DELETE FROM "mastra"."mastra_ai_spans"/);
+    expect(calls[3]?.values).toEqual([daysAgo(TRACES_RETENTION_DAYS), RETENTION_BATCH]);
   });
 
   it("keeps going in batches until a statement comes back short", async () => {
@@ -49,7 +62,7 @@ describe("RetentionScheduler", () => {
   it("stops the pass on a database failure and says which trim broke", async () => {
     const { service } = scheduler([]);
     const prisma = { $executeRaw: vi.fn().mockRejectedValueOnce(new Error("connection lost")) };
-    const broken = new RetentionScheduler(prisma as unknown as PrismaService);
+    const broken = new RetentionService(prisma as unknown as PrismaService);
     void service;
 
     const exit = await Effect.runPromiseExit(broken.run(now));

@@ -1,9 +1,10 @@
-import { createStep, createWorkflow } from "@mastra/core/workflows";
-import { Data, Effect, Exit } from "effect";
+import { createWorkflow } from "@mastra/core/workflows";
+import { Data, Effect } from "effect";
 import { z } from "zod";
-import { failureReason } from "../../effect/reason";
+import { DEPLOYMENT, resolveMode } from "../../pipeline/profile";
 import { runDate, STEP_RETRIES } from "../../pipeline/run";
-import { editionContext, type EditionRequestContext, type EditionSteps } from "./context";
+import type { PipelinePort } from "./context";
+import { stepOf } from "./step";
 
 // What one run carries: the day it is for and a summary per step, filled as it goes. The whole
 // report, with the token cost, goes to the log — the architecture keeps cost out of storage — and
@@ -33,10 +34,23 @@ const buildSummary = z.object({
   durationMs: z.number(),
 });
 
+export const modeSchema = z
+  .enum(["live", "mock"])
+  .describe(
+    "live calls the model; mock works over the fixture. Empty: the environment's profile. Production is always live.",
+  );
+
+// What starts a run. Both fields are optional so a schedule row and the Studio's form can start one
+// with nothing: the day is today in São Paulo and the mode is the profile's.
+export const editionRequestSchema = z.object({
+  date: z.iso.date().optional().describe("YYYY-MM-DD, São Paulo. Empty: today. A run for another day is refused."),
+  mode: modeSchema.optional(),
+});
+
 export const editionRunSchema = z.object({
   date: z.string(),
-  // What this run pays for: `live` calls the model, `mock` works over the fixture. It travels with
-  // the run so the Studio and the snapshot say later which one it was.
+  // What this run pays for. It travels with the run so the Studio and the snapshot say later which
+  // one it was.
   mode: z.enum(["live", "mock"]),
   collect: collectSummary.optional(),
   write: writeSummary.optional(),
@@ -56,53 +70,61 @@ const forToday = (date: string): Effect.Effect<void, StaleRun> => {
   return date === today ? Effect.void : new StaleRun({ reason: `run is for ${date} and today is ${today}` });
 };
 
-// One shape for the three steps: read the service from the run context, run its effect, fold the
-// report into the run. A step reports failure by throwing, which is also what makes Mastra try it
-// again — the services speak Effect and never throw, so the conversion happens here, once.
-const stepOf = <A>(
+// A step of the generation: check the day, run, fold the report into the run.
+const generationStep = <A>(
   id: string,
-  run: (pipeline: EditionSteps, input: EditionRun) => Effect.Effect<A, { reason: string }>,
+  description: string,
+  run: (pipeline: PipelinePort, input: EditionRun) => Effect.Effect<A, { reason: string }>,
   fold: (previous: EditionRun, report: A) => EditionRun,
   skip?: (previous: EditionRun) => boolean,
 ) =>
-  createStep({
+  stepOf({
     id,
+    description,
     inputSchema: editionRunSchema,
     outputSchema: editionRunSchema,
     retries: STEP_RETRIES,
-    execute: async ({ inputData, requestContext }) => {
-      // Parsed again on the way in: what Mastra types the input as depends on its zod version.
-      const input = editionRunSchema.parse(inputData);
-      if (skip?.(input)) return input;
-
-      const exit = await Effect.runPromiseExit(
-        editionContext(id, requestContext as EditionRequestContext).pipe(
-          Effect.tap(() => forToday(input.date)),
-          Effect.flatMap(({ pipeline }) => run(pipeline, input)),
-          Effect.map((report) => fold(input, report)),
-        ),
-      );
-      if (Exit.isFailure(exit)) throw new Error(failureReason(exit.cause));
-      return exit.value;
-    },
+    alert: true,
+    run: (pipeline, input) =>
+      skip?.(input)
+        ? Effect.succeed(input)
+        : forToday(input.date).pipe(
+            Effect.andThen(run(pipeline, input)),
+            Effect.map((report) => fold(input, report)),
+          ),
   });
 
-export const collectStep = stepOf(
-  "collect",
-  (pipeline, run) => pipeline.collect({ mode: run.mode }),
-  (previous, report) => ({
-    ...previous,
-    collect: {
-      saved: report.saved,
-      evaluated: report.result.candidates.length,
-      discarded: report.result.discarded,
-      durationMs: report.durationMs,
-    },
-  }),
-);
+// The first step settles what the request left open, so every step after it reads a whole run.
+export const collectStep = stepOf({
+  id: "collect",
+  description: "The Editor searches the sources, reads and scores; code stores what passes.",
+  inputSchema: editionRequestSchema,
+  outputSchema: editionRunSchema,
+  retries: STEP_RETRIES,
+  alert: true,
+  run: (pipeline, request) => {
+    const run: EditionRun = {
+      date: request.date ?? runDate(new Date()),
+      mode: resolveMode(DEPLOYMENT, request.mode),
+    };
+    return forToday(run.date).pipe(
+      Effect.andThen(pipeline.collect({ mode: run.mode })),
+      Effect.map((report): EditionRun => ({
+        ...run,
+        collect: {
+          saved: report.saved,
+          evaluated: report.result.candidates.length,
+          discarded: report.result.discarded,
+          durationMs: report.durationMs,
+        },
+      })),
+    );
+  },
+});
 
-export const writeStep = stepOf(
+export const writeStep = generationStep(
   "write",
+  "The Editor writes each stored article and the header; below the minimum the edition is skipped.",
   (pipeline, run) => pipeline.write({ mode: run.mode }),
   (previous, report) => ({
     ...previous,
@@ -119,8 +141,9 @@ export const writeStep = stepOf(
 
 // An edition below the minimum was skipped on purpose, and there is nothing to build: building it
 // would fail the validation and alert the owners over an outcome that is not a failure.
-export const buildStep = stepOf(
+export const buildStep = generationStep(
   "build",
+  "Builds and validates the e-mail of the day's edition. No model.",
   (pipeline, run) => pipeline.build({ mode: run.mode }),
   (previous, report) => ({
     ...previous,
@@ -136,11 +159,12 @@ export const buildStep = stepOf(
   (previous) => previous.write?.status === "skipped",
 );
 
-// The three steps of the generation, in order. The sending step is not here: it is a run of its own,
-// at 7h, and the edition is ready before it.
+// The three steps of the generation, in order. The send is a workflow of its own (`operations.ts`),
+// at 7h: the edition is ready long before it.
 export const editionWorkflow = createWorkflow({
   id: "edition",
-  inputSchema: editionRunSchema,
+  description: "The day's generation: collect → write → build. Leave the input empty for today, in the profile's mode.",
+  inputSchema: editionRequestSchema,
   outputSchema: editionRunSchema,
 })
   .then(collectStep)

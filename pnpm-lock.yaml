@@ -29,6 +29,9 @@ importers:
       '@mastra/nestjs':
         specifier: ^0.2.27
         version: 0.2.27(@mastra/core@1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5))(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.5)(express@5.2.1(supports-color@8.1.1))(zod@4.6.5)
+      '@mastra/observability':
+        specifier: ^1.18.0
+        version: 1.18.0(@mastra/core@1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5))(zod@4.6.5)
       '@mastra/pg':
         specifier: ^1.26.0
         version: 1.26.0(@mastra/core@1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5))
@@ -44,9 +47,6 @@ importers:
       '@nestjs/platform-express':
         specifier: ^11.2.5
         version: 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.5)(supports-color@8.1.1)
-      '@nestjs/schedule':
-        specifier: ^12.0.2
-        version: 12.0.2(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.5)
       '@nestjs/throttler':
         specifier: ^6.7.0
         version: 6.7.0(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.5)(reflect-metadata@0.2.2)
@@ -1348,6 +1348,13 @@ packages:
       express: ^4.0.0 || ^5.0.0
       zod: ^3.25.0 || ^4.0.0
 
+  '@mastra/observability@1.18.0':
+    resolution: {integrity: sha512-PiVNGKWm/Ju5e49jWJ6MJMpB0vFtp/Hjox1p/t98HP0EWXo37db0gG+xsxp5J5xFcWKdp9Rujr9pgZW3ZFVzgg==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.16.0-0 <2.0.0-0'
+      zod: ^3.25.0 || ^4.0.0
+
   '@mastra/pg@1.26.0':
     resolution: {integrity: sha512-tPsNwCOtIOuCnqdeCS1azXTNAbvb81+1WPHFr+T6BgfMyHqmCSxWJ8WGoRVO/7tC5SNGCH/a14WScTDhOcHsjw==}
     engines: {node: '>=22.13.0'}
@@ -1434,13 +1441,6 @@ packages:
     peerDependencies:
       '@nestjs/common': ^11.0.0
       '@nestjs/core': ^11.0.0
-
-  '@nestjs/schedule@12.0.2':
-    resolution: {integrity: sha512-5iAvJEtk0njbfTrG4JQr+SXw8ZrqgDM1wJH9nUs6tVLCX5pWGd1LJ0a8b089UT1FDeDWaThRRfSLixFz9zztcA==}
-    engines: {node: '>=20.19.0'}
-    peerDependencies:
-      '@nestjs/common': ^11.0.0 || ^12.0.0
-      '@nestjs/core': ^11.0.0 || ^12.0.0
 
   '@nestjs/schematics@11.1.0':
     resolution: {integrity: sha512-lVxGZ46tcdItFMoXr6vyKWlnOsm1SZm/GUqAEDvy2RL4Q4O+3bkziAhrO7Y8JLssFUUvNFEGqAizI52WAxhjDw==}
@@ -2712,9 +2712,6 @@ packages:
   '@types/lodash@4.17.25':
     resolution: {integrity: sha512-+K1NIO8I+F9/wNulfVvu23QYd0Pe9/OCqRrim4NoYIf1VoEDL90Ve4ClzpyqBLc7NpGGWRvYNCKZ1BE/Jpf8dQ==}
 
-  '@types/luxon@3.7.5':
-    resolution: {integrity: sha512-jJ41Q4z6ZVO260MNDdHfW7+7a5iMiX8Mr6ZJHcmgrvhZha6dz5704o/lF2kKl6URjH6ivEL97w9xS/MgpJEphg==}
-
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
 
@@ -3566,10 +3563,6 @@ packages:
   crc32-stream@7.0.1:
     resolution: {integrity: sha512-IBWsY8xznyQrcHn8h4bC8/4ErNke5elzgG8GcqF4RFPw6aHkWWRc7Tgw6upjaTX/CT/yQgqYENkxYsTYN+hW2g==}
     engines: {node: '>=18'}
-
-  cron@4.4.0:
-    resolution: {integrity: sha512-fkdfq+b+AHI4cKdhZlppHveI/mgz2qpiYxcm+t5E5TsxX7QrLS1VE0+7GENEk9z0EeGPcpSciGv6ez24duWhwQ==}
-    engines: {node: '>=18.x'}
 
   croner@10.0.1:
     resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
@@ -5012,10 +5005,6 @@ packages:
   lru.min@1.1.5:
     resolution: {integrity: sha512-5J9ysMYUpYIg9RF2vJpy9SinEmSviFSe0GyPpCQ4L5QSkLAgeLXlTAOu2ZwWUU5m+0SBl6gUU1R1ZQB3aKypfA==}
     engines: {bun: '>=1.0.0', deno: '>=1.30.0', node: '>=8.0.0'}
-
-  luxon@3.7.2:
-    resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
-    engines: {node: '>=12'}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -7943,6 +7932,11 @@ snapshots:
       express: 5.2.1(supports-color@8.1.1)
       zod: 4.6.5
 
+  '@mastra/observability@1.18.0(@mastra/core@1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5))(zod@4.6.5)':
+    dependencies:
+      '@mastra/core': 1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5)
+      zod: 4.6.5
+
   '@mastra/pg@1.26.0(@mastra/core@1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5))':
     dependencies:
       '@mastra/core': 1.68.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.5))(zod@4.6.5)
@@ -8051,12 +8045,6 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
-
-  '@nestjs/schedule@12.0.2(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.5)':
-    dependencies:
-      '@nestjs/common': 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
-      '@nestjs/core': 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@11.2.5)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      cron: 4.4.0
 
   '@nestjs/schematics@11.1.0(chokidar@4.0.3)(prettier@3.9.8)(typescript@5.9.3)':
     dependencies:
@@ -9020,8 +9008,6 @@ snapshots:
 
   '@types/lodash@4.17.25': {}
 
-  '@types/luxon@3.7.5': {}
-
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
@@ -9970,11 +9956,6 @@ snapshots:
     dependencies:
       crc-32: 1.2.2
       readable-stream: 4.7.0
-
-  cron@4.4.0:
-    dependencies:
-      '@types/luxon': 3.7.5
-      luxon: 3.7.2
 
   croner@10.0.1: {}
 
@@ -11598,8 +11579,6 @@ snapshots:
       yallist: 3.1.1
 
   lru.min@1.1.5: {}
-
-  luxon@3.7.2: {}
 
   lz-string@1.5.0: {}
 

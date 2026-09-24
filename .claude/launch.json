@@ -4,20 +4,22 @@
     {
       "name": "web-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-C", "apps/web", "dev"],
+      "runtimeArgs": [
+        "-C",
+        "apps/web",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "api",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-C", "apps/api", "dev"],
+      "runtimeArgs": [
+        "-C",
+        "apps/api",
+        "dev"
+      ],
       "port": 3001
-    },
-    {
-      "name": "mastra-studio",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-C", "apps/api", "mastra:dev"],
-      "port": 4111
     }
   ]
 }

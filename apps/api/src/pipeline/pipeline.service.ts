@@ -1,12 +1,10 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import type { Agent } from "@mastra/core/agent";
 import { MastraService } from "@mastra/nestjs";
-import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
 import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
 import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
-import type { EditionContext } from "../mastra/workflows/context";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { PrismaService } from "../prisma/prisma.service";
@@ -44,7 +42,7 @@ import {
 export class CollectFailed extends Data.TaggedError("CollectFailed")<Failure> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<Failure> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<Failure> {}
-// A failed run says which step failed, so the single alert it sends is addressed.
+// A failed run says which step failed, so the log line and the alert are addressed.
 export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string; status?: HttpStatus }> {}
 
 export type CollectReport = {
@@ -421,19 +419,20 @@ export class PipelineService {
   }
 
   // The whole generation as one run of the `edition` workflow: collect → write → build, each step
-  // with its own retry and its own state in the Studio. The steps have no Nest injection, so the run
-  // hands them this service through the request context — the same deal the tools have.
+  // with its own retry and its own state in the Studio. The steps reach this service through the
+  // port Nest binds at boot (`port.ts`), the same way a run the Studio or the scheduler starts does.
   run(request: StepRun = {}): Effect.Effect<RunReport, RunFailed> {
     const { mode, now } = startOf(request);
     return Effect.suspend(() => {
       if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight", status: CONFLICT });
       this.inFlight = true;
       return this.startRun(mode, now).pipe(
-        // The one alert of a failed run, addressed to the step that failed. Nothing alerts inside the
-        // steps, so a step that tried twice still costs one e-mail.
+        // A step that gives up has already mailed the owners on its last attempt (see
+        // mastra/workflows/step.ts), whoever started the run. What is left here is a run that
+        // failed outside any step — it did not start, or ended in a shape it should not have.
         Effect.tapError((error) =>
           Effect.sync(() => this.logger.error({ msg: "run failed", step: error.step, reason: error.reason })).pipe(
-            Effect.andThen(this.alert.send(error.step, error.reason)),
+            Effect.andThen(error.step === "run" ? this.alert.send(error.step, error.reason) : Effect.void),
           ),
         ),
         Effect.ensuring(
@@ -451,14 +450,11 @@ export class PipelineService {
       const date = runDate(now);
       this.logger.log({ msg: "run started", date, mode });
 
-      const requestContext = new RequestContext<EditionContext>();
-      requestContext.set("pipeline", this);
-
       const workflow = this.mastra.getWorkflow("edition");
       const started = yield* Effect.tryPromise({
         try: async () => {
           const run = await workflow.createRun();
-          const result = await run.start({ inputData: { date, mode }, requestContext });
+          const result = await run.start({ inputData: { date, mode } });
           return { runId: run.runId, result };
         },
         catch: (error) => new RunFailed({ step: "run", reason: String(error) }),

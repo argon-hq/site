@@ -1,9 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Cron } from "@nestjs/schedule";
 import { Data, Effect } from "effect";
 import { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { TIMEZONE } from "./run";
 
 // What the database keeps, and for how long. The article text is only needed while an edition
 // can still be written from it; a seen link only while the collector could meet it again; and a
@@ -12,9 +10,12 @@ import { TIMEZONE } from "./run";
 export const TEXT_RETENTION_DAYS = 30;
 export const SEEN_URL_RETENTION_DAYS = 30;
 export const CANCELLED_RETENTION_DAYS = 90;
+// The Mastra traces the Studio shows (local, dev and lab only): a month is enough to compare runs, and
+// they carry the token count of every call, which the architecture keeps out of storage for long.
+export const TRACES_RETENTION_DAYS = 30;
 
 // One pass a day, in the quiet hour between the backup and the generation. Every day: the tables
-// grow on Sunday too.
+// grow on Sunday too. The clock is the `retention` schedule (see schedules.ts).
 export const RETENTION_SCHEDULE = "0 4 * * *";
 
 // Rows per statement. A table that grew for months is trimmed in slices, so no single statement
@@ -23,21 +24,20 @@ export const RETENTION_BATCH = 1_000;
 
 export class RetentionDbFailed extends Data.TaggedError("RetentionDbFailed")<{ reason: string }> {}
 
-export type RetentionReport = { textsCleared: number; seenUrlsDeleted: number; subscribersPurged: number };
+export type RetentionReport = {
+  textsCleared: number;
+  seenUrlsDeleted: number;
+  subscribersPurged: number;
+  tracesDeleted: number;
+};
 
 @Injectable()
-export class RetentionScheduler {
-  private readonly logger = new Logger(RetentionScheduler.name);
+export class RetentionService {
+  private readonly logger = new Logger(RetentionService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
-  @Cron(RETENTION_SCHEDULE, { name: "retention", timeZone: TIMEZONE })
-  async nightly(): Promise<void> {
-    this.logger.log({ msg: "schedule fired", schedule: RETENTION_SCHEDULE, timeZone: TIMEZONE });
-    await Effect.runPromise(Effect.ignore(this.run()));
-  }
-
-  // Runs the three trims and reports what each took. A failure in one is logged and stops the
+  // Runs the four trims and reports what each took. A failure in one is logged and stops the
   // pass; tomorrow's pass picks up where it left, because every statement only touches what is
   // still past the window.
   run(now: Date = new Date()): Effect.Effect<RetentionReport, RetentionDbFailed> {
@@ -68,7 +68,25 @@ export class RetentionScheduler {
             LIMIT ${limit}
           )`),
       );
-      const report = { textsCleared, seenUrlsDeleted, subscribersPurged };
+      // The table only exists where tracing was ever on, so production, which never traces, skips it.
+      const traced = yield* Effect.tryPromise({
+        try: () =>
+          this.prisma.$queryRaw<{ exists: boolean }[]>(
+            Prisma.sql`SELECT to_regclass('mastra.mastra_ai_spans') IS NOT NULL AS "exists"`,
+          ),
+        catch: (error) => new RetentionDbFailed({ reason: `look for traces: ${String(error)}` }),
+      });
+      const tracesDeleted = traced[0]?.exists
+        ? yield* this.drain("delete traces", (limit) =>
+            this.prisma.$executeRaw(Prisma.sql`
+              DELETE FROM "mastra"."mastra_ai_spans"
+              WHERE ctid IN (
+                SELECT ctid FROM "mastra"."mastra_ai_spans"
+                WHERE "startedAt" < ${daysBefore(now, TRACES_RETENTION_DAYS)} LIMIT ${limit}
+              )`),
+          )
+        : 0;
+      const report = { textsCleared, seenUrlsDeleted, subscribersPurged, tracesDeleted };
       this.logger.log({ msg: "retention finished", ...report });
       return report;
     }).pipe(
