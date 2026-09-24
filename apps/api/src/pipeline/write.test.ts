@@ -27,7 +27,11 @@ const candidate: Candidate = {
   extractedText: "O Copom manteve a taxa básica de juros em 12% ao ano.",
 };
 
-const item: WrittenItem = { category: "economy", headline: "Copom mantém a Selic em 12%", body: "O Copom manteve a taxa em 12%." };
+const item: WrittenItem = {
+  category: "economy",
+  headline: "Copom mantém a Selic em 12%",
+  body: "O Copom manteve a taxa em 12%.",
+};
 
 // Answers the given results in order, one per attempt, and records the prompts it received. A
 // string stands for a rejected generation, the way Mastra reports a schema the model did not meet.
@@ -162,16 +166,29 @@ describe("saveEdition", () => {
     } as unknown as PrismaClient;
 
     await Effect.runPromise(
-      saveEdition(prisma, { editionId: "e1", header: { title: "Manhã", subject: "Selic parada" }, written: [{ id: "a1", item }] }),
+      saveEdition(prisma, {
+        editionId: "e1",
+        header: { title: "Manhã", subject: "Selic parada" },
+        written: [{ id: "a1", item }],
+      }),
     );
 
     expect(calls).toEqual([
-      { op: "article.updateMany", args: { where: { editionId: "e1" }, data: { editionId: null, category: null, headline: null, body: null } } },
+      {
+        op: "article.updateMany",
+        args: { where: { editionId: "e1" }, data: { editionId: null, category: null, headline: null, body: null } },
+      },
       {
         op: "article.update",
-        args: { where: { id: "a1" }, data: { editionId: "e1", category: "economy", headline: item.headline, body: item.body } },
+        args: {
+          where: { id: "a1" },
+          data: { editionId: "e1", category: "economy", headline: item.headline, body: item.body },
+        },
       },
-      { op: "edition.update", args: { where: { id: "e1" }, data: { title: "Manhã", subject: "Selic parada", status: "generating" } } },
+      {
+        op: "edition.update",
+        args: { where: { id: "e1" }, data: { title: "Manhã", subject: "Selic parada", status: "generating" } },
+      },
     ]);
   });
 });

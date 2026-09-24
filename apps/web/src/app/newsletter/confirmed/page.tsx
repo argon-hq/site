@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
+import { PageHeading } from "@/components/ui/page-heading";
+import { PrimaryCta } from "@/components/ui/primary-cta";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("confirmed");
@@ -22,7 +24,7 @@ export default function ConfirmedPage() {
 
   return (
     <div className="grid min-h-svh flex-1 lg:grid-cols-[16fr_9fr]">
-      <section className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
+      <main id="main-content" className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <div className="flex flex-col items-start gap-5">
             <BrandMark />
@@ -32,22 +34,13 @@ export default function ConfirmedPage() {
           </div>
 
           <div className="flex flex-col gap-5">
-            <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              {t("heading")}
-            </h1>
-            <p className="max-w-xl text-lg text-muted text-pretty">
-              {t("body")}
-            </p>
+            <PageHeading>{t("heading")}</PageHeading>
+            <p className="max-w-xl text-lg text-muted text-pretty">{t("body")}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
             {/* TODO: a plataforma ainda não existe — o destino é placeholder. */}
-            <Link
-              href="/"
-              className="rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              {t("primaryCta")}
-            </Link>
+            <PrimaryCta href="/">{t("primaryCta")}</PrimaryCta>
             <Link
               href="/"
               className="text-base font-medium text-accent transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -56,8 +49,7 @@ export default function ConfirmedPage() {
             </Link>
           </div>
         </div>
-
-      </section>
+      </main>
 
       <aside
         aria-label={preview("label")}

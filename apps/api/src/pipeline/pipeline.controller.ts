@@ -11,6 +11,11 @@ import { PipelineService } from "./pipeline.service";
 const stepBody = z.object({ mode: z.enum(["live", "mock"]).optional() }).default({});
 type StepBody = z.infer<typeof stepBody>;
 
+// The send may also name a day, to resume an edition a run left `sending` after the calendar moved
+// on: "YYYY-MM-DD", the São Paulo calendar day, as the edition column stores it.
+const sendBody = z.object({ date: z.iso.date().optional() }).default({});
+type SendBody = z.infer<typeof sendBody>;
+
 @Controller("pipeline")
 export class PipelineController {
   constructor(
@@ -51,12 +56,14 @@ export class PipelineController {
     return runEffect("build", this.alert.onFailure("build", this.pipeline.build()));
   }
 
-  // POST /pipeline/send → sends today's built edition to every confirmed subscriber, in batches. It
-  // is what the 7h schedule fires; by hand it is the same send, and running it again only picks up
-  // what is still pending. No model either way, so the mode changes nothing. Internal secret required.
+  // POST /pipeline/send { date? } → sends the built edition to every confirmed subscriber, in
+  // batches: today's, or the day named. It is what the 7h schedule fires; by hand it is the same
+  // send, and running it again only picks up what is still pending. No model either way, so the mode
+  // changes nothing. Internal secret required.
   @Post("send")
   @HttpCode(200)
-  send() {
-    return runEffect("send", this.alert.onFailure("send", this.pipeline.send()));
+  send(@Body(ZodBody(sendBody)) body: SendBody) {
+    const date = body.date ? new Date(`${body.date}T00:00:00Z`) : undefined;
+    return runEffect("send", this.alert.onFailure("send", this.pipeline.send({ date })));
   }
 }

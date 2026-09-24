@@ -36,7 +36,7 @@ const SHAPE_REQUEST = [
 
 export class NothingToShape extends Error {
   constructor(what: string) {
-    super(`a segunda chamada não devolveu objeto ao dar forma a ${what}`);
+    super(`the second call returned no object when shaping ${what}`);
   }
 }
 
@@ -60,7 +60,7 @@ export async function generateStructured<S extends z.ZodType, C>(
     maxSteps: 1,
   });
 
-  if (shaped.object == null) throw new NothingToShape(schema.description ?? "a resposta");
+  if (shaped.object == null) throw new NothingToShape(schema.description ?? "the answer");
 
   return {
     object: shaped.object as z.infer<S>,

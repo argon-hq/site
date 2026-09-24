@@ -28,6 +28,8 @@ describe("subscriber URLs", () => {
   });
 
   it("escapes a token that would break the query string", () => {
-    expect(unsubscribePageUrl(origins, "a b&c=d")).toBe("https://argon.example/newsletter/unsubscribe?token=a%20b%26c%3Dd");
+    expect(unsubscribePageUrl(origins, "a b&c=d")).toBe(
+      "https://argon.example/newsletter/unsubscribe?token=a%20b%26c%3Dd",
+    );
   });
 });

@@ -13,9 +13,7 @@ export function EditionPreview() {
   return (
     <div className="w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-lg">
       <div className="flex items-baseline justify-between gap-4 bg-foreground px-5 py-4 text-background">
-        <span className="text-sm font-bold tracking-[0.18em]">
-          {brand("name").toUpperCase()}
-        </span>
+        <span className="text-sm font-bold tracking-[0.18em]">{brand("name").toUpperCase()}</span>
         <span className="text-xs opacity-70">{t("label")}</span>
       </div>
 
@@ -31,9 +29,7 @@ export function EditionPreview() {
         ))}
       </div>
 
-      <p className="bg-surface px-5 py-3 text-center text-xs font-medium text-muted">
-        ☕ {t("tagline")}
-      </p>
+      <p className="bg-surface px-5 py-3 text-center text-xs font-medium text-muted">☕ {t("tagline")}</p>
     </div>
   );
 }

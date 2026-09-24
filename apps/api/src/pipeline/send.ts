@@ -1,25 +1,28 @@
 import { Data, Effect } from "effect";
+import { dbEffect } from "../effect/db";
+import { CONFLICT, NOT_FOUND, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { MailService } from "../mail/mail.service";
-import type { BatchDelivery, Message } from "../mail/mail.types";
+import type { BatchDelivery, Message, OnSettled } from "../mail/mail.types";
 import type { Recipient } from "./personalize";
 
 // How many messages go to the provider in one call. Ours to enforce: the SDK chunks nothing and
 // imposes no ceiling of its own.
 export const BATCH_SIZE = 100;
 
-export class SendDbFailed extends Data.TaggedError("SendDbFailed")<{ reason: string }> {}
+export class SendDbFailed extends Data.TaggedError("SendDbFailed")<Failure> {}
 export class BatchRefused extends Data.TaggedError("BatchRefused")<{ reason: string }> {}
 
-const db = <A>(run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: (error) => new SendDbFailed({ reason: String(error) }) });
+const db = dbEffect((reason) => new SendDbFailed({ reason }));
 
 // The edition as the sending step needs it: the subject it goes out under and the two copies the
 // building step stored, one e-mail for everyone.
 export type SendableEdition = { id: string; subject: string; html: string; text: string };
 
-// One delivery still waiting, and who it is waiting for.
-export type PendingRow = { id: string; batch: number; recipient: Recipient };
+// One delivery still waiting, and who it is waiting for — with the status the subscriber has now,
+// not the one they had when the row was created.
+export type PendingRow = { id: string; batch: number; recipient: PendingRecipient };
+export type PendingRecipient = Recipient & { status: string };
 export type PendingBatch = { batch: number; rows: PendingRow[] };
 
 // A batch is all-or-nothing at the row level: either the provider answered and every row of that
@@ -43,17 +46,19 @@ export const loadSendable = (prisma: PrismaClient, date: Date): Effect.Effect<Se
     }),
   ).pipe(
     Effect.flatMap((row) =>
-      row === null ? new SendDbFailed({ reason: `edition ${day} does not exist yet` }) : Effect.succeed(row),
+      row === null
+        ? new SendDbFailed({ reason: `edition ${day} does not exist yet`, status: NOT_FOUND })
+        : Effect.succeed(row),
     ),
     Effect.filterOrFail(
       (row) => row.status === "ready" || row.status === "sending",
-      (row) => new SendDbFailed({ reason: `edition ${day} is ${row.status}, not ready to send` }),
+      (row) => new SendDbFailed({ reason: `edition ${day} is ${row.status}, not ready to send`, status: CONFLICT }),
     ),
     // The three columns are nullable and a ready edition always carries them, so this is what
     // catches a row someone edited by hand — and what makes them strings without a cast.
     Effect.flatMap((row) =>
       row.subject === null || row.html === null || row.text === null
-        ? new SendDbFailed({ reason: `edition ${day} has no built e-mail` })
+        ? new SendDbFailed({ reason: `edition ${day} has no built e-mail`, status: CONFLICT })
         : Effect.succeed({ id: row.id, subject: row.subject, html: row.html, text: row.text }),
     ),
   );
@@ -109,7 +114,7 @@ export const pendingBatches = (
   db(() =>
     prisma.delivery.findMany({
       where: { editionId: p.editionId, status: "pending" },
-      select: { id: true, batch: true, subscriber: { select: { id: true, email: true } } },
+      select: { id: true, batch: true, subscriber: { select: { id: true, email: true, status: true } } },
       orderBy: [{ batch: "asc" }, { id: "asc" }],
     }),
   ).pipe(
@@ -118,7 +123,7 @@ export const pendingBatches = (
         rows.map((row) => ({
           id: row.id,
           batch: row.batch,
-          recipient: { subscriberId: row.subscriber.id, email: row.subscriber.email },
+          recipient: { subscriberId: row.subscriber.id, email: row.subscriber.email, status: row.subscriber.status },
         })),
       ),
     ),
@@ -132,19 +137,21 @@ export const recordBatch = (
   prisma: PrismaClient,
   p: { rows: { id: string; result: BatchDelivery }[]; now: Date },
 ): Effect.Effect<void, SendDbFailed> =>
-  db(() =>
-    prisma.$transaction(
-      p.rows.map(({ id, result }) =>
-        prisma.delivery.update({
-          where: { id },
-          data:
-            result.outcome === "sent"
-              ? { status: "sent", providerEmailId: result.id, sentAt: p.now, error: null }
-              : { status: "failed", error: result.reason },
-        }),
-      ),
-    ),
-  ).pipe(Effect.asVoid);
+  p.rows.length === 0
+    ? Effect.void
+    : db(() =>
+        prisma.$transaction(
+          p.rows.map(({ id, result }) =>
+            prisma.delivery.update({
+              where: { id },
+              data:
+                result.outcome === "sent"
+                  ? { status: "sent", providerEmailId: result.id, sentAt: p.now, error: null }
+                  : { status: "failed", error: result.reason },
+            }),
+          ),
+        ),
+      ).pipe(Effect.asVoid);
 
 export const countPending = (prisma: PrismaClient, p: { editionId: string }): Effect.Effect<number, SendDbFailed> =>
   db(() => prisma.delivery.count({ where: { editionId: p.editionId, status: "pending" } }));
@@ -168,10 +175,10 @@ export const closeEdition = (
 // nothing was delivered, and the rows it names stay pending for the next run.
 export const deliverBatch = (
   mail: Pick<MailService, "sendBatch">,
-  p: { messages: Message[]; idempotencyKey: string },
+  p: { messages: Message[]; idempotencyKey: string; onSettled?: OnSettled },
 ): Effect.Effect<BatchDelivery[], BatchRefused> =>
   Effect.tryPromise({
-    try: () => mail.sendBatch(p.messages, { idempotencyKey: p.idempotencyKey }),
+    try: () => mail.sendBatch(p.messages, { idempotencyKey: p.idempotencyKey, onSettled: p.onSettled }),
     catch: (error) => new BatchRefused({ reason: String(error) }),
   }).pipe(Effect.map((sent) => sent.results));
 

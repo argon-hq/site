@@ -20,7 +20,7 @@ describe("OwnerAlert", () => {
 
     expect(a.send).toHaveBeenCalledTimes(2);
     const first = a.send.mock.calls[0]![0];
-    expect(first).toMatchObject({ to: "eduardo@argon.com.br", subject: "[Argon] falha na etapa collect" });
+    expect(first).toMatchObject({ to: "eduardo@argon.com.br", subject: "[Argon] step collect failed" });
     expect(first.text).toContain("settings: boom");
   });
 
@@ -45,7 +45,7 @@ describe("OwnerAlert.onFailure", () => {
 
     expect(Either.isLeft(result) && result.left.reason).toBe("settings: boom");
     expect(a.send).toHaveBeenCalledTimes(1);
-    expect(a.send.mock.calls[0]![0]).toMatchObject({ subject: "[Argon] falha na etapa build" });
+    expect(a.send.mock.calls[0]![0]).toMatchObject({ subject: "[Argon] step build failed" });
   });
 
   it("says nothing when the effect succeeds", async () => {

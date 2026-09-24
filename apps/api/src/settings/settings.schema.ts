@@ -21,7 +21,12 @@ export const settingsSchema = z.object({
   privacy_policy_url: z.url(),
   // The base of the e-mail images is not here: it comes from WEB_ORIGIN (src/email/assets.ts), so
   // each environment points at the site deployed from the same tag as this API.
-  social: z.object({ site: z.url(), linkedin: z.url().optional(), instagram: z.url().optional(), youtube: z.url().optional() }),
+  social: z.object({
+    site: z.url(),
+    linkedin: z.url().optional(),
+    instagram: z.url().optional(),
+    youtube: z.url().optional(),
+  }),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

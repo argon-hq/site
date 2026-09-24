@@ -1,4 +1,5 @@
 import type { LoggerService } from "@nestjs/common";
+import type { Agent } from "@mastra/core/agent";
 import type { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
@@ -42,7 +43,9 @@ export const agentCollect = (deps: {
       requestContext.set("prisma", prisma);
       requestContext.set("recentDays", RECENT_DAYS);
 
-      const editor = mastra.getAgent("editor");
+      // The registry types its agents with `any`; this one is the Editor, whatever the registry says.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const editor: Agent = mastra.getAgent("editor");
       const generated = yield* twoAttempts(
         collectPrompt({ ...run, profile }),
         (text) =>
@@ -57,7 +60,9 @@ export const agentCollect = (deps: {
               }),
             catch: (error) => new CollectSourceFailed({ reason: String(error) }),
           }),
-        (reason) => logger.warn({ msg: "first attempt rejected, retrying", reason }),
+        (reason) => {
+          logger.warn({ msg: "first attempt rejected, retrying", reason });
+        },
       );
 
       logger.log({
@@ -98,7 +103,11 @@ export const fixtureCollect: CollectSource = (run) =>
 // The sources come from the rules, not from the skill: one list for the search allowlist, the
 // persistence and the prompt.
 export function collectPrompt(p: CollectRun & { profile: Profile }): string {
-  const fmt = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const fmt = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  });
   return [
     `Hoje é ${fmt.format(p.now)} (horário de Brasília).`,
     'Carregue a skill "collect" com a ferramenta skill e siga o processo dela.',
@@ -117,5 +126,7 @@ export function collectPrompt(p: CollectRun & { profile: Profile }): string {
 }
 
 function countBy(names: string[]): Record<string, number> {
-  return names.reduce<Record<string, number>>((acc, n) => ({ ...acc, [n]: (acc[n] ?? 0) + 1 }), {});
+  const counts: Record<string, number> = {};
+  for (const name of names) counts[name] = (counts[name] ?? 0) + 1;
+  return counts;
 }

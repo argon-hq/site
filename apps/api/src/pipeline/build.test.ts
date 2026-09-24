@@ -39,15 +39,14 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 
 // Only the two calls the step makes. Enough to check what it asks the database and what it writes.
-const fakePrisma = (edition: { findUnique?: unknown; update?: unknown }) =>
-  ({ edition }) as unknown as PrismaClient;
+const fakePrisma = (edition: { findUnique?: unknown; update?: unknown }) => ({ edition }) as unknown as PrismaClient;
 
 describe("loadEdition", () => {
   it("reads the day's edition with its articles", async () => {
     const findUnique = vi.fn().mockResolvedValue(row());
     const written = await Effect.runPromise(loadEdition(fakePrisma({ findUnique }), date));
 
-    expect(findUnique.mock.calls[0][0].where).toEqual({ date });
+    expect(findUnique.mock.calls[0]?.[0]?.where).toEqual({ date });
     expect(written.id).toBe("e1");
     expect(written.edition).toEqual({ date, title: "Três notícias", subject: "Crédito, SELIC e IA" });
     expect(written.articles).toHaveLength(1);
@@ -88,7 +87,7 @@ describe("buildReason", () => {
   });
 
   it("names the render failure as a template problem", () => {
-    expect(buildReason(new EditionRenderError({ cause: new Error("boom") }))).toContain("renderizar");
+    expect(buildReason(new EditionRenderError({ cause: new Error("boom") }))).toContain("failed to render");
   });
 
   it("lists every broken rule, with the article number of the ones that have it", () => {
@@ -102,7 +101,7 @@ describe("buildReason", () => {
     );
 
     expect(reason).toContain("script_present: HTML contém <script>");
-    expect(reason).toContain("item_link_missing_in_text (notícia 2)");
+    expect(reason).toContain("item_link_missing_in_text (item 2)");
   });
 });
 

@@ -49,13 +49,19 @@ describe("ResendTransport", () => {
       id: "re_123",
     });
     expect(emails.send).toHaveBeenCalledWith(
-      expect.objectContaining({ from: formatAddress(sender), to: message.to, headers: { "List-Unsubscribe": "<https://x>" } }),
+      expect.objectContaining({
+        from: formatAddress(sender),
+        to: message.to,
+        headers: { "List-Unsubscribe": "<https://x>" },
+      }),
     );
   });
 
   it("raises the error the SDK returns instead of throwing", async () => {
     // The Resend SDK reports a refusal in the result, so a silent `data: null` would count as sent.
-    const emails = { send: vi.fn(async () => ({ data: null, error: { name: "validation_error", message: "bad from" } })) };
+    const emails = {
+      send: vi.fn(async () => ({ data: null, error: { name: "validation_error", message: "bad from" } })),
+    };
     const transport = new ResendTransport({ emails } as never);
 
     await expect(transport.send({ ...message, from: sender })).rejects.toThrow("Resend refused the message");
@@ -79,7 +85,12 @@ describe("MailService.sendBatch", () => {
     const transport: MailTransport = {
       name: "fake",
       send: vi.fn(),
-      sendBatch: vi.fn(async () => ({ results: [{ outcome: "sent" as const, id: "a" }, { outcome: "sent" as const, id: "b" }] })),
+      sendBatch: vi.fn(async () => ({
+        results: [
+          { outcome: "sent" as const, id: "a" },
+          { outcome: "sent" as const, id: "b" },
+        ],
+      })),
     };
     const settings = { get: vi.fn(async () => sender) };
     const mail = new MailService(transport, settings as unknown as SettingsService);
@@ -116,6 +127,23 @@ describe("MailService.sendBatch", () => {
     expect(sent.results[1]?.outcome === "refused" && sent.results[1].reason).toContain("mailbox unavailable");
   });
 
+  it("settles each message of the fallback as it goes, before the next one leaves", async () => {
+    const order: string[] = [];
+    const send = vi.fn(async (message: { to: string }) => {
+      order.push(`send ${message.to}`);
+      return { id: `<${message.to}>` };
+    });
+    const transport: MailTransport = { name: "smtp", send };
+    const onSettled = vi.fn(async (index: number) => {
+      order.push(`settled ${index}`);
+    });
+
+    await service(transport).sendBatch(two, { onSettled });
+
+    expect(order).toEqual([`send ${two[0]?.to}`, "settled 0", `send ${two[1]?.to}`, "settled 1"]);
+    expect(onSettled).toHaveBeenCalledWith(0, { outcome: "sent", id: `<${two[0]?.to}>` });
+  });
+
   it("answers an empty batch without touching the transport or the settings", async () => {
     const transport: MailTransport = { name: "fake", send: vi.fn(), sendBatch: vi.fn() };
     const settings = { get: vi.fn() };
@@ -134,7 +162,9 @@ describe("ResendTransport.sendBatch", () => {
   ];
 
   it("sends one payload, carrying the idempotency key and asking for permissive validation", async () => {
-    const batch = { send: vi.fn(async () => ({ data: { data: [{ id: "re_1" }, { id: "re_2" }], errors: [] }, error: null })) };
+    const batch = {
+      send: vi.fn(async () => ({ data: { data: [{ id: "re_1" }, { id: "re_2" }], errors: [] }, error: null })),
+    };
     const transport = new ResendTransport({ batch } as never);
 
     const sent = await transport.sendBatch(filled, { idempotencyKey: "e1:1" });
@@ -151,7 +181,9 @@ describe("ResendTransport.sendBatch", () => {
   });
 
   it("raises a batch the provider refused whole, so no row is recorded as sent", async () => {
-    const batch = { send: vi.fn(async () => ({ data: null, error: { name: "rate_limit_exceeded", message: "slow down" } })) };
+    const batch = {
+      send: vi.fn(async () => ({ data: null, error: { name: "rate_limit_exceeded", message: "slow down" } })),
+    };
     const transport = new ResendTransport({ batch } as never);
 
     await expect(transport.sendBatch(filled)).rejects.toThrow("Resend refused the batch");

@@ -8,7 +8,11 @@ import { buildStep, collectStep, editionRunSchema, editionWorkflow, writeStep, t
 
 class StepFailed extends Data.TaggedError("StepFailed")<{ reason: string }> {}
 
-const collectReport = { saved: 4, result: { candidates: [1, 2, 3, 4, 5], discarded: 7 }, durationMs: 90 } as unknown as CollectReport;
+const collectReport = {
+  saved: 4,
+  result: { candidates: [1, 2, 3, 4, 5], discarded: 7 },
+  durationMs: 90,
+} as unknown as CollectReport;
 const writeReport = {
   editionId: "e1",
   status: "written",

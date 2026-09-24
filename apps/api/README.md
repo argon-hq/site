@@ -32,7 +32,13 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
   and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
-  `POST /pipeline/send` is the distributor, and a run of its own: not a fourth step of the workflow, because the edition
+  Every step runs holding a Postgres advisory lock on the edition's day (`lock.ts`): the 5h30 workflow, a per-step
+  route fired by hand and a second container all contend on the database, not on a flag in memory, and a busy edition
+  answers 409. `watch.ts` looks at boot and at 8h for an edition left `generating` or `sending` for more than three
+  hours — the one failure nothing else reports — logs `edition stuck` (a CloudWatch alarm watches that line) and mails
+  the owners; `POST /pipeline/send { "date": "YYYY-MM-DD" }` is how such an edition is resumed after the calendar moved
+  on. `retention.ts` trims the tables nightly (see Database).
+  `POST /pipeline/send` is the distributor (`delivery.service.ts`), and a run of its own: not a fourth step of the workflow, because the edition
   is ready long before it and a resend generates nothing. `send.ts` reads the built edition — accepting `ready` and also
   `sending`, which is the state a run that stopped halfway leaves and the only way out of — creates one `delivery` row
   per confirmed subscriber as `pending`, and hands them to the provider in batches of 100 under the idempotency key
@@ -47,13 +53,12 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   are frozen at creation, a subscriber who confirms later starts a batch of their own, and the rows of a batch keep a
   stable order. A batch refused whole leaves its rows `pending`, never `failed` — `failed` means the provider looked at
   that one message and said no.
-  `personalize.ts` is where the stored edition becomes one subscriber's copy, and today it hands it over untouched: the
-  raw unsubscribe token cannot be read back (only its SHA-256 is stored), so ARG-114 is what makes the substitution
-  possible. Until then there is no `List-Unsubscribe` either — a one-click URI carrying the placeholder would have the
-  mail client post it, fail, and tell the subscriber they were unsubscribed when they were not. `sendRefusal` is the
-  guard that follows from that: **production refuses to send at all** while the marker is unsubstituted, whoever asks,
-  the same deal `resolveMode` makes about a mocked run. Dev and lab do send, which is how the pipeline is exercised end
-  to end — so their subscriber lists must hold only team addresses until ARG-114 lands.
+  `personalize.ts` is where the stored edition becomes one subscriber's copy: the marker in both copies gives way to
+  the subscriber's own unsubscribe token, and the `List-Unsubscribe` headers (RFC 8058) carry the same token. The token
+  is derived, never stored — `<subscriber id>.<HMAC-SHA256 of the id under UNSUBSCRIBE_TOKEN_SECRET>`
+  (`src/subscriber/token.ts`) — so the sending step asks for it as often as it likes and the database keeps only a
+  hash. A copy with no place for the token settles as `failed` without leaving; rotating the secret invalidates
+  every link already in an inbox, so it is a deliberate act.
   A failure mails the `owner_emails` from the settings (`owner-alert.ts`) **once**: the alert lives at the boundaries —
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.
@@ -76,9 +81,13 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   Unsubscribing lives here too: `GET /subscriber/unsubscribe?token=…` only says who the token belongs to, so the page can
   confirm first — a GET that cancelled would unsubscribe people on its own, since e-mail clients follow every link they find.
   `POST /subscriber/unsubscribe { token }` cancels, and `POST /subscriber/unsubscribe/one-click?token=…` is the
-  public RFC 8058 endpoint the `List-Unsubscribe` header announces. The permanent unsubscribe token is issued by
-  `issueUnsubscribeToken`, which the confirmation route will call.
+  public RFC 8058 endpoint the `List-Unsubscribe` header announces. The permanent unsubscribe token is derived from the
+  subscriber id and `UNSUBSCRIBE_TOKEN_SECRET` (`token.ts`); the confirmation records only its hash. The service speaks
+  Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures — and the controller runs it
+  through `runEffect`, so a provider that is down answers 503 and a database that is down answers 500.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
+  `signup-throttle.guard.ts` rate-limits `POST /subscriber` and the public one-click unsubscribe by the visitor's address
+  (`consentIp` in the body, the socket address for the public route): ten a minute, in memory.
 - `src/subscriber/urls.ts`: every address the subscriber reaches from an e-mail — the confirmation page, the unsubscribe
   page for the footer link, and the API endpoint the `List-Unsubscribe` header announces. The builders receive them ready
   (they build no URL), so this is where the format is decided. The origins are bound once in `SubscriberModule.forRoot`.
@@ -128,11 +137,12 @@ the API container (`deploy/Caddyfile`), so the Studio and the routes it calls sh
 browser cannot put `x-internal-secret` on a navigation, so the bundle under `/studio` is the one
 public thing here; everything under `/mastra` still answers 401 without the header.
 
-The first visit is a trip to Settings, in the Studio's own sidebar, to fill three fields: the
-instance URL (`https://dev.argon.eduardofockink.com`), the API prefix (`/mastra`) and a header named
-`x-internal-secret` carrying the secret of the environment. Save, and the lists fill in. The browser
-keeps all three in local storage, so it is once per browser, and the secret never travels in a URL
-nor lives in the page. Until it is saved, the pages are empty skeletons: every call is a 401.
+The first visit asks for the operator password once, at `/studio`, and that is all: the answer sets a
+session cookie (thirty days, this browser), and with it Caddy lets the Studio's calls under `/mastra`
+through and adds the environment's `x-internal-secret` itself (`deploy/Caddyfile`, the `studio`
+snippet). Nothing goes into the Studio's own Settings — the instance URL and the API prefix are already
+filled by the page (`src/studio/studio.html.ts`). Without the cookie, `/mastra` still takes the password
+(`curl -u argon ...`) and still gets the secret added.
 
 One Mastra route answers without the secret where the Studio is served — `GET /mastra/auth/capabilities`,
 which the Studio asks before it renders anything and which tells whether Mastra's own auth is on
@@ -177,20 +187,28 @@ Effect is the standard for typed errors (`Data.TaggedError`), pattern matching (
 
 ## Database
 
-Until the first production deploy the schema lives in a single migration, `prisma/migrations/20260917190000_init`. There is no data worth keeping in any environment yet, so a schema change is an edit to that one migration rather than a new one:
+Every schema change is a new migration under `prisma/migrations/`, named by timestamp, and the init
+migration is frozen: dev, lab and prod all carry it applied. What the schema cannot express — check
+constraints, triggers, partial indexes, seed rows — goes in the migration's SQL by hand, with a
+comment saying why, and a line in `schema.prisma` pointing at it.
 
 ```bash
-# 1. edit schema.prisma, then regenerate the generated part of the init migration
-pnpm db:migrate --create-only --name init   # writes the SQL; keep the hand-written tail below the fold
-# 2. re-apply from scratch
-pnpm db:reset      # drops the local database and replays init (schema, constraints, triggers, initial settings)
+pnpm db:migrate --name <what_changed>   # edit schema.prisma first; writes and applies the SQL locally
 pnpm db:deploy     # applies pending migrations only (what deploy.sh runs in AWS)
+pnpm db:reset      # drops the local database and replays everything, seed rows included
 pnpm db:studio     # browse the local database
 ```
 
-The tail of the init migration (check constraints, triggers, the initial `setting` rows) is hand-written and Prisma does not regenerate it — keep it when rewriting the file. Dev is reset by `db:reset`; the lab environment is reset by redeploying against an empty database. Once we go to production this stops: from then on every schema change is a new migration and init is frozen.
+Migrations run before the new container starts and never run backwards, so every one has to be
+compatible with the code already running: expand first (a new column, a new table), contract later
+(drop the old one), in separate deploys.
 
-Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit the RDS schema by hand. Mastra keeps its own tables in the `mastra` schema, outside Prisma.
+Retention runs inside the API, behind `SCHEDULER_ENABLED`, at 4h every day (`src/pipeline/retention.ts`):
+the text of an article is cleared after 30 days, a seen link is forgotten after 30, and a cancelled
+subscriber is purged after 90 — in batches of a thousand, so a table that grew for months is trimmed
+without holding a lock. Bounced and blocked addresses stay, so they are never written to again.
+
+Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database is the Postgres container on the instance (`deploy/README.md`). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
 ```bash
 curl -X POST http://localhost:3001/subscriber -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"email":"someone@example.com"}'

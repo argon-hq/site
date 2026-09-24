@@ -15,7 +15,9 @@ describe("collection rules", () => {
   });
 
   it("canonicalizes tracking noise away", () => {
-    expect(canonicalize("https://exame.com/negocios/a/?utm_source=x&id=2#top")).toBe("https://exame.com/negocios/a?id=2");
+    expect(canonicalize("https://exame.com/negocios/a/?utm_source=x&id=2#top")).toBe(
+      "https://exame.com/negocios/a?id=2",
+    );
   });
 
   it("gives the same key to the same article reached by different links", () => {

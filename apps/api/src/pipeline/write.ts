@@ -1,5 +1,7 @@
 import type { LoggerService } from "@nestjs/common";
 import { Data, Effect } from "effect";
+import { dbEffect } from "../effect/db";
+import { CONFLICT, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import { twoAttempts } from "../mastra/attempts";
 import { BODY_MAX, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
@@ -22,12 +24,11 @@ export type Written = { id: string; item: WrittenItem };
 
 // A generation that already carries its reason, so the second attempt can quote it.
 export class ItemFailed extends Data.TaggedError("ItemFailed")<{ reason: string }> {}
-export class WriteDbFailed extends Data.TaggedError("WriteDbFailed")<{ reason: string }> {}
+export class WriteDbFailed extends Data.TaggedError("WriteDbFailed")<Failure> {}
 
 export type Generate<A> = (prompt: string) => Effect.Effect<{ object: A; usage?: unknown }, ItemFailed>;
 
-const db = <A>(run: () => Promise<A>) =>
-  Effect.tryPromise({ try: run, catch: (error) => new WriteDbFailed({ reason: String(error) }) });
+const db = dbEffect((reason) => new WriteDbFailed({ reason }));
 
 // Today's edition, created on the first run of the day. Running the step again reuses the row; one
 // already on its way out is never rewritten, and the database freezes a sent one anyway.
@@ -44,7 +45,11 @@ export const openEdition = (prisma: PrismaClient, date: Date) =>
   ).pipe(
     Effect.filterOrFail(
       (edition) => edition.status !== "sending" && edition.status !== "sent",
-      (edition) => new WriteDbFailed({ reason: `edition ${date.toISOString().slice(0, 10)} is already ${edition.status}` }),
+      (edition) =>
+        new WriteDbFailed({
+          reason: `edition ${date.toISOString().slice(0, 10)} is already ${edition.status}`,
+          status: CONFLICT,
+        }),
     ),
     Effect.map((edition) => ({
       id: edition.id,
@@ -56,7 +61,11 @@ export const openEdition = (prisma: PrismaClient, date: Date) =>
 // What a run is allowed to do when it wrote fewer items than the minimum. An edition an earlier run
 // already completed is kept, not downgraded: a thin run must never destroy a good edition, and a
 // `skipped` edition that still carries a headline and articles would lie about its own state.
-export function belowMinimum(p: { written: number; min: number; alreadyWritten: boolean }): "enough" | "skip" | "keep_previous" {
+export function belowMinimum(p: {
+  written: number;
+  min: number;
+  alreadyWritten: boolean;
+}): "enough" | "skip" | "keep_previous" {
   if (p.written >= p.min) return "enough";
   return p.alreadyWritten ? "keep_previous" : "skip";
 }
@@ -114,9 +123,9 @@ export const writeItem = (
   generate: Generate<WrittenItem>,
   logger: LoggerService,
 ): Effect.Effect<ItemResult> =>
-  twoAttempts(itemPrompt(article), generate, (reason) =>
-    logger.warn({ msg: "item rejected, retrying", url: article.canonicalUrl, reason }),
-  ).pipe(
+  twoAttempts(itemPrompt(article), generate, (reason) => {
+    logger.warn({ msg: "item rejected, retrying", url: article.canonicalUrl, reason });
+  }).pipe(
     Effect.map(
       (generated) =>
         ({
@@ -127,20 +136,24 @@ export const writeItem = (
           usage: generated.usage ?? null,
         }) satisfies ItemResult,
     ),
-    Effect.tap((result) => Effect.sync(() => logger.log({ msg: "item written", url: result.url }))),
+    Effect.tap((result) =>
+      Effect.sync(() => {
+        logger.log({ msg: "item written", url: result.url });
+      }),
+    ),
     Effect.catchAll((error) =>
-      Effect.sync(() =>
-        logger.warn({ msg: "article dropped after two attempts", url: article.canonicalUrl, reason: error.reason }),
-      ).pipe(Effect.as({ outcome: "rejected", url: article.canonicalUrl, reason: error.reason } satisfies ItemResult)),
+      Effect.sync(() => {
+        logger.warn({ msg: "article dropped after two attempts", url: article.canonicalUrl, reason: error.reason });
+      }).pipe(Effect.as({ outcome: "rejected", url: article.canonicalUrl, reason: error.reason } satisfies ItemResult)),
     ),
   );
 
 // The header gets the same two attempts, but an edition without title and subject is no edition:
 // failing twice fails the step.
 export const writeHeader = (items: WrittenItem[], generate: Generate<EditionHeader>, logger: LoggerService) =>
-  twoAttempts(headerPrompt(items), generate, (reason) =>
-    logger.warn({ msg: "header rejected, retrying", reason }),
-  );
+  twoAttempts(headerPrompt(items), generate, (reason) => {
+    logger.warn({ msg: "header rejected, retrying", reason });
+  });
 
 // One transaction: whatever an earlier run left attached goes back to the pool, the approved
 // articles get their text and join the edition, and the edition gets its header. Running the step

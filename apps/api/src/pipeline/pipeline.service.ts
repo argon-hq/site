@@ -1,14 +1,14 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
+import type { Agent } from "@mastra/core/agent";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
+import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
 import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { EditionContext } from "../mastra/workflows/context";
-import type { EditionRun } from "../mastra/workflows/edition";
+import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
-import { MailService } from "../mail/mail.service";
-import type { BatchDelivery, Message } from "../mail/mail.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
@@ -16,31 +16,12 @@ import { buildReason, loadEdition, saveBuilt } from "./build";
 import { agentCollect, fixtureCollect } from "./collect-source";
 import type { CollectResult } from "./collect.schema";
 import { generateStructured } from "./generate";
+import { DeliveryService, SendFailed, type SendReport } from "./delivery.service";
+import { EditionBusy, EditionLock, LockDbFailed } from "./lock";
 import { OwnerAlert } from "./owner-alert";
-import { personalize, sendRefusal, SUBSTITUTES_UNSUBSCRIBE_TOKEN } from "./personalize";
-import { persistCandidate, type Outcome } from "./persist";
+import { dedupeCandidates, persistCandidate, type Outcome } from "./persist";
 import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
-import {
-  assignBatches,
-  batchKey,
-  BATCH_SIZE,
-  BatchRefused,
-  closeEdition,
-  countPending,
-  countSettled,
-  createDeliveries,
-  deliverBatch,
-  highestBatch,
-  loadSendable,
-  markSending,
-  newRecipients,
-  pendingBatches,
-  recordBatch,
-  SendDbFailed,
-  type PendingBatch,
-  type SendableEdition,
-} from "./send";
 import { editionDate, windowHours, windowStart } from "./rules";
 import { mockHeader, mockItem } from "./write-mock";
 import {
@@ -58,12 +39,13 @@ import {
   type WrittenResult,
 } from "./write";
 
-export class CollectFailed extends Data.TaggedError("CollectFailed")<{ reason: string }> {}
-export class WriteFailed extends Data.TaggedError("WriteFailed")<{ reason: string }> {}
-export class BuildFailed extends Data.TaggedError("BuildFailed")<{ reason: string }> {}
-export class SendFailed extends Data.TaggedError("SendFailed")<{ reason: string }> {}
+// Every step failure carries a reason and, when the caller is the one to act, the HTTP status that
+// says so (see src/effect/failure.ts).
+export class CollectFailed extends Data.TaggedError("CollectFailed")<Failure> {}
+export class WriteFailed extends Data.TaggedError("WriteFailed")<Failure> {}
+export class BuildFailed extends Data.TaggedError("BuildFailed")<Failure> {}
 // A failed run says which step failed, so the single alert it sends is addressed.
-export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string }> {}
+export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string; status?: HttpStatus }> {}
 
 export type CollectReport = {
   date: string;
@@ -105,31 +87,17 @@ export type BuildReport = {
   durationMs: number;
 };
 
-// One batch as the report sees it. Which row failed and why is not here on purpose: an edition can
-// carry thousands of rows, and the reason is already on the row, in `delivery.error`.
-export type BatchOutcome = { batch: number; size: number; sent: number; failed: number };
-
-export type SendReport = {
-  date: string;
-  editionId: string;
-  // Where the edition ended up, which is how an operator reads "did it finish".
-  status: "sent" | "sending";
-  // Rows still owed when this run started, how many of those it created, and how many an earlier
-  // run had already settled. Together they tell a resume apart from a first run at a glance.
-  recipients: number;
-  created: number;
-  alreadySent: number;
-  batches: BatchOutcome[];
-  sent: number;
-  failed: number;
-  durationMs: number;
-};
-
 export type RunReport = EditionRun & { runId: string; durationMs: number };
 
 // What a step is told before it starts: which clock to read and whether this run pays for judgement
 // or works over the fixture. Both have a default, so a step can still be called bare in a test.
 export type StepRun = { mode?: Mode; now?: Date };
+
+// The send may name the edition it is for. Without a date it is today's, as the 7h clock means it;
+// with one it is a resume — an edition a run left `sending` and the calendar has moved past.
+export type SendRun = StepRun & { date?: Date };
+
+export { SendFailed, type BatchOutcome, type SendReport } from "./delivery.service";
 
 const startOf = (p: StepRun) => ({ mode: resolveMode(DEPLOYMENT, p.mode), now: p.now ?? new Date() });
 
@@ -143,7 +111,7 @@ export class PipelineService {
 
   // One send at a time, for the same reason: two overlapping sends would read the same pending rows
   // and build the same batches. The idempotency keys would still spare the subscribers, but the rows
-  // would be written twice over.
+  // would be written twice over. The send itself lives in DeliveryService; this is the gate.
   private sending = false;
 
   constructor(
@@ -151,16 +119,36 @@ export class PipelineService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly alert: OwnerAlert,
-    private readonly mail: MailService,
     @Inject(ORIGINS) private readonly origins: Origins,
+    private readonly lock: EditionLock,
+    private readonly delivery: DeliveryService,
   ) {}
+
+  // Every step runs holding the day's lock (see EditionLock): a busy edition is a failure of the
+  // step, in the step's own words, so the route and the alert read it like any other.
+  private locked<A, E extends Failure>(
+    day: string,
+    step: string,
+    body: Effect.Effect<A, E>,
+    fail: (failure: Failure) => E,
+  ): Effect.Effect<A, E> {
+    return this.lock.hold(day, step, body).pipe(
+      Effect.catchIf(
+        (error): error is EditionBusy | LockDbFailed => error instanceof EditionBusy || error instanceof LockDbFailed,
+        (error) =>
+          Effect.fail(
+            fail(error instanceof EditionBusy ? { reason: error.reason, status: CONFLICT } : { reason: error.reason }),
+          ),
+      ),
+    );
+  }
 
   // Collection step: the Editor loads the `collect` skill and works inside the rules set here. A
   // mocked run swaps where the news comes from and nothing else — what is stored is decided by the
   // same code either way.
   collect(run: StepRun = {}): Effect.Effect<CollectReport, CollectFailed> {
     const { mode, now } = startOf(run);
-    return Effect.gen(this, function* () {
+    const body = Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -178,7 +166,9 @@ export class PipelineService {
         Effect.mapError((error) => new CollectFailed({ reason: error.reason })),
       );
 
-      // The list is persisted by code, one candidate at a time, in score order.
+      // The list is persisted by code, a few candidates at a time, in score order, one row per
+      // canonical URL: the answer is deduplicated first, and the unique index catches what the
+      // canonical URL of the page itself only reveals after the read.
       const persistCtx = {
         prisma: this.prisma,
         since,
@@ -187,7 +177,7 @@ export class PipelineService {
         logger: this.logger,
       };
       const outcomes = yield* Effect.forEach(
-        [...collected.result.candidates].sort((a, b) => b.score - a.score),
+        dedupeCandidates([...collected.result.candidates].sort((a, b) => b.score - a.score)),
         (candidate) => persistCandidate(candidate, persistCtx, collected.read),
         { concurrency: 3 },
       ).pipe(Effect.mapError((e) => new CollectFailed({ reason: `database: ${e.reason}` })));
@@ -207,9 +197,19 @@ export class PipelineService {
       // `notes` is the agent's own account of what did not yield — the themes with no fresh news,
       // the sources that answered nothing. Without it in the log, a thin collection can only be
       // explained by paying for another one.
-      this.logger.log({ msg: "collect finished", mode, saved: report.saved, evaluated: report.result.candidates.length, discarded: report.result.discarded, notes: report.result.notes, durationMs: report.durationMs, usage: report.usage });
+      this.logger.log({
+        msg: "collect finished",
+        mode,
+        saved: report.saved,
+        evaluated: report.result.candidates.length,
+        discarded: report.result.discarded,
+        notes: report.result.notes,
+        durationMs: report.durationMs,
+        usage: report.usage,
+      });
       return report;
-    }).pipe(
+    });
+    return this.locked(runDate(now), "collect", body, (failure) => new CollectFailed(failure)).pipe(
       // The alert is not here: with a retry per step, alerting inside the step would mail the owners
       // once per attempt. The run alerts once when the workflow gives up, and the per-step route
       // alerts for its own step.
@@ -222,7 +222,7 @@ export class PipelineService {
   // turns the stored text into what the e-mail carries.
   write(run: StepRun = {}): Effect.Effect<WriteReport, WriteFailed> {
     const { mode, now } = startOf(run);
-    return Effect.gen(this, function* () {
+    const body = Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -231,7 +231,7 @@ export class PipelineService {
       const date = editionDate(now);
       const day = date.toISOString().slice(0, 10);
       const since = windowStart(now);
-      const failed = (error: { reason: string }) => new WriteFailed({ reason: error.reason });
+      const failed = (error: Failure) => new WriteFailed({ reason: error.reason, status: error.status });
 
       const edition = yield* openEdition(this.prisma, date).pipe(Effect.mapError(failed));
       const candidates = yield* selectCandidates(this.prisma, {
@@ -245,7 +245,8 @@ export class PipelineService {
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
       // the second attempt can quote what the first got wrong. Writing loads its skill through the
       // `skill` tool, so it works and takes shape in two calls, the same as the collection.
-      const editor = this.mastra.getAgent("editor");
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
+      const editor: Agent = this.mastra.getAgent("editor");
       const generating =
         <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
         (text) =>
@@ -287,19 +288,28 @@ export class PipelineService {
       // Better no edition than a weak one: below the minimum nothing is written and the owners hear
       // about it. This is an outcome of the step, not a failure of it — unless an earlier run of the
       // day already wrote the edition, and then the thin run fails and leaves that one alone.
-      const short = `ficou com ${written.length} notícia(s) válida(s), abaixo do mínimo de ${settings.min_articles}`;
-      const outcome = belowMinimum({ written: written.length, min: settings.min_articles, alreadyWritten: edition.alreadyWritten });
+      const short = `ended with ${written.length} valid article(s), below the minimum of ${settings.min_articles}`;
+      const outcome = belowMinimum({
+        written: written.length,
+        min: settings.min_articles,
+        alreadyWritten: edition.alreadyWritten,
+      });
 
       if (outcome === "keep_previous") {
         return yield* new WriteFailed({
-          reason: `edição ${day} já estava escrita e a rodada de agora ${short}; a edição anterior continua valendo`,
+          reason: `edition ${day} was already written and this run ${short}; the earlier edition stands`,
+          status: CONFLICT,
         });
       }
       if (outcome === "skip") {
         yield* skipEdition(this.prisma, edition.id).pipe(Effect.mapError(failed));
         this.logger.warn({ msg: "edition skipped", date: day, written: written.length, min: settings.min_articles });
-        yield* this.alert.send("write", `edição ${day} ${short}`);
-        return report("skipped", null, written.map((item) => item.usage));
+        yield* this.alert.send("write", `edition ${day} ${short}`);
+        return report(
+          "skipped",
+          null,
+          written.map((item) => item.usage),
+        );
       }
 
       const writtenItems = written.map((item) => item.item);
@@ -327,7 +337,8 @@ export class PipelineService {
         usage: done.usage,
       });
       return done;
-    }).pipe(
+    });
+    return this.locked(runDate(now), "write", body, (failure) => new WriteFailed(failure)).pipe(
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "write failed", reason: error.reason }))),
     );
   }
@@ -337,7 +348,7 @@ export class PipelineService {
   // passes. Same edition in, same e-mail out.
   build(run: StepRun = {}): Effect.Effect<BuildReport, BuildFailed> {
     const { now } = startOf(run);
-    return Effect.gen(this, function* () {
+    const body = Effect.gen(this, function* () {
       const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
@@ -347,7 +358,7 @@ export class PipelineService {
       const day = date.toISOString().slice(0, 10);
 
       const written = yield* loadEdition(this.prisma, date).pipe(
-        Effect.mapError((error) => new BuildFailed({ reason: error.reason })),
+        Effect.mapError((error) => new BuildFailed({ reason: error.reason, status: error.status })),
       );
       this.logger.log({ msg: "build started", date: day, edition: written.id, articles: written.articles.length });
 
@@ -358,8 +369,11 @@ export class PipelineService {
         unsubscribeUrl: unsubscribePlaceholderUrl(this.origins),
       });
       const built = yield* toEditionInput(written.edition, written.articles, context).pipe(
-        Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition)))),
-        Effect.mapError((error) => new BuildFailed({ reason: buildReason(error) })),
+        Effect.flatMap((input) =>
+          buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition))),
+        ),
+        // What the builder refuses is the edition's fault, and says so with a 422.
+        Effect.mapError((error) => new BuildFailed({ reason: buildReason(error), status: UNPROCESSABLE })),
       );
 
       yield* saveBuilt(this.prisma, { editionId: written.id, html: built.html, text: built.text }).pipe(
@@ -378,7 +392,8 @@ export class PipelineService {
       };
       this.logger.log({ msg: "build finished", ...report });
       return report;
-    }).pipe(
+    });
+    return this.locked(runDate(now), "build", body, (failure) => new BuildFailed(failure)).pipe(
       Effect.tapError((error) => Effect.sync(() => this.logger.error({ msg: "build failed", reason: error.reason }))),
     );
   }
@@ -386,12 +401,14 @@ export class PipelineService {
   // left becomes one message per confirmed subscriber, handed to the provider in batches. It is a
   // run of its own, at 7h, and not a fourth step of the generation workflow: the edition is ready
   // long before it, and a resend has nothing to do with generating anything.
-  send(run: StepRun = {}): Effect.Effect<SendReport, SendFailed> {
+  send(run: SendRun = {}): Effect.Effect<SendReport, SendFailed> {
     const { now } = startOf(run);
+    const date = run.date ?? editionDate(now);
+    const day = date.toISOString().slice(0, 10);
     return Effect.suspend(() => {
-      if (this.sending) return new SendFailed({ reason: "a send is already in flight" });
+      if (this.sending) return new SendFailed({ reason: "a send is already in flight", status: CONFLICT });
       this.sending = true;
-      return this.startSend(now).pipe(
+      return this.locked(day, "send", this.delivery.send(date, now), (failure) => new SendFailed(failure)).pipe(
         Effect.ensuring(
           Effect.sync(() => {
             this.sending = false;
@@ -403,152 +420,13 @@ export class PipelineService {
     });
   }
 
-  private startSend(now: Date): Effect.Effect<SendReport, SendFailed> {
-    return Effect.gen(this, function* () {
-      // Before any read and any write: production does not mail an edition whose unsubscribe link is
-      // still a placeholder, whoever asks.
-      const refusal = sendRefusal(DEPLOYMENT, SUBSTITUTES_UNSUBSCRIBE_TOKEN);
-      if (refusal !== null) return yield* new SendFailed({ reason: refusal });
-
-      const startedAt = Date.now();
-      const settings = yield* Effect.tryPromise({
-        try: () => this.settings.load(),
-        catch: (error) => new SendFailed({ reason: `settings: ${String(error)}` }),
-      });
-      const date = editionDate(now);
-      const day = date.toISOString().slice(0, 10);
-      const failed = (error: { reason: string }) => new SendFailed({ reason: error.reason });
-
-      // The kill switch, read from the database immediately before anything leaves. A paused send
-      // writes nothing at all, so it is a failure of the step and not an outcome of it — which is
-      // what puts it on the one alert path without an alert inside the step.
-      if (settings.sending_paused) {
-        return yield* new SendFailed({ reason: `envio pausado: a edição ${day} não saiu porque sending_paused está ligado` });
-      }
-
-      const edition = yield* loadSendable(this.prisma, date).pipe(Effect.mapError(failed));
-      // On its way out before the first row exists: a run that dies here leaves an edition the next
-      // send resumes, instead of one the building step would quietly rebuild over.
-      yield* markSending(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
-
-      // Whoever confirmed since the last run starts a batch after the highest one already handed
-      // out. Adding them to a batch that already went out would change what that key stands for.
-      const from = yield* highestBatch(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
-      const recipients = yield* newRecipients(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
-      yield* createDeliveries(this.prisma, {
-        editionId: edition.id,
-        rows: assignBatches(recipients, from),
-      }).pipe(Effect.mapError(failed));
-
-      const settled = yield* countSettled(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
-      const batches = yield* pendingBatches(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
-      const waiting = batches.reduce((total, batch) => total + batch.rows.length, 0);
-      this.logger.log({
-        msg: "send started",
-        date: day,
-        edition: edition.id,
-        recipients: waiting,
-        created: recipients.length,
-        alreadySent: settled,
-        batches: batches.length,
-        batchSize: BATCH_SIZE,
-      });
-
-      // One batch at a time, which is `Effect.forEach`'s default and has to stay that way. Each
-      // batch is a hundred-message call against a provider with a request-rate limit, so going wide
-      // buys throughput a newsletter does not need and makes a 429 likely; sequential is also what
-      // leaves a clean prefix of settled batches when a run dies, which is what the resume reads.
-      const outcomes = yield* Effect.forEach(batches, (batch) => this.sendOneBatch(edition, batch, now)).pipe(
-        Effect.mapError(failed),
-      );
-
-      const pending = yield* countPending(this.prisma, { editionId: edition.id }).pipe(Effect.mapError(failed));
-      if (pending === 0) yield* closeEdition(this.prisma, { editionId: edition.id, now }).pipe(Effect.mapError(failed));
-
-      const report: SendReport = {
-        date: day,
-        editionId: edition.id,
-        status: pending === 0 ? "sent" : "sending",
-        recipients: waiting,
-        created: recipients.length,
-        alreadySent: settled,
-        batches: outcomes,
-        sent: outcomes.reduce((total, batch) => total + batch.sent, 0),
-        failed: outcomes.reduce((total, batch) => total + batch.failed, 0),
-        durationMs: Date.now() - startedAt,
-      };
-      // An edition with nobody to send it to is not a failure: lab and a development machine hit it
-      // constantly. It closes as sent, and the warning is what says the list was empty.
-      if (waiting === 0) this.logger.warn({ msg: "edition sent to nobody", date: day, edition: edition.id });
-      this.logger.log({ msg: "send finished", ...report });
-      return report;
-    });
-  }
-
-  // One batch: the stored edition becomes one message per row, the provider answers one result per
-  // message, and the whole answer is written in a single transaction — a batch settles or it does
-  // not. A row that cannot be personalised never enters the payload; only ARG-114 can produce one.
-  private sendOneBatch(
-    edition: SendableEdition,
-    batch: PendingBatch,
-    now: Date,
-  ): Effect.Effect<BatchOutcome, SendDbFailed | BatchRefused> {
-    return Effect.gen(this, function* () {
-      const results: { id: string; result: BatchDelivery }[] = [];
-      const messages: Message[] = [];
-      // The delivery row each message belongs to, in the same order: the provider answers by
-      // position and nothing else links an id back to a subscriber.
-      const addressed: string[] = [];
-
-      for (const row of batch.rows) {
-        const copy = personalize(edition);
-        if (copy.outcome === "unpersonalizable") {
-          results.push({ id: row.id, result: { outcome: "refused", reason: copy.reason } });
-          continue;
-        }
-        addressed.push(row.id);
-        messages.push({
-          to: row.recipient.email,
-          subject: edition.subject,
-          html: copy.html,
-          text: copy.text,
-          headers: copy.headers,
-        });
-      }
-
-      const answers =
-        messages.length === 0
-          ? []
-          : yield* deliverBatch(this.mail, { messages, idempotencyKey: batchKey(edition.id, batch.batch) });
-
-      // The transport owes one result per message. If it ever does not, stop: writing the answers
-      // out of step would put one subscriber's provider id on another subscriber's row.
-      if (answers.length !== messages.length) {
-        return yield* new BatchRefused({
-          reason: `batch ${batch.batch} of edition ${edition.id} got ${answers.length} answer(s) for ${messages.length} message(s)`,
-        });
-      }
-      answers.forEach((result, index) => results.push({ id: addressed[index], result }));
-
-      yield* recordBatch(this.prisma, { rows: results, now });
-
-      const refused = results.filter((row) => row.result.outcome === "refused");
-      for (const row of refused) {
-        if (row.result.outcome === "refused") {
-          this.logger.warn({ msg: "delivery failed", edition: edition.id, delivery: row.id, reason: row.result.reason });
-        }
-      }
-      return { batch: batch.batch, size: results.length, sent: results.length - refused.length, failed: refused.length };
-    });
-  }
-
   // The whole generation as one run of the `edition` workflow: collect → write → build, each step
   // with its own retry and its own state in the Studio. The steps have no Nest injection, so the run
   // hands them this service through the request context — the same deal the tools have.
   run(request: StepRun = {}): Effect.Effect<RunReport, RunFailed> {
     const { mode, now } = startOf(request);
     return Effect.suspend(() => {
-      if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight" });
+      if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight", status: CONFLICT });
       this.inFlight = true;
       return this.startRun(mode, now).pipe(
         // The one alert of a failed run, addressed to the step that failed. Nothing alerts inside the
@@ -588,8 +466,14 @@ export class PipelineService {
 
       if (started.result.status !== "success") return yield* new RunFailed(runFailure(started.result));
 
+      // What the workflow hands back is typed loosely by Mastra; the schema it was declared with
+      // is what says it is a run, and a run that does not fit it is a failure with a name.
+      const run = editionRunSchema.safeParse(started.result.result);
+      if (!run.success)
+        return yield* new RunFailed({ step: "run", reason: `workflow result is not a run: ${run.error.message}` });
+
       const report: RunReport = {
-        ...(started.result.result as EditionRun),
+        ...run.data,
         runId: started.runId,
         durationMs: Date.now() - startedAt,
       };

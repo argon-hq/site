@@ -5,18 +5,11 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { subscribe } from "@/actions/subscribe";
 import { unsubscribe } from "@/actions/unsubscribe";
+import { PageHeading } from "@/components/ui/page-heading";
 
 type Stage = "confirm" | "cancelling" | "cancelled" | "already" | "reactivating" | "reactivated";
 
-export function UnsubscribePanel({
-  token,
-  email,
-  cancelled,
-}: {
-  token: string;
-  email: string;
-  cancelled: boolean;
-}) {
+export function UnsubscribePanel({ token, email, cancelled }: { token: string; email: string; cancelled: boolean }) {
   const t = useTranslations("unsubscribe");
   const [stage, setStage] = useState<Stage>(cancelled ? "already" : "confirm");
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +47,12 @@ export function UnsubscribePanel({
   return (
     <div className="flex flex-col gap-10 lg:gap-12">
       <div className="flex flex-col gap-5">
-        <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-          {t("heading")}
-        </h1>
+        <PageHeading>{t("heading")}</PageHeading>
         <p className="max-w-xl text-lg text-muted text-pretty">
-          {t.rich("body", { email, strong: (chunks) => <strong className="font-semibold text-foreground">{chunks}</strong> })}
+          {t.rich("body", {
+            email,
+            strong: (chunks) => <strong className="font-semibold text-foreground">{chunks}</strong>,
+          })}
         </p>
       </div>
 
@@ -136,9 +130,7 @@ function Cancelled({
         <p className="w-fit rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-bold tracking-[0.1em] text-muted uppercase">
           {t("badge")}
         </p>
-        <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-          {t("heading")}
-        </h1>
+        <PageHeading>{t("heading")}</PageHeading>
         <p className="max-w-xl text-lg text-muted text-pretty">
           {t.rich(already ? "alreadyBody" : "body", {
             email,
@@ -196,9 +188,7 @@ function Reactivated({ email }: { email: string }) {
 
   return (
     <div role="status" className="flex flex-col gap-5">
-      <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-        {t("heading")}
-      </h1>
+      <PageHeading>{t("heading")}</PageHeading>
       <p className="max-w-xl text-lg text-muted text-pretty">
         {t.rich("body", {
           email,

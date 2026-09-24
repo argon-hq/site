@@ -29,11 +29,11 @@ describe("generateStructured", () => {
 
     await generateStructured(agent, "colete as notícias", { schema, maxSteps: 12 });
 
-    expect(calls[0].prompt).toBe("colete as notícias");
+    expect(calls[0]?.prompt).toBe("colete as notícias");
     // The bug this file exists for: a schema here forces every turn into the shape of the final
     // answer, and the first turn — which only wants to call a tool — ends the run on an empty one.
-    expect(calls[0].options.structuredOutput).toBeUndefined();
-    expect(calls[0].options.maxSteps).toBe(12);
+    expect(calls[0]?.options.structuredOutput).toBeUndefined();
+    expect(calls[0]?.options.maxSteps).toBe(12);
   });
 
   it("asks for the shape in a second call that cannot spend a tool or a step", async () => {
@@ -42,11 +42,11 @@ describe("generateStructured", () => {
     await generateStructured(agent, "colete as notícias", { schema });
 
     expect(calls).toHaveLength(2);
-    expect(calls[1].options.structuredOutput).toEqual({ schema });
-    expect(calls[1].options.toolChoice).toBe("none");
-    expect(calls[1].options.maxSteps).toBe(1);
+    expect(calls[1]?.options.structuredOutput).toEqual({ schema });
+    expect(calls[1]?.options.toolChoice).toBe("none");
+    expect(calls[1]?.options.maxSteps).toBe(1);
     // The shaping call reads the working call's answer, so nothing is researched twice.
-    expect(calls[1].prompt).toContain(working.text);
+    expect(calls[1]?.prompt).toContain(working.text);
   });
 
   it("returns the shaped object and charges for both halves", async () => {
