@@ -13,6 +13,10 @@ on:
         description: "Branch a publicar (lab). Vazio usa a branch deste workflow"
         type: string
         default: ""
+      tag:
+        description: "Tag já publicada no ECR (12 caracteres do SHA); pula o build e publica essa imagem"
+        type: string
+        default: ""
 permissions:
   id-token: write
   contents: read
@@ -30,11 +34,11 @@ jobs:
       # Only the lab publishes an arbitrary branch. Dev and prod come from their own branches, and a
       # dispatch that says otherwise is a mistake, not a request.
       - name: Recusa branch fora do lab
-        if: inputs.branch != '' && inputs.env != 'lab'
+        if: inputs.branch != '' && (inputs.env != 'lab' || inputs.tag != '')
         env:
           BRANCH: ${{ inputs.branch }}
         run: |
-          echo "deploy: branch=$BRANCH only makes sense for env=lab, not $ENV_NAME" >&2
+          echo "deploy: branch=$BRANCH only makes sense for env=lab and without tag, not $ENV_NAME" >&2
           exit 1
       # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda.
       - uses: actions/checkout@v4
@@ -44,13 +48,20 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
           path: src
+      # A given tag is a rollback: the image is already in ECR, so nothing is built (deploy/README.md).
       - id: src
         env:
           BRANCH: ${{ inputs.branch }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           DIR=.; [ -n "$BRANCH" ] && DIR=src
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
-          echo "tag=$(git -C "$DIR" rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          if [ -n "$INPUT_TAG" ]; then
+            [[ "$INPUT_TAG" =~ ^[0-9a-f]{12}$ ]] || { echo "deploy: tag must be the 12-character commit sha" >&2; exit 1; }
+            echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(git -C "$DIR" rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -60,6 +71,7 @@ jobs:
       # Constrói cada app que tem Dockerfile na branch publicada e informa a lista ao deploy.sh.
       - name: Build e push das imagens
         id: build
+        if: inputs.tag == ''
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           DIR: ${{ steps.src.outputs.dir }}
@@ -78,7 +90,10 @@ jobs:
           INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
           TAG: ${{ steps.src.outputs.tag }}
           APPS: ${{ steps.build.outputs.apps }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
+          # A rollback re-deploys both images of that tag; the build step, which knows what changed, was skipped.
+          [ -z "$INPUT_TAG" ] || APPS="web api"
           FILES=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
           # SSM kills the script at the timeout; without it a deploy stuck on a pull would run forever.
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \

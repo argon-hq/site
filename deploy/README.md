@@ -4,7 +4,7 @@ Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container
 
 - `bootstrap.sh`: user data da instância. Instala Docker, o swap e o timer de backup.
 - `compose.yml`, `Caddyfile`: ficam em `/opt/argon` na instância; o workflow de deploy os envia a cada execução.
-- `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera `env/<env>.env` a partir de `/argon/<env>/*` no Parameter Store, sobe o Postgres, reconcilia o banco do ambiente e sobe o resto.
+- `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera os envs a partir do Parameter Store, sobe o Postgres, reconcilia o banco do ambiente, sobe o resto e, só então, grava a tag em `.env`.
 - `provision-db.sh <env>`: cria papel, banco e extensão do ambiente no Postgres local. Idempotente, roda a cada deploy.
 - `backup-db.sh`: dump de todos os bancos para o S3. Chamado pelo timer `argon-backup`.
 - `lab-idle-stop.sh [minutos]`: para o lab depois de um tempo sem requisição. Chamado pelo timer `argon-lab-idle`.
@@ -91,8 +91,11 @@ container em crash loop aparece como o que é, não como um convite a publicar d
 
 ## Variáveis
 
-Cada parâmetro `/argon/<env>/NOME` vira `NOME=valor` em `env/<env>.env` — **o mesmo arquivo para o
-site e para a API** do ambiente. Todo ambiente espera estas oito, e aceita uma nona:
+Cada parâmetro `/argon/<env>/NOME` vira `NOME="valor"` em `env/<env>.env`, que a API lê inteiro. O
+site lê `env/<env>.web.env`, um recorte com só `API_URL`, `INTERNAL_API_SECRET` e `ARGON_ENV`: as
+chaves de modelo e de e-mail nunca entram no container do site. Os arquivos ficam em `env/` com
+`700` no diretório e `600` nos arquivos, só root. Todo ambiente espera estas oito, e aceita uma
+nona:
 
 | Variável | Quem lê | Tipo |
 | --- | --- | --- |
@@ -113,8 +116,13 @@ endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a
 a um `POST /pipeline/run` de distância; com `true`, ele gera a edição sozinho às 5h30, de segunda a
 sábado. Hoje só `dev` a tem.
 
-`NODE_ENV` e `PORT` não entram. Já vêm nas imagens, e como o `env_file` é compartilhado, um `PORT`
-no arquivo derrubaria um dos dois containers — o site escuta 3000, a API 3001.
+`NODE_ENV` e `PORT` não entram. Já vêm nas imagens, e um `PORT` no arquivo derrubaria o container —
+o site escuta 3000, a API 3001.
+
+O valor vai entre aspas no formato JSON (`jq @json`), então `#`, tab, aspas e quebra de linha chegam
+inteiros ao container. Compose expande `$nome` dentro do arquivo mesmo entre aspas; o `deploy.sh`
+dobra cada `$` (`$$`), que é como o Compose lê um `$` literal — importa para senhas e para o hash
+bcrypt do Caddy. O `provision-db.sh` desfaz as duas coisas ao ler a `DATABASE_URL`.
 
 ```bash
 aws ssm put-parameter --profile argon-new --region sa-east-1 \
@@ -123,6 +131,37 @@ aws ssm put-parameter --profile argon-new --region sa-east-1 \
 
 O perfil importa: `argon-new` é a conta do deploy (382597877834); o `default` aponta para a conta
 do DNS. O valor só chega aos containers no deploy seguinte, que é quem regera `env/<env>.env`.
+
+## Rollback
+
+Cada deploy publica as imagens com a tag do commit (12 caracteres do SHA) e o `deploy.sh` só grava
+essa tag em `/opt/argon/.env` depois que todo container passou no healthcheck. Um deploy que morre
+no meio deixa o `.env` apontando para a imagem que ainda funciona.
+
+Voltar para uma tag anterior é rodar o workflow com o input `tag`: o build é pulado, as duas imagens
+dessa tag são publicadas de novo e o resto do deploy é o de sempre, migrations incluídas. A tag
+precisa existir no ECR — a política de ciclo de vida guarda as dez últimas por repositório — e a
+tag de cada deploy identifica as duas imagens, mesmo quando só uma delas foi construída.
+
+```bash
+# a tag que está no ar e as anteriores
+gh run list --workflow deploy.yml --branch main --limit 5
+# prod volta para <sha>; para dev, --ref dev -f env=dev
+gh workflow run deploy.yml --ref main -f env=prod -f tag=<sha>
+```
+
+Sem o GitHub, direto na instância, com os arquivos de deploy que já estão em `/opt/argon`:
+
+```bash
+aws ssm send-command --profile argon-new --region sa-east-1 --instance-ids i-00296133cc8e8093d \
+  --document-name AWS-RunShellScript --comment "rollback prod <sha>" \
+  --parameters 'commands=["cd /opt/argon && ./deploy.sh prod <sha> \"web api\""]'
+```
+
+Migrations não voltam: o `prisma migrate deploy` da imagem antiga não desfaz o que a nova aplicou.
+Para o rollback ser sempre possível, toda migration precisa ser compatível com a versão anterior do
+código — expandir primeiro (coluna nova, tabela nova), contrair depois (apagar a antiga), em
+deploys separados.
 
 ## Recursos criados (17/09/2026, conta 382597877834, sa-east-1)
 

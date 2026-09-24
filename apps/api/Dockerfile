@@ -24,9 +24,7 @@ RUN pnpm install --frozen-lockfile --prod --filter api...
 FROM node:22-alpine AS run
 ENV NODE_ENV=production PORT=3001
 WORKDIR /repo
-RUN addgroup -S app && adduser -S app -G app \
-  # RDS root certificates, referenced by DATABASE_URL (sslmode=verify-full&sslrootcert=/etc/rds-ca.pem)
-  && wget -qO /etc/rds-ca.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+RUN addgroup -S app && adduser -S app -G app
 COPY --from=deps --chown=app:app /repo/node_modules ./node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/package.json ./apps/api/package.json

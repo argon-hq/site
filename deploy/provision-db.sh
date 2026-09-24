@@ -4,13 +4,14 @@
 #
 # Idempotent, and it runs on every deploy: a fresh volume rebuilds itself on the next deploy.
 # DATABASE_URL in Parameter Store stays the single source of truth for the credentials — this
-# only mirrors them into the container. An environment whose URL still points at RDS is skipped,
-# so prod and dev can migrate one at a time.
+# only mirrors them into the container. An environment whose URL points at another host is skipped.
 set -euo pipefail
 ENV_NAME="$1"
 cd /opt/argon
 
-url=$(grep -m1 '^DATABASE_URL=' "env/$ENV_NAME.env" | cut -d= -f2-)
+# deploy.sh writes NAME="json string" with every $ doubled, the way Compose reads it; undo both here.
+url=$(grep -m1 '^DATABASE_URL=' "env/$ENV_NAME.env" | cut -d= -f2- \
+  | jq -Rr 'gsub("\\$\\$"; "$") | if startswith("\"") then fromjson else . end')
 [ -n "$url" ] || { echo "provision: no DATABASE_URL for $ENV_NAME" >&2; exit 1; }
 
 # postgresql://user:pass@host:port/dbname?params → the parts, percent-decoded. A literal + stays a
@@ -47,6 +48,6 @@ if [ "$(run -tAX -d postgres -c "select 1 from pg_database where datname = '$(li
   run -d postgres -c "create database \"$(ident "$dbname")\" owner \"$(ident "$user")\"" >/dev/null
 fi
 
-# pgvector matches what the RDS instance had enabled; Mastra creates its own schema on first use.
+# pgvector is what the schema expects; Mastra creates its own schema on first use.
 run -d "$dbname" -c 'create extension if not exists vector' >/dev/null
 echo "provision: $ENV_NAME ready ($user@$dbname)"

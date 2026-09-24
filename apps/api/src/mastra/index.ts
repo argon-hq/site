@@ -5,7 +5,7 @@ import { editor } from "./agents/editor";
 import { mastraDir } from "./paths";
 import { editionWorkflow } from "./workflows/edition";
 
-// Workflow state and memory live in the RDS instance, schema "mastra", apart from the app tables.
+// Workflow state and memory live in the same Postgres as the app tables, in their own "mastra" schema.
 export const mastra = new Mastra({
   agents: { editor },
   workflows: { edition: editionWorkflow },

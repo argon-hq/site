@@ -69,7 +69,8 @@ services:
   web-prod:
     image: ${ECR}/argon/web:${PROD_TAG}
     restart: unless-stopped
-    env_file: env/prod.env
+    # Only what the site reads (API_URL, INTERNAL_API_SECRET, ARGON_ENV): the API keys stay with the API.
+    env_file: env/prod.web.env
     healthcheck: *web-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/prod/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
@@ -84,7 +85,7 @@ services:
   web-dev:
     image: ${ECR}/argon/web:${DEV_TAG}
     restart: unless-stopped
-    env_file: env/dev.env
+    env_file: env/dev.web.env
     healthcheck: *web-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/dev/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
@@ -99,7 +100,7 @@ services:
   web-lab:
     image: ${ECR}/argon/web:${LAB_TAG}
     restart: unless-stopped
-    env_file: env/lab.env
+    env_file: env/lab.web.env
     healthcheck: *web-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/lab/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
