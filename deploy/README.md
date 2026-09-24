@@ -136,8 +136,8 @@ container em crash loop aparece como o que é, não como um convite a publicar d
 Cada parâmetro `/argon/<env>/NOME` vira `NOME="valor"` em `env/<env>.env`, que a API lê inteiro. O
 site lê `env/<env>.web.env`, um recorte com só `API_URL`, `INTERNAL_API_SECRET` e `ARGON_ENV`: as
 chaves de modelo e de e-mail nunca entram no container do site. Os arquivos ficam em `env/` com
-`700` no diretório e `600` nos arquivos, só root. Todo ambiente espera estas oito, e aceita uma
-nona:
+`700` no diretório e `600` nos arquivos, só root. Todo ambiente espera estas nove, e aceita uma
+décima:
 
 | Variável | Quem lê | Tipo |
 | --- | --- | --- |
@@ -148,7 +148,11 @@ nona:
 | `API_URL` | site | String |
 | `WEB_ORIGIN`, `API_ORIGIN` | API | String |
 | `MAIL_TRANSPORT` | API | String |
+| `UNSUBSCRIBE_TOKEN_SECRET` | API | SecureString |
 | `SCHEDULER_ENABLED` | API | String, opcional |
+
+`UNSUBSCRIBE_TOKEN_SECRET` deriva o token de descadastro de cada assinante (`apps/api/src/subscriber/token.ts`):
+pelo menos 32 caracteres, um por ambiente, e trocá-lo invalida todo link de descadastro já enviado.
 
 `API_URL` alcança a API pela rede do compose: `http://api-<env>:3001`. `WEB_ORIGIN` e `API_ORIGIN`
 são absolutos e entram nos links de todo e-mail — o site serve a página de descadastro, a API o

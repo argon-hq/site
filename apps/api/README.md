@@ -32,6 +32,12 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
   and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
+  Every step runs holding a Postgres advisory lock on the edition's day (`lock.ts`): the 5h30 workflow, a per-step
+  route fired by hand and a second container all contend on the database, not on a flag in memory, and a busy edition
+  answers 409. `watch.ts` looks at boot and at 8h for an edition left `generating` or `sending` for more than three
+  hours — the one failure nothing else reports — logs `edition stuck` (a CloudWatch alarm watches that line) and mails
+  the owners; `POST /pipeline/send { "date": "YYYY-MM-DD" }` is how such an edition is resumed after the calendar moved
+  on. `retention.ts` trims the tables nightly (see Database).
   `POST /pipeline/send` is the distributor (`delivery.service.ts`), and a run of its own: not a fourth step of the workflow, because the edition
   is ready long before it and a resend generates nothing. `send.ts` reads the built edition — accepting `ready` and also
   `sending`, which is the state a run that stopped halfway leaves and the only way out of — creates one `delivery` row
@@ -80,6 +86,8 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures — and the controller runs it
   through `runEffect`, so a provider that is down answers 503 and a database that is down answers 500.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
+  `signup-throttle.guard.ts` rate-limits `POST /subscriber` and the public one-click unsubscribe by the visitor's address
+  (`consentIp` in the body, the socket address for the public route): ten a minute, in memory.
 - `src/subscriber/urls.ts`: every address the subscriber reaches from an e-mail — the confirmation page, the unsubscribe
   page for the footer link, and the API endpoint the `List-Unsubscribe` header announces. The builders receive them ready
   (they build no URL), so this is where the format is decided. The origins are bound once in `SubscriberModule.forRoot`.
