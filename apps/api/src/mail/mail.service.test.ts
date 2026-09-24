@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SettingsService } from "../settings/settings.service";
 import { MailService } from "./mail.service";
 import { formatAddress, type MailTransport, type Message } from "./mail.types";
-import { ResendTransport } from "./transports/resend.transport";
+import { align, ResendTransport } from "./transports/resend.transport";
 import { SmtpTransport } from "./transports/smtp.transport";
 
 const sender = { name: "Argon", address: "news@argon.com", postalAddress: "Rua 1, Cidade" };
@@ -69,5 +69,121 @@ describe("SmtpTransport", () => {
 
     expect(await transport.send({ ...message, from: sender })).toEqual({ id: "<abc@argon>" });
     expect(transporter.sendMail).toHaveBeenCalledWith(expect.objectContaining({ from: formatAddress(sender) }));
+  });
+});
+
+describe("MailService.sendBatch", () => {
+  const two = [message, { ...message, to: "outro@example.com" }];
+
+  it("resolves the sender once for the whole batch", async () => {
+    const transport: MailTransport = {
+      name: "fake",
+      send: vi.fn(),
+      sendBatch: vi.fn(async () => ({ results: [{ outcome: "sent" as const, id: "a" }, { outcome: "sent" as const, id: "b" }] })),
+    };
+    const settings = { get: vi.fn(async () => sender) };
+    const mail = new MailService(transport, settings as unknown as SettingsService);
+
+    await mail.sendBatch(two);
+
+    expect(settings.get).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(transport.sendBatch!).mock.calls[0]?.[0].every((m) => m.from === sender)).toBe(true);
+  });
+
+  it("sends one at a time when the transport has no batch endpoint", async () => {
+    const transport: MailTransport = { name: "smtp", send: vi.fn(async () => ({ id: "<x@argon>" })) };
+
+    const sent = await service(transport).sendBatch(two);
+
+    expect(transport.send).toHaveBeenCalledTimes(2);
+    expect(sent.results).toEqual([
+      { outcome: "sent", id: "<x@argon>" },
+      { outcome: "sent", id: "<x@argon>" },
+    ]);
+  });
+
+  it("turns a message the fallback transport refused into a result, not an exception", async () => {
+    // Both paths owe the same contract: one result per message, and a refusal is data.
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({ id: "<x@argon>" })
+      .mockRejectedValueOnce(new Error("mailbox unavailable"));
+    const transport: MailTransport = { name: "smtp", send };
+
+    const sent = await service(transport).sendBatch(two);
+
+    expect(sent.results[0]).toEqual({ outcome: "sent", id: "<x@argon>" });
+    expect(sent.results[1]?.outcome === "refused" && sent.results[1].reason).toContain("mailbox unavailable");
+  });
+
+  it("answers an empty batch without touching the transport or the settings", async () => {
+    const transport: MailTransport = { name: "fake", send: vi.fn(), sendBatch: vi.fn() };
+    const settings = { get: vi.fn() };
+    const mail = new MailService(transport, settings as unknown as SettingsService);
+
+    expect(await mail.sendBatch([])).toEqual({ results: [] });
+    expect(settings.get).not.toHaveBeenCalled();
+    expect(transport.sendBatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("ResendTransport.sendBatch", () => {
+  const filled = [
+    { ...message, from: sender },
+    { ...message, to: "outro@example.com", from: sender },
+  ];
+
+  it("sends one payload, carrying the idempotency key and asking for permissive validation", async () => {
+    const batch = { send: vi.fn(async () => ({ data: { data: [{ id: "re_1" }, { id: "re_2" }], errors: [] }, error: null })) };
+    const transport = new ResendTransport({ batch } as never);
+
+    const sent = await transport.sendBatch(filled, { idempotencyKey: "e1:1" });
+
+    expect(batch.send).toHaveBeenCalledTimes(1);
+    expect(batch.send).toHaveBeenCalledWith(expect.anything(), {
+      idempotencyKey: "e1:1",
+      batchValidation: "permissive",
+    });
+    expect(sent.results).toEqual([
+      { outcome: "sent", id: "re_1" },
+      { outcome: "sent", id: "re_2" },
+    ]);
+  });
+
+  it("raises a batch the provider refused whole, so no row is recorded as sent", async () => {
+    const batch = { send: vi.fn(async () => ({ data: null, error: { name: "rate_limit_exceeded", message: "slow down" } })) };
+    const transport = new ResendTransport({ batch } as never);
+
+    await expect(transport.sendBatch(filled)).rejects.toThrow("Resend refused the batch");
+  });
+});
+
+describe("align", () => {
+  it("reads the ids by position when the provider answered for every message", () => {
+    expect(align(2, [{ id: "re_1" }, { id: "re_2" }], [])).toEqual([
+      { outcome: "sent", id: "re_1" },
+      { outcome: "sent", id: "re_2" },
+    ]);
+  });
+
+  it("puts an individual refusal on its own message and delivers the rest", () => {
+    expect(align(3, [{ id: "re_1" }, { id: "re_3" }], [{ index: 1, message: "invalid address" }])).toEqual([
+      { outcome: "sent", id: "re_1" },
+      { outcome: "refused", reason: "invalid address" },
+      { outcome: "sent", id: "re_3" },
+    ]);
+  });
+
+  it("also reads an answer that kept a slot for the message it refused", () => {
+    expect(align(2, [{ id: "re_1" }, { id: "" }], [{ index: 1, message: "invalid address" }])).toEqual([
+      { outcome: "sent", id: "re_1" },
+      { outcome: "refused", reason: "invalid address" },
+    ]);
+  });
+
+  it("refuses to guess when the answer has a length it cannot explain", () => {
+    // An id on the wrong row would attach one subscriber's bounce to another's delivery. A batch
+    // that fails leaves its rows pending and is sent again; a wrong id is never noticed.
+    expect(() => align(3, [{ id: "re_1" }], [])).toThrow("cannot be matched");
   });
 });
