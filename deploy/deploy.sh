@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Roda na instância, via SSM Run Command. Uso: deploy.sh <prod|dev|lab> <tag> [apps]
 # Regera os envs a partir do Parameter Store, sobe só os serviços do ambiente e, se tudo subiu, grava a tag.
-# apps: quais imagens foram construídas, "web" ou "web api" (padrão: web).
+# apps: quais imagens mudaram, "web", "api", "web api" ou "" (padrão sem o argumento: web). O workflow
+# marca as duas imagens com a tag mesmo quando só uma foi construída, então "" só troca a tag e o Caddy.
 set -euo pipefail
 # Everything written here holds secrets; nothing on the instance but root and the daemon reads it.
 umask 077
-ENV_NAME="$1"; TAG="$2"; APPS="${3:-web}"
+ENV_NAME="$1"; TAG="$2"; APPS="${3-web}"
 case "$ENV_NAME" in prod|dev|lab) ;; *) echo "deploy: unknown environment '$ENV_NAME' (prod|dev|lab)" >&2; exit 1 ;; esac
 command -v jq >/dev/null || { echo "deploy: jq is missing (bootstrap.sh installs it)" >&2; exit 1; }
 cd /opt/argon
@@ -52,7 +53,8 @@ done
 chmod 600 env/*.env
 aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin "$(grep '^ECR=' .env | cut -d= -f2)"
 SERVICES=""; for a in $APPS; do SERVICES="$SERVICES $a-$ENV_NAME"; done
-docker compose pull $SERVICES
+# No service list would mean every service, other environments' images included.
+[ -z "$SERVICES" ] || docker compose pull $SERVICES
 # The database comes up before anything that talks to it, and the role and schema of this
 # environment are reconciled while it is the only thing running.
 docker compose up -d --wait postgres

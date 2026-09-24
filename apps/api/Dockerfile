@@ -1,5 +1,9 @@
+# syntax=docker/dockerfile:1
 # API (NestJS + Mastra). Build from the monorepo root:
 #   docker build -f apps/api/Dockerfile -t argon/api .
+# The pnpm store is a cache mount (the syntax line above enables it): packages already fetched by
+# an earlier build are not downloaded again. Needs BuildKit — the default with buildx installed,
+# DOCKER_BUILDKIT=1 otherwise.
 FROM node:22.23-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 WORKDIR /repo
@@ -8,7 +12,7 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter api...
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter api...
 COPY apps/api apps/api
 RUN pnpm --filter api build
 # The Studio bundle travels with the `mastra` CLI, a devDependency that the runtime stage does not
@@ -19,7 +23,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --prod --filter api...
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --prod --filter api...
 
 FROM node:22.23-alpine AS run
 ENV NODE_ENV=production PORT=3001

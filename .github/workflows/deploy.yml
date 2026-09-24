@@ -40,10 +40,13 @@ jobs:
         run: |
           echo "deploy: branch=$BRANCH only makes sense for env=lab and without tag, not $ENV_NAME" >&2
           exit 1
-      # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda.
-      - uses: actions/checkout@v4
+      # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda. Full history, so the
+      # commit before this push is there to diff against.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       # O código publicado pode vir de outra branch: é o caso do lab.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: inputs.branch != ''
         with:
           ref: ${{ inputs.branch }}
@@ -62,43 +65,109 @@ jobs:
           else
             echo "tag=$(git -C "$DIR" rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
           fi
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-      # Constrói cada app que tem Dockerfile na branch publicada e informa a lista ao deploy.sh.
-      - name: Build e push das imagens
-        id: build
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      # Which apps to build. A push builds only what its commits touched — the app itself or the
+      # workspace files every image copies. A dispatch, a first push (before is all zeros), a base
+      # that is gone, or an app with no image yet for this environment build everything.
+      - id: changes
         if: inputs.tag == ''
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          DIR: ${{ steps.src.outputs.dir }}
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          build="web api"; skipped=""
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            build=""
+            for app in web api; do
+              if [ -n "$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- "apps/$app" pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json)" ] \
+                || ! aws ecr describe-images --repository-name "argon/$app" --image-ids "imageTag=$ENV_NAME" >/dev/null 2>&1; then
+                build="$build $app"
+              else
+                skipped="$skipped $app"
+              fi
+            done
+          fi
+          echo "build=${build# }" >> "$GITHUB_OUTPUT"
+          echo "skipped=${skipped# }" >> "$GITHUB_OUTPUT"
+          echo "build: [${build# }] skipped: [${skipped# }]"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        if: inputs.tag == ''
+      # Layer cache in the Actions cache, one scope per app: a push that only touches the code reuses
+      # the pnpm install layers. provenance off keeps the ECR image a plain manifest, which the retag
+      # below copies as is.
+      - name: Build e push web
+        if: inputs.tag == '' && contains(steps.changes.outputs.build, 'web')
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ steps.src.outputs.dir }}
+          file: ${{ steps.src.outputs.dir }}/apps/web/Dockerfile
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/argon/web:${{ steps.src.outputs.tag }}
+            ${{ steps.ecr.outputs.registry }}/argon/web:${{ env.ENV_NAME }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - name: Build e push api
+        if: inputs.tag == '' && contains(steps.changes.outputs.build, 'api')
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ steps.src.outputs.dir }}
+          file: ${{ steps.src.outputs.dir }}/apps/api/Dockerfile
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/argon/api:${{ steps.src.outputs.tag }}
+            ${{ steps.ecr.outputs.registry }}/argon/api:${{ env.ENV_NAME }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      # deploy.sh points every container of the environment at one tag, and a rollback re-deploys
+      # both images of a tag: an app that was not rebuilt gets its current image tagged with this
+      # commit too. A manifest copy inside ECR, nothing is pulled.
+      - name: Marca a imagem do app sem mudança
+        if: inputs.tag == '' && steps.changes.outputs.skipped != ''
+        env:
+          SKIPPED: ${{ steps.changes.outputs.skipped }}
           TAG: ${{ steps.src.outputs.tag }}
         run: |
-          APPS=""
-          for app in web api; do
-            [ -f "$DIR/apps/$app/Dockerfile" ] || continue
-            docker build -f "$DIR/apps/$app/Dockerfile" -t "$REGISTRY/argon/$app:$TAG" -t "$REGISTRY/argon/$app:$ENV_NAME" "$DIR"
-            docker push --all-tags "$REGISTRY/argon/$app"
-            APPS="$APPS $app"
+          for app in $SKIPPED; do
+            if aws ecr describe-images --repository-name "argon/$app" --image-ids "imageTag=$TAG" >/dev/null 2>&1; then
+              echo "argon/$app:$TAG already exists"; continue
+            fi
+            MANIFEST=$(aws ecr batch-get-image --repository-name "argon/$app" --image-ids "imageTag=$ENV_NAME" --query 'images[0].imageManifest' --output text)
+            TYPE=$(aws ecr batch-get-image --repository-name "argon/$app" --image-ids "imageTag=$ENV_NAME" --query 'images[0].imageManifestMediaType' --output text)
+            aws ecr put-image --repository-name "argon/$app" --image-tag "$TAG" --image-manifest "$MANIFEST" --image-manifest-media-type "$TYPE" >/dev/null
+            echo "argon/$app:$ENV_NAME -> argon/$app:$TAG"
           done
-          echo "apps=${APPS# }" >> "$GITHUB_OUTPUT"
       - name: Deploy na instância
         env:
           INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
           TAG: ${{ steps.src.outputs.tag }}
-          APPS: ${{ steps.build.outputs.apps }}
+          APPS: ${{ steps.changes.outputs.build }}
           INPUT_TAG: ${{ inputs.tag }}
+          DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET }}
         run: |
-          # A rollback re-deploys both images of that tag; the build step, which knows what changed, was skipped.
+          # A rollback restarts both apps of that tag; the change detection, which knows what moved, was skipped.
           [ -z "$INPUT_TAG" ] || APPS="web api"
-          FILES=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh restore-drill.sh reset-lab.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+          # The deploy files travel through S3 under the tag, and the instance syncs them before running
+          # deploy.sh. Without the variable they go inline, base64 in the command, as they did before.
+          if [ -n "$DEPLOY_BUCKET" ]; then
+            aws s3 cp deploy/ "s3://$DEPLOY_BUCKET/deploy/$TAG/" --recursive --exclude '*' --include '*.sh' --include compose.yml --include Caddyfile --only-show-errors
+            FETCH="aws s3 sync s3://$DEPLOY_BUCKET/deploy/$TAG/ /opt/argon/ --exclude '*' --include '*.sh' --include compose.yml --include Caddyfile --only-show-errors"
+          else
+            FETCH=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh restore-drill.sh reset-lab.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+          fi
           # SSM kills the script at the timeout; without it a deploy stuck on a pull would run forever.
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
             --comment "deploy $ENV_NAME $TAG" --timeout-seconds 1800 \
-            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x ./*.sh && ./deploy.sh $ENV_NAME $TAG \"$APPS\"" '{commands:[$s]}')" \
+            --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FETCH && chmod +x ./*.sh && ./deploy.sh $ENV_NAME $TAG \"$APPS\"" '{commands:[$s]}')" \
             --query Command.CommandId --output text)
           # `aws ssm wait command-executed` gives up after ~100 s, well inside a normal deploy: the
           # job then read InProgress, went red, and released the concurrency group while deploy.sh

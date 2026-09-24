@@ -23,6 +23,21 @@ instância e roda o `deploy.sh` por SSM. O workflow espera o comando terminar de
 desistia em ~100 s: deploys normais ficavam vermelhos enquanto rodavam e liberavam o grupo de
 concorrência com o `deploy.sh` ainda no meio.
 
+Um push só constrói o app que os commits tocaram — `apps/<app>` ou os arquivos do workspace que
+toda imagem copia (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml`, `turbo.json`). O outro
+app recebe a tag do commit por uma cópia de manifesto dentro do ECR, sem pull: a tag de todo deploy
+identifica as duas imagens, que é o que o rollback e o `.env` da instância esperam. Dispatch, primeiro
+push e app sem imagem no ambiente constroem os dois. O build usa `buildx` com cache de camadas no
+cache do Actions, um escopo por app, e o `pnpm install` dos Dockerfiles monta o store do pnpm como
+cache: só o que mudou é baixado de novo.
+
+Os arquivos desta pasta vão para a instância por S3 — `s3://$AWS_DEPLOY_BUCKET/deploy/<tag>/`,
+sincronizados em `/opt/argon` antes do `deploy.sh` — quando a variável `AWS_DEPLOY_BUCKET` existe
+no repositório. Sem ela, vão inline no comando do SSM, em base64, como antes; isso funciona, mas
+o comando cresce com cada script. O bucket de backup serve (prefixo `deploy/`), e é o que a seção
+abaixo assume; um bucket próprio também. Uma regra de ciclo de vida de 30 dias no prefixo evita
+acumular.
+
 Ao fim, um `curl` em `https://api.<ambiente>/health` de fora: o container responder por dentro não
 prova que Caddy, DNS e certificado estão de pé. Se qualquer passo falhar, o workflow publica no
 tópico SNS de alertas (segredo `AWS_ALERTS_TOPIC_ARN`); sem o segredo, só registra que não avisou.
@@ -42,6 +57,14 @@ O repositório não expressa isto; confira em Settings do repositório `argon-hq
   limitado a `main`. O workflow recusa `branch` preenchida fora do lab, mas só a proteção do
   environment impede um dispatch de `prod` a partir de outra branch.
 - Segredo `AWS_ALERTS_TOPIC_ARN` com o ARN do tópico SNS de alertas da conta.
+- Variável `AWS_DEPLOY_BUCKET` com o bucket por onde os arquivos de deploy passam. O papel do
+  GitHub (`argon-github-deploy`) precisa de `s3:PutObject` em `deploy/*` nele, e o papel da
+  instância de `s3:GetObject` e `s3:ListBucket`.
+
+As actions dos dois workflows são fixadas pelo SHA do commit, com a versão em comentário; o
+Dependabot (`.github/dependabot.yml`) abre PRs semanais para actions, imagens dos Dockerfiles e do
+compose e pacotes npm (minor e patch agrupados; majors de `next` e `react` ficam de fora). Esses
+PRs vêm em inglês, do robô — a exceção às Diretrizes.
 
 ```bash
 # environment prod: reviewer obrigatório e branch limitada a main
@@ -52,8 +75,23 @@ gh api --method PUT repos/argon-hq/site/environments/prod --input - <<EOF
 EOF
 gh api --method POST repos/argon-hq/site/environments/prod/deployment-branch-policies \
   -f name=main -f type=branch
-# tópico de alertas
+# tópico de alertas e bucket dos arquivos de deploy
 gh secret set AWS_ALERTS_TOPIC_ARN --repo argon-hq/site --body "arn:aws:sns:sa-east-1:382597877834:<topico>"
+gh variable set AWS_DEPLOY_BUCKET --repo argon-hq/site --body "<bucket>"
+```
+
+### ECR
+
+Os dois repositórios precisam de varredura ao subir e de uma regra que segure só as dez últimas
+imagens — o rollback por tag depende de a tag ainda existir, e o disco do ECR também custa:
+
+```bash
+for r in argon/web argon/api; do
+  aws ecr put-image-scanning-configuration --profile argon-new --region sa-east-1 \
+    --repository-name $r --image-scanning-configuration scanOnPush=true
+  aws ecr put-lifecycle-policy --profile argon-new --region sa-east-1 --repository-name $r \
+    --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"keep the last 10","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
+done
 ```
 
 ## Caddy
