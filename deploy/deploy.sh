@@ -4,7 +4,12 @@
 # apps: quais imagens foram construídas, "web" ou "web api" (padrão: web).
 set -euo pipefail
 ENV_NAME="$1"; TAG="$2"; APPS="${3:-web}"
+case "$ENV_NAME" in prod|dev|lab) ;; *) echo "deploy: unknown environment '$ENV_NAME' (prod|dev|lab)" >&2; exit 1 ;; esac
 cd /opt/argon
+# Prod and dev deploy from different concurrency groups, so two of them can land at once — and both
+# rewrite .env, restart Caddy and prune images. The lock serializes them; the second one waits.
+exec 9>.deploy.lock
+flock -n 9 || { echo "deploy: another deploy is running, waiting for it"; flock 9; }
 # logs/ is bind-mounted into Caddy; lab.log is how lab-idle-stop.sh knows the lab is still in use.
 mkdir -p env logs
 touch .env
@@ -38,7 +43,9 @@ case " $APPS " in *" api "*)
 esac
 # A fresh lab deploy is activity: this gives it a full idle window before it can be stopped.
 if [ "$ENV_NAME" = lab ]; then touch logs/lab.log; fi
-docker compose up -d caddy $SERVICES
+# --wait turns a container in a crash loop into a failed deploy instead of an "ok" with a dead API.
+# Caddy has no healthcheck, so for it this only means running; the timeout covers a cold API boot.
+docker compose up -d --wait --wait-timeout 180 caddy $SERVICES
 # The Caddyfile is a bind mount: a changed file needs an explicit reload, or new hosts never get certificates.
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 # Retenção de 30 dias nos logs do ambiente; o grupo é criado pelo driver awslogs no primeiro start.

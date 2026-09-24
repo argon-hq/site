@@ -1,4 +1,21 @@
 # Três ambientes na mesma instância: prod, dev e lab (branches em desenvolvimento). Tags em /opt/argon/.env (PROD_TAG, DEV_TAG, LAB_TAG).
+
+# `up --wait` in deploy.sh only fails on a broken container because of these. The API's /health
+# also proves the database is reachable (503 otherwise); the site just has to render its home page.
+# Busybox wget comes with the alpine base image. start_period covers a cold Nest boot.
+x-api-healthcheck: &api-healthcheck
+  test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 40s
+x-web-healthcheck: &web-healthcheck
+  test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ || exit 1"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 40s
+
 services:
   caddy:
     image: caddy:2-alpine
@@ -48,6 +65,7 @@ services:
     image: ${ECR}/argon/web:${PROD_TAG}
     restart: unless-stopped
     env_file: env/prod.env
+    healthcheck: *web-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/prod/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   api-prod:
@@ -55,12 +73,14 @@ services:
     restart: unless-stopped
     env_file: env/prod.env
     depends_on: { postgres: { condition: service_healthy } }
+    healthcheck: *api-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/prod/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   web-dev:
     image: ${ECR}/argon/web:${DEV_TAG}
     restart: unless-stopped
     env_file: env/dev.env
+    healthcheck: *web-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/dev/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   api-dev:
@@ -68,12 +88,14 @@ services:
     restart: unless-stopped
     env_file: env/dev.env
     depends_on: { postgres: { condition: service_healthy } }
+    healthcheck: *api-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/dev/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   web-lab:
     image: ${ECR}/argon/web:${LAB_TAG}
     restart: unless-stopped
     env_file: env/lab.env
+    healthcheck: *web-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/lab/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
   api-lab:
@@ -81,6 +103,7 @@ services:
     restart: unless-stopped
     env_file: env/lab.env
     depends_on: { postgres: { condition: service_healthy } }
+    healthcheck: *api-healthcheck
     logging: { driver: awslogs, options: { awslogs-group: /argon/lab/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
 
 volumes:

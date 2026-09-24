@@ -18,6 +18,7 @@ permissions:
   contents: read
 env:
   AWS_REGION: sa-east-1
+  ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
 # Um deploy por ambiente de cada vez; o seguinte espera.
 concurrency:
   group: deploy-${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
@@ -26,6 +27,15 @@ jobs:
     runs-on: ubuntu-24.04-arm
     environment: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
     steps:
+      # Only the lab publishes an arbitrary branch. Dev and prod come from their own branches, and a
+      # dispatch that says otherwise is a mistake, not a request.
+      - name: Recusa branch fora do lab
+        if: inputs.branch != '' && inputs.env != 'lab'
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          echo "deploy: branch=$BRANCH only makes sense for env=lab, not $ENV_NAME" >&2
+          exit 1
       # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda.
       - uses: actions/checkout@v4
       # O código publicado pode vir de outra branch: é o caso do lab.
@@ -52,7 +62,6 @@ jobs:
         id: build
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
-          ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
           DIR: ${{ steps.src.outputs.dir }}
           TAG: ${{ steps.src.outputs.tag }}
         run: |
@@ -66,16 +75,44 @@ jobs:
           echo "apps=${APPS# }" >> "$GITHUB_OUTPUT"
       - name: Deploy na instância
         env:
-          ENV_NAME: ${{ inputs.env || (github.ref_name == 'main' && 'prod' || 'dev') }}
           INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
           TAG: ${{ steps.src.outputs.tag }}
           APPS: ${{ steps.build.outputs.apps }}
         run: |
           FILES=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+          # SSM kills the script at the timeout; without it a deploy stuck on a pull would run forever.
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
-            --comment "deploy $ENV_NAME $TAG" \
+            --comment "deploy $ENV_NAME $TAG" --timeout-seconds 1800 \
             --parameters "$(jq -n --arg s "mkdir -p /opt/argon && cd /opt/argon && $FILES && chmod +x ./*.sh && ./deploy.sh $ENV_NAME $TAG \"$APPS\"" '{commands:[$s]}')" \
             --query Command.CommandId --output text)
-          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
-          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
-          [ "$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query Status --output text)" = "Success" ]
+          # `aws ssm wait command-executed` gives up after ~100 s, well inside a normal deploy: the
+          # job then read InProgress, went red, and released the concurrency group while deploy.sh
+          # was still running. Poll until the command really ends, up to 10 min. The invocation may
+          # not exist yet right after send-command, which reads as Pending.
+          for _ in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in Pending|InProgress|Delayed) sleep 5 ;; *) break ;; esac
+          done
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
+          [ "$STATUS" = Success ] || { echo "deploy: SSM command ended as $STATUS" >&2; exit 1; }
+      # The container answering from inside the instance is not the same as the site answering from
+      # the internet: this also covers Caddy, DNS and the certificate.
+      - name: Smoke
+        run: |
+          case "$ENV_NAME" in
+            prod) HOST=api.argon.eduardofockink.com ;;
+            *) HOST="api.$ENV_NAME.argon.eduardofockink.com" ;;
+          esac
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$HOST/health"
+      # A red run only reaches whoever is watching the Actions tab; the SNS topic reaches a phone.
+      # Without the secret the step just says so — a missing alert must not hide the real failure.
+      - name: Alerta de falha
+        if: failure()
+        env:
+          TOPIC_ARN: ${{ secrets.AWS_ALERTS_TOPIC_ARN }}
+        run: |
+          [ -n "$TOPIC_ARN" ] || { echo "deploy: AWS_ALERTS_TOPIC_ARN is not set, no alert sent"; exit 0; }
+          aws sns publish --topic-arn "$TOPIC_ARN" --subject "deploy $ENV_NAME failed" \
+            --message "Deploy $ENV_NAME failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

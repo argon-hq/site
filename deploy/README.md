@@ -11,6 +11,47 @@ Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 
+## O workflow
+
+Push em `dev` ou `main` constrói as imagens no runner, envia os arquivos desta pasta para a
+instância e roda o `deploy.sh` por SSM. O workflow espera o comando terminar de verdade — até
+10 minutos, com `--timeout-seconds 1800` no SSM — e só então lê o resultado. Antes, o `aws ssm wait`
+desistia em ~100 s: deploys normais ficavam vermelhos enquanto rodavam e liberavam o grupo de
+concorrência com o `deploy.sh` ainda no meio.
+
+Ao fim, um `curl` em `https://api.<ambiente>/health` de fora: o container responder por dentro não
+prova que Caddy, DNS e certificado estão de pé. Se qualquer passo falhar, o workflow publica no
+tópico SNS de alertas (segredo `AWS_ALERTS_TOPIC_ARN`); sem o segredo, só registra que não avisou.
+
+Na instância, o `deploy.sh` recusa ambiente que não seja `prod`, `dev` ou `lab` e segura um `flock`
+em `/opt/argon/.deploy.lock`: prod e dev têm grupos de concorrência separados no GitHub, então dois
+deploys podem chegar juntos, e os dois mexem no `.env`, no Caddy e no prune. O segundo espera. O
+`up -d --wait` só devolve "ok" quando todo container passou no healthcheck — `/health` na API, que
+também confere o banco, e `/` no site; um container em crash loop derruba o deploy em vez de
+fingir sucesso.
+
+### Configuração manual no GitHub
+
+O repositório não expressa isto; confira em Settings do repositório `argon-hq/site`:
+
+- Environment `prod` com *Required reviewers* (ao menos uma pessoa) e *Deployment branches*
+  limitado a `main`. O workflow recusa `branch` preenchida fora do lab, mas só a proteção do
+  environment impede um dispatch de `prod` a partir de outra branch.
+- Segredo `AWS_ALERTS_TOPIC_ARN` com o ARN do tópico SNS de alertas da conta.
+
+```bash
+# environment prod: reviewer obrigatório e branch limitada a main
+REVIEWER_ID=$(gh api users/<login> --jq .id)
+gh api --method PUT repos/argon-hq/site/environments/prod --input - <<EOF
+{"reviewers":[{"type":"User","id":$REVIEWER_ID}],
+ "deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+EOF
+gh api --method POST repos/argon-hq/site/environments/prod/deployment-branch-policies \
+  -f name=main -f type=branch
+# tópico de alertas
+gh secret set AWS_ALERTS_TOPIC_ARN --repo argon-hq/site --body "arn:aws:sns:sa-east-1:382597877834:<topico>"
+```
+
 ## Variáveis
 
 Cada parâmetro `/argon/<env>/NOME` vira `NOME=valor` em `env/<env>.env` — **o mesmo arquivo para o
@@ -57,7 +98,7 @@ do DNS. O valor só chega aos containers no deploy seguinte, que é quem regera 
 | ECR | `argon/web`, `argon/api` |
 | Papel do GitHub | `argon-github-deploy` (OIDC, repositório argon-hq/site) |
 | DNS | `argon.eduardofockink.com`, `dev.argon.eduardofockink.com`, `lab.argon.eduardofockink.com`, `api.argon.eduardofockink.com`, `api.dev.argon.eduardofockink.com`, `api.lab.argon.eduardofockink.com` (zona na conta 663702377780, provisória até a ARG-68) |
-| Segredos no GitHub | `AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID` |
+| Segredos no GitHub | `AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`, `AWS_ALERTS_TOPIC_ARN` |
 | Orçamento | `argon-mensal`, US$ 30, avisos em 80% e 100% |
 
 Acesso à instância: `aws ssm start-session --target i-00296133cc8e8093d`. Sem SSH.
