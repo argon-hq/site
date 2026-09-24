@@ -2,7 +2,7 @@ import type { LoggerService } from "@nestjs/common";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
-import { fixtureCollect } from "./collect-source";
+import { collectPrompt, fixtureCollect } from "./collect-source";
 import { fixtureNews } from "./fixtures/news";
 import { persistCandidate, type PersistContext } from "./persist";
 import { PROFILES } from "./profile";
@@ -66,5 +66,28 @@ describe("the mocked collection", () => {
     const { created } = await collectInto(2, 80);
 
     for (const article of created) expect(article.extractedText.length).toBeLessThanOrEqual(80);
+  });
+});
+
+describe("collectPrompt", () => {
+  const prompt = (deployment: "prod" | "dev" | "lab" | "local") =>
+    collectPrompt({ now, since: windowStart(now), cutoff: 2, max: 4, profile: PROFILES[deployment] });
+
+  it("carries the reading budget, which is what stops a run from judging thirty results by their headlines", () => {
+    expect(prompt("dev")).toContain(`Leituras: abra de ${PROFILES.dev.minReads} a ${PROFILES.dev.maxReads} páginas.`);
+  });
+
+  it("gives every environment its own limits, so the skill never has to know where it is running", () => {
+    for (const env of ["prod", "dev", "lab", "local"] as const) {
+      const text = prompt(env);
+      expect(text).toContain(`de ${PROFILES[env].minSearches} a ${PROFILES[env].maxSearches}`);
+      expect(text).toContain(`de ${PROFILES[env].minReads} a ${PROFILES[env].maxReads}`);
+    }
+  });
+
+  it("names the window and the cutoff, which are the two rules the agent may not bend", () => {
+    const text = prompt("dev");
+    expect(text).toContain("Janela: só notícias publicadas depois de");
+    expect(text).toContain("Corte: nota 2.");
   });
 });

@@ -194,12 +194,16 @@ export class PipelineService {
         usage: collected.usage,
         durationMs: Date.now() - startedAt,
       };
+      // `notes` is the agent's own account of what did not yield — the themes with no fresh news,
+      // the sources that answered nothing. Without it in the log, a thin collection can only be
+      // explained by paying for another one.
       this.logger.log({
         msg: "collect finished",
         mode,
         saved: report.saved,
         evaluated: report.result.candidates.length,
         discarded: report.result.discarded,
+        notes: report.result.notes,
         durationMs: report.durationMs,
         usage: report.usage,
       });
