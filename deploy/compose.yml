@@ -1,4 +1,7 @@
 # Três ambientes na mesma instância: prod, dev e lab (branches em desenvolvimento). Tags em /opt/argon/.env (PROD_TAG, DEV_TAG, LAB_TAG).
+#
+# Images are pinned to a minor: a `2-alpine` that becomes the next minor on a pull is a surprise on
+# the box that serves production. Bumping is a one-line PR. node is pinned the same way in the Dockerfiles.
 
 # `up --wait` in deploy.sh only fails on a broken container because of these. The API's /health
 # also proves the database is reachable (503 otherwise); the site just has to render its home page.
@@ -16,9 +19,18 @@ x-web-healthcheck: &web-healthcheck
   retries: 3
   start_period: 40s
 
+# Non-blocking: with the default mode a CloudWatch outage stalls the container on its next log line
+# (or keeps it from starting). 4 MB of buffer absorbs the gap; beyond that lines are dropped, which
+# beats a frozen API. The group name is per service.
+x-awslogs: &awslogs
+  awslogs-region: sa-east-1
+  awslogs-create-group: "true"
+  mode: non-blocking
+  max-buffer-size: 4m
+
 services:
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11-alpine
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     # STUDIO_AUTH_USER and STUDIO_AUTH_HASH for the Caddyfile's basic_auth; deploy.sh writes the file.
@@ -28,14 +40,15 @@ services:
       - ./logs:/var/log/caddy
       - caddy-data:/data
       - caddy-config:/config
-    # Access logs of the production hosts go to stdout as JSON, hence here. Non-blocking: CloudWatch
-    # being unreachable must not stall the proxy in front of everything.
-    logging: { driver: awslogs, options: { awslogs-group: /argon/caddy, awslogs-region: sa-east-1, awslogs-create-group: "true", mode: non-blocking, max-buffer-size: 4m } }
+    # Access logs of the production hosts go to stdout as JSON, hence here.
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/caddy } }
 
   # Postgres on the instance itself, in place of RDS: the database only serves development, and a
   # db.t4g.micro in sa-east-1 costs more than the machine running every container. No published
   # port — only the Compose network reaches it. Same image as compose.local.yml, so local and
-  # deployed environments run the same major and the same pgvector build.
+  # deployed environments run the same major and the same pgvector build. The tag is the major on
+  # purpose: a data directory only changes major with pg_upgrade, minors are safe in place, and the
+  # pgvector build travels with the image — pinning `0.8.x-pg16` would freeze the extension too.
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
@@ -64,53 +77,72 @@ services:
     # A checkpoint on shutdown takes longer than the 10 s default, and a killed Postgres replays on
     # the next boot instead of starting clean.
     stop_grace_period: 1m
-    logging: { driver: awslogs, options: { awslogs-group: /argon/postgres, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    # When memory runs out the kernel picks the highest score: this keeps the database and prod as
+    # the last choices, and the dev/lab limits below keep a live run from getting there at all.
+    oom_score_adj: -800
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/postgres } }
 
+  # init: node as PID 1 does not reap children nor forward signals the way the kernel expects; tini
+  # does, so `compose stop` ends the process instead of waiting for the kill.
   web-prod:
     image: ${ECR}/argon/web:${PROD_TAG}
     restart: unless-stopped
+    init: true
     # Only what the site reads (API_URL, INTERNAL_API_SECRET, ARGON_ENV): the API keys stay with the API.
     env_file: env/prod.web.env
+    oom_score_adj: -800
     healthcheck: *web-healthcheck
-    logging: { driver: awslogs, options: { awslogs-group: /argon/prod/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/prod/web } }
 
   api-prod:
     image: ${ECR}/argon/api:${PROD_TAG}
     restart: unless-stopped
+    init: true
     env_file: env/prod.env
+    oom_score_adj: -800
     depends_on: { postgres: { condition: service_healthy } }
     healthcheck: *api-healthcheck
-    logging: { driver: awslogs, options: { awslogs-group: /argon/prod/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/prod/api } }
 
+  # Dev and lab are capped so that a live run there — the model, the pages it reads — cannot push
+  # the instance into killing prod. 512 MB is twice what the API idles at; the site needs less.
   web-dev:
     image: ${ECR}/argon/web:${DEV_TAG}
     restart: unless-stopped
+    init: true
     env_file: env/dev.web.env
+    mem_limit: 256m
     healthcheck: *web-healthcheck
-    logging: { driver: awslogs, options: { awslogs-group: /argon/dev/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/dev/web } }
 
   api-dev:
     image: ${ECR}/argon/api:${DEV_TAG}
     restart: unless-stopped
+    init: true
     env_file: env/dev.env
+    mem_limit: 512m
     depends_on: { postgres: { condition: service_healthy } }
     healthcheck: *api-healthcheck
-    logging: { driver: awslogs, options: { awslogs-group: /argon/dev/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/dev/api } }
 
   web-lab:
     image: ${ECR}/argon/web:${LAB_TAG}
     restart: unless-stopped
+    init: true
     env_file: env/lab.web.env
+    mem_limit: 256m
     healthcheck: *web-healthcheck
-    logging: { driver: awslogs, options: { awslogs-group: /argon/lab/web, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/lab/web } }
 
   api-lab:
     image: ${ECR}/argon/api:${LAB_TAG}
     restart: unless-stopped
+    init: true
     env_file: env/lab.env
+    mem_limit: 512m
     depends_on: { postgres: { condition: service_healthy } }
     healthcheck: *api-healthcheck
-    logging: { driver: awslogs, options: { awslogs-group: /argon/lab/api, awslogs-region: sa-east-1, awslogs-create-group: "true" } }
+    logging: { driver: awslogs, options: { <<: *awslogs, awslogs-group: /argon/lab/api } }
 
 volumes:
   caddy-data:

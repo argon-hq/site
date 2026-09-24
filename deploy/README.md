@@ -2,12 +2,16 @@
 
 Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container do site e um da API por ambiente, e um Postgres para todos eles. Imagens no ECR, segredos no Parameter Store, logs no CloudWatch. Detalhes no documento Stack.
 
-- `bootstrap.sh`: user data da instância. Instala Docker, o swap e o timer de backup.
+- `bootstrap.sh`: user data da instância. Instala Docker, o Compose (versão e checksum fixos), `jq`,
+  o swap, as atualizações automáticas e os timers. Idempotente: rode de novo para aplicar uma mudança
+  nele à instância existente.
 - `compose.yml`, `Caddyfile`: ficam em `/opt/argon` na instância; o workflow de deploy os envia a cada execução.
 - `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera os envs a partir do Parameter Store, sobe o Postgres, reconcilia o banco do ambiente, sobe o resto e, só então, grava a tag em `.env`.
 - `provision-db.sh <env>`: cria papel, banco e extensão do ambiente no Postgres local. Idempotente, roda a cada deploy.
 - `backup-db.sh`: dump de todos os bancos para o S3. Chamado pelo timer `argon-backup`.
 - `lab-idle-stop.sh [minutos]`: para o lab depois de um tempo sem requisição. Chamado pelo timer `argon-lab-idle`.
+- `restore-drill.sh`: restaura o último dump de prod em `argon_lab`, conta os assinantes e esvazia o lab de novo. Chamado pelo timer `argon-restore-drill`, mensal.
+- `reset-lab.sh [argon_lab|argon_dev]`: apaga e recria um banco descartável, vazio. Recusa qualquer outro nome.
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 
@@ -197,12 +201,80 @@ postgresql://argon_dev:SENHA@postgres:5432/argon_dev
 
 O timer `argon-backup` roda `backup-db.sh` às 3h30 (America/Sao_Paulo), antes da geração das 5h30. Cada banco vira um dump no formato custom em `s3://$ARGON_BACKUP_BUCKET/postgres/<banco>/<data>.dump`. A retenção é regra de ciclo de vida no bucket, não lógica no script.
 
-Restaurar um banco:
+Um backup que falha avisa: a unit tem `OnFailure=argon-alert@%n.service`, que publica o nome da
+unit no tópico SNS de alertas (`ARGON_ALERTS_TOPIC_ARN` em `/opt/argon/.env`). Um backup que nem
+roda não tem como avisar, então o script publica a métrica `Argon/BackupOk = 1` ao terminar, e um
+alarme no CloudWatch dispara quando ela some por 26 h (comandos em "Configuração manual na AWS").
+
+Restaurar um banco à mão, por cima do que existe:
 
 ```bash
 aws s3 cp s3://BUCKET/postgres/argon_dev/2026-09-23T06-30-00Z.dump - \
   | docker compose exec -T postgres sh -c 'cat > /tmp/r.dump'
 docker compose exec -T postgres pg_restore -U postgres -d argon_dev --clean --if-exists /tmp/r.dump
+```
+
+#### Ensaio de restauração
+
+Backup que ninguém restaurou é esperança. No dia 1 de cada mês, às 5h (America/Sao_Paulo), o timer
+`argon-restore-drill` roda `restore-drill.sh`: esvazia `argon_lab` com o `reset-lab.sh`, restaura
+nele o último dump de `argon_prod`, imprime `select count(*) from subscriber` no journal, esvazia o
+lab de novo — o lab não fica com a lista de assinantes de prod — e publica `Argon/RestoreDrillOk`.
+O lab fica parado até o próximo deploy, como depois do `lab-idle-stop.sh`. Falha vai para o SNS pela
+mesma `argon-alert@`.
+
+```bash
+systemctl start argon-restore-drill.service && journalctl -u argon-restore-drill -n 5   # rodar agora
+/opt/argon/reset-lab.sh argon_lab     # só esvaziar o lab (ou argon_dev); prod é recusado pelo nome
+```
+
+A extensão `vector` é criada pelo `provision-db.sh` como superusuário, e o restore pula as entradas
+de extensão do dump: pgvector não é uma extensão *trusted*, então o `CREATE EXTENSION` do próprio
+dump falharia rodando como `argon_lab`. O resto restaura como o papel do lab, que fica dono das
+tabelas como uma migration deixaria.
+
+## Instância
+
+O `compose.yml` limita `api-dev` e `api-lab` a 512 MB e `web-dev` e `web-lab` a 256 MB: uma rodada
+live num deles não pode levar a instância a matar o prod. `postgres`, `api-prod` e `web-prod` têm
+`oom_score_adj: -800`, os últimos que o kernel escolheria. Os containers de Node sobem com `init`
+(tini), para responder a `compose stop` sem esperar o kill. Todo `awslogs` é `non-blocking` com 4 MB
+de buffer: CloudWatch fora do ar derruba linhas de log, não a API.
+
+Imagens fixadas no minor (`caddy:2.11-alpine`, `node:22.23-alpine` nos Dockerfiles); `pgvector:pg16`
+fica no major de propósito, porque o diretório de dados só muda de major com `pg_upgrade` e o build
+do pgvector viaja com a imagem. Subir de versão é um PR de uma linha.
+
+O `bootstrap.sh` instala o Compose com versão e checksum fixos (`COMPOSE_VERSION` e os dois
+`COMPOSE_SHA256_*`, de `checksums.txt` da release), liga o `dnf-automatic-install.timer` só para
+atualizações de segurança (por volta das 3h, antes do backup), e um timer `argon-reboot` aos
+domingos 9h que só reinicia se `dnf needs-restarting -r` disser que uma atualização pede
+(domingo não tem edição). `vm.swappiness=10` em `/etc/sysctl.d/90-argon.conf`. As units que mexem
+em container têm `After=` e `Requires=docker.service`.
+
+Para aplicar uma mudança do `bootstrap.sh` à instância que já existe:
+
+```bash
+aws ssm send-command --profile argon-new --region sa-east-1 --instance-ids i-00296133cc8e8093d \
+  --document-name AWS-RunShellScript --comment "bootstrap" \
+  --parameters "$(jq -n --arg s "echo $(base64 -w0 deploy/bootstrap.sh) | base64 -d | bash" '{commands:[$s]}')"
+```
+
+### Configuração manual na AWS
+
+O que os scripts esperam e não criam:
+
+- `ARGON_ALERTS_TOPIC_ARN=arn:aws:sns:sa-east-1:382597877834:<topico>` em `/opt/argon/.env`, ao lado
+  de `ARGON_BACKUP_BUCKET`.
+- O papel da instância precisa de `sns:Publish` no tópico e `cloudwatch:PutMetricData`.
+- Alarme por ausência de backup:
+
+```bash
+aws cloudwatch put-metric-alarm --profile argon-new --region sa-east-1 \
+  --alarm-name argon-backup-missing --namespace Argon --metric-name BackupOk \
+  --statistic Sum --period 93600 --evaluation-periods 1 --threshold 1 \
+  --comparison-operator LessThanThreshold --treat-missing-data breaching \
+  --alarm-actions arn:aws:sns:sa-east-1:382597877834:<topico>
 ```
 
 ## Lab

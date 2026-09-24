@@ -94,7 +94,7 @@ jobs:
         run: |
           # A rollback re-deploys both images of that tag; the build step, which knows what changed, was skipped.
           [ -z "$INPUT_TAG" ] || APPS="web api"
-          FILES=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+          FILES=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh restore-drill.sh reset-lab.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
           # SSM kills the script at the timeout; without it a deploy stuck on a pull would run forever.
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
             --comment "deploy $ENV_NAME $TAG" --timeout-seconds 1800 \

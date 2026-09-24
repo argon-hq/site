@@ -1,6 +1,6 @@
 # API (NestJS + Mastra). Build from the monorepo root:
 #   docker build -f apps/api/Dockerfile -t argon/api .
-FROM node:22-alpine AS base
+FROM node:22.23-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 WORKDIR /repo
 
@@ -21,7 +21,7 @@ COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --prod --filter api...
 
-FROM node:22-alpine AS run
+FROM node:22.23-alpine AS run
 ENV NODE_ENV=production PORT=3001
 WORKDIR /repo
 RUN addgroup -S app && adduser -S app -G app
