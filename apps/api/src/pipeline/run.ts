@@ -14,6 +14,12 @@ export const SEND_SCHEDULE = "0 7 * * 1-6";
 // An hour after the send: an edition still on its way by then is stuck, not slow (see watch.ts).
 export const WATCH_SCHEDULE = "0 8 * * 1-6";
 
+// Sunday has no edition, but the alarms that watch for a missing generation and a missing send
+// count by calendar day and would fire every Sunday. On Sunday the two clocks tick anyway, at the
+// same hours, and only say so: the log line is the heartbeat the alarm reads.
+export const SUNDAY_SCHEDULE = "30 5 * * 0";
+export const SUNDAY_SEND_SCHEDULE = "0 7 * * 0";
+
 export const TIMEZONE = "America/Sao_Paulo";
 
 // How many times a step tries again before the run gives up.
