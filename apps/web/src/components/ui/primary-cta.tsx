@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
 const BASE_CLASSES =
-  "rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "rounded-ctl bg-accent px-6 py-3.5 text-base font-medium text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 type LinkCta = {
   href: ComponentProps<typeof Link>["href"];

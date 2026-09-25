@@ -147,7 +147,7 @@ export function OptionMenu<T extends string>({
         disabled={disabled}
         onClick={() => (open ? close(false) : openAt(checkedIndex))}
         onKeyDown={handleTriggerKeyDown}
-        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background text-muted transition hover:border-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+        className="flex size-8 items-center justify-center rounded-ctl border border-border bg-background text-muted transition hover:border-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
       >
         <span className="sr-only">
           {label}: {valueLabel}
@@ -164,7 +164,7 @@ export function OptionMenu<T extends string>({
           // the key handler on the container is legitimate.
           tabIndex={-1}
           onKeyDown={handleMenuKeyDown}
-          className="absolute right-0 top-full z-30 mt-2 min-w-44 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
+          className="absolute right-0 top-full z-30 mt-2 min-w-44 overflow-hidden rounded-card border border-border bg-background py-1 shadow-lg"
         >
           {options.map((option, index) => {
             const isCurrent = option.value === value;

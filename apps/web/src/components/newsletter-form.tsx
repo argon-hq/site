@@ -90,14 +90,14 @@ export function NewsletterForm() {
             }}
             aria-invalid={invalid || undefined}
             aria-describedby={invalid ? errorId : undefined}
-            className="h-14 w-full rounded-lg border border-border bg-surface px-4 text-base outline-none transition placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/30"
+            className="h-14 w-full rounded-ctl border border-border bg-surface px-4 text-base outline-none transition placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/30"
           />
         </div>
 
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="h-14 shrink-0 rounded-lg bg-accent px-8 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-14 shrink-0 rounded-ctl bg-accent px-8 text-base font-medium text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "submitting" ? t("submitting") : t("submit")}
         </button>
@@ -166,13 +166,13 @@ function ConfirmationNotice({ email }: { email: string }) {
       ref={noticeRef}
       role="status"
       tabIndex={-1}
-      className="flex flex-col items-start gap-4 rounded-xl border border-accent/50 bg-accent/10 p-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:p-8"
+      className="flex flex-col items-start gap-4 rounded-card border border-accent/50 bg-accent/10 p-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:p-8"
     >
       <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
         <MailIcon />
       </span>
 
-      <h2 className="text-2xl font-bold tracking-tight text-balance">{t("title")}</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-balance">{t("title")}</h2>
 
       <p className="text-base text-pretty">
         {t.rich("body", {
