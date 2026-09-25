@@ -12,7 +12,7 @@ import * as styles from "./styles";
 export function ConfirmationEmail({ input }: { input: ConfirmationInput }) {
   return (
     <EmailLayout title={copy.confirmation.subject} preheader={copy.confirmation.preheader}>
-      <Header />
+      <Header assetBaseUrl={input.assetBaseUrl} />
 
       <Section className="pad dark-card" style={styles.content}>
         <Heading as="h1" className="dark-text" style={styles.heading}>

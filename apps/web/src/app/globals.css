@@ -9,13 +9,15 @@
 :root {
   color-scheme: light dark;
 
-  --background: light-dark(#ffffff, #0b0b0f);
-  --surface: light-dark(#fafafa, #141419);
-  --foreground: light-dark(#0f0f12, #f2f2f5);
-  --muted: light-dark(#5c5c6b, #9b9ba8);
-  --border: light-dark(#e4e4e9, #26262e);
-  --accent: light-dark(#5b3df5, #8b74ff);
-  --accent-foreground: light-dark(#ffffff, #0b0b0f);
+  /* Lilás do argônio (25/09/2026). The accent goes only on the symbol's dot,
+     buttons and accent rules, never on running text. */
+  --background: light-dark(#f5f4f8, #121019);
+  --surface: light-dark(#eae8f0, #1b1824);
+  --foreground: light-dark(#121019, #ecebf4);
+  --muted: light-dark(#5f5c6a, #9a97a6);
+  --border: light-dark(#dcd9e4, #2d2a38);
+  --accent: light-dark(#6a4df4, #8b74ff);
+  --accent-foreground: light-dark(#ffffff, #121019);
   --danger: light-dark(#c2323b, #ff6b72);
   --success: light-dark(#166534, #4ade80);
 }
@@ -39,12 +41,20 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
+
+  /* Subtle rounding (25/09/2026): rounded-ctl on buttons, fields and tags,
+     rounded-card on cards. */
+  --radius-ctl: 4px;
+  --radius-card: 6px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Chromium on Linux applies Manrope's hinting below ~14px and rounds the
+     advances until the spaces between words disappear. */
+  text-rendering: geometricPrecision;
 }

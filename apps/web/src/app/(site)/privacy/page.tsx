@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-6 py-20">
-      <h1 className="text-3xl font-bold tracking-tight">{t("heading")}</h1>
+      <h1 className="text-3xl font-medium tracking-tight">{t("heading")}</h1>
       <p className="text-muted">{t("body")}</p>
     </div>
   );

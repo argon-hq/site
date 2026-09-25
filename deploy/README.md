@@ -170,6 +170,11 @@ pelo menos 32 caracteres, um por ambiente, e trocá-lo invalida todo link de des
 são absolutos e entram nos links de todo e-mail — o site serve a página de descadastro, a API o
 endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a API não sobe.
 
+As imagens do e-mail não têm parâmetro: a API as busca no bucket público, no prefixo do próprio
+ambiente (`ARGON_ENV`, que o `deploy.sh` escreve), e o deploy copia `apps/web/public` para lá antes
+de reiniciar os containers (`aws/README.md`, "Arquivos públicos"). `PUBLIC_ASSETS_ORIGIN` só entra
+se um ambiente precisar apontar para outro lugar.
+
 `SCHEDULER_ENABLED` é o relógio interno. Sem ela o ambiente não tem relógio nenhum e a geração fica
 a um `POST /pipeline/run` de distância; com `true`, ele gera a edição sozinho às 5h30, de segunda a
 sábado. Hoje só `dev` a tem.

@@ -13,9 +13,10 @@ de 24/09/2026.
 | Arquivo | Recursos |
 | --- | --- |
 | `ec2.tf` | Instância `i-00296133cc8e8093d` (t4g.small, AL2023 arm64, gp3 de 16 GB), IP elástico `54.94.89.230`, security groups `argon-web` e `argon-db` com suas regras, IMDSv2 obrigatório |
-| `iam.tf` | Papel `argon-ec2` (SSM, ECR pull, Parameter Store, logs, S3 dos dumps) e seu instance profile; provedor OIDC do GitHub e papel `argon-github-deploy` |
+| `iam.tf` | Papel `argon-ec2` (SSM, ECR pull, Parameter Store, logs, S3 dos dumps) e seu instance profile; provedor OIDC do GitHub e papel `argon-github-deploy`, que também escreve no bucket público e no prefixo `public-assets/` do bucket de estado |
 | `ecr.tf` | Repositórios `argon/web` e `argon/api`, com ciclo de vida de 10 imagens |
 | `s3.tf` | Bucket `argon-db-backups-382597877834`: acesso público bloqueado, SSE-S3, sem versionamento, dumps expiram em 30 dias |
+| `s3_public.tf` | Bucket `argon-public-382597877834`: leitura pública de objetos por política (sem listagem, sem ACL), SSE-S3, CORS de GET. O conteúdo é do root `public-assets/`, abaixo |
 | `sns.tf` | Tópico `argon-alerts` em `sa-east-1` e outro de mesmo nome em `us-east-1`, cada um com uma assinatura por e-mail |
 | `budget.tf` | Orçamento `argon-mensal`, US$ 30, avisos em 80% e 100% |
 | `logs.tf` | Grupos `/argon/<env>/web`, `/argon/<env>/api` e `/argon/postgres`, retenção de 30 dias |
@@ -64,6 +65,53 @@ agendamento fora do CloudWatch.
 
 Os padrões dos filtros usam `$.message.msg`, não `$.msg`: o `ConsoleLogger` do Nest em modo
 JSON embrulha o objeto logado no campo `message`.
+
+## Arquivos públicos
+
+Tudo o que está em `apps/web/public` (arquivos da marca em `brand/`, imagens do e-mail em
+`email/`) é copiado para o bucket `argon-public-382597877834`, um prefixo por ambiente:
+
+```
+https://argon-public-382597877834.s3.sa-east-1.amazonaws.com/<env>/<caminho em apps/web/public>
+ex.: …/prod/brand/argon-logo@2x.png
+```
+
+São dois roots, cada um no seu ritmo:
+
+- **Este root** cria o bucket, a política pública e a permissão do papel de deploy. Roda à mão,
+  como o resto, e só muda quando o bucket muda.
+- **`public-assets/`** cria um objeto por arquivo da pasta. Quem roda é o workflow de deploy, em
+  todo deploy (exceto rollback por tag), antes de reiniciar os containers. O Terraform compara o MD5 de cada arquivo com o estado:
+  arquivo alterado é reenviado, arquivo novo é criado, arquivo apagado sai do bucket, o resto não é
+  tocado. O estado fica em `public-assets/<env>.tfstate`, no bucket de estado; o papel de deploy só
+  enxerga esse prefixo, nunca o `site/terraform.tfstate`, que guarda valores de parâmetros.
+
+Para mudar a marca: troque o arquivo em `apps/web/public`, faça o commit e o push. Não há passo
+manual.
+
+**Quem lê daqui.** Os e-mails (edição, confirmação, prévia) buscam as imagens em
+`<bucket>/<env>/email/` (`apps/api/src/email/assets.ts`), e a API confere ao subir se elas
+respondem (`EmailAssets`). `PUBLIC_ASSETS_ORIGIN` no ambiente da API troca essa origem; uma
+máquina local usa o site (`WEB_ORIGIN`).
+
+**Primeira vez.** O `apply` deste root precisa acontecer antes do primeiro deploy com o passo novo;
+sem o bucket e a permissão, o passo "Arquivos públicos" falha. O `plan` deve mostrar só a criação
+do bucket e das suas configurações (acesso público, dono, criptografia, versionamento, política,
+CORS) e a atualização in-place da política `argon-deploy`.
+
+**Block Public Access da conta.** Se a conta bloqueia políticas públicas no nível da conta, a
+política do bucket é recusada (`AccessDenied` no `PutBucketPolicy`). Confira com
+`aws s3control get-public-access-block --account-id 382597877834`: `BlockPublicPolicy` e
+`RestrictPublicBuckets` precisam estar `false` na conta; os outros buckets continuam protegidos
+pelo bloqueio próprio de cada um.
+
+Rodar o `public-assets/` à mão, para um ambiente:
+
+```bash
+cd deploy/aws/public-assets
+terraform init -backend-config=key=public-assets/dev.tfstate
+terraform plan -var env=dev
+```
 
 ## Pré-requisitos
 

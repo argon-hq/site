@@ -4,7 +4,8 @@
 // They live in the site, not here: the site is what serves static files, and the URL the template
 // carries is WEB_ORIGIN + /email. The API has no static route and is on another host.
 // Icons: Font Awesome Free 7, CC BY 4.0 (https://fontawesome.com/license/free). The Argon
-// logo is exported from Figma and does not go through here.
+// logo (logo.png, the symbol in white with the lilac dot) comes from the brand files in
+// apps/web/public/brand and does not go through here.
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";

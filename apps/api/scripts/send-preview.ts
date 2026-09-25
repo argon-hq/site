@@ -28,7 +28,7 @@ import { PrismaService } from "../src/prisma/prisma.service";
 import { SettingsService } from "../src/settings/settings.service";
 import { normalizeEmail, SubscriberService } from "../src/subscriber/subscriber.service";
 import { hashToken } from "../src/subscriber/token";
-import { unsubscribeHeaders, unsubscribePageUrl } from "../src/subscriber/urls";
+import { originsFrom, unsubscribeHeaders, unsubscribePageUrl } from "../src/subscriber/urls";
 
 async function main() {
   const to = process.argv[2] ?? "assinante@example.com";
@@ -42,7 +42,7 @@ async function main() {
   const settings = new SettingsService(prisma);
   const mail = new MailService(transport, settings);
 
-  const origins = { web: config.WEB_ORIGIN, api: config.API_ORIGIN };
+  const origins = originsFrom(config);
 
   try {
     const identity = await settings.load();
@@ -52,7 +52,7 @@ async function main() {
         ...editionFixture,
         sender: identity.sender,
         social: identity.social,
-        assetBaseUrl: assetBaseUrl(config.WEB_ORIGIN),
+        assetBaseUrl: assetBaseUrl(origins.assets),
         privacyPolicyUrl: identity.privacy_policy_url,
         unsubscribeUrl: unsubscribePageUrl(origins, token),
       }),
@@ -66,7 +66,7 @@ async function main() {
       headers: unsubscribeHeaders(origins, token),
     });
     console.log(`Enviado para ${to} por ${transport.name} (id ${sent.id}).`);
-    console.log(`Imagens: ${assetBaseUrl(config.WEB_ORIGIN)}/logo.png`);
+    console.log(`Imagens: ${assetBaseUrl(origins.assets)}/logo.png`);
     console.log(`Cancelamento: ${unsubscribePageUrl(origins, token)}`);
     if (transport.name === "smtp") console.log("Caixa local: http://localhost:8025");
   } finally {

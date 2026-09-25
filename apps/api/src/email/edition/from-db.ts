@@ -16,17 +16,17 @@ export type EditionContext = Omit<EditionInput, "date" | "title" | "subject" | "
 
 export type IdentitySettings = Pick<Settings, "sender" | "privacy_policy_url" | "social">;
 
-// The settings are loaded once per run and the origin of the site comes from the environment;
+// The settings are loaded once per run and the origin of the images comes from the environment;
 // only the unsubscribe URL changes between recipients.
 export function editionContext(
   settings: IdentitySettings,
-  { webOrigin, unsubscribeUrl }: { webOrigin: string; unsubscribeUrl: string },
+  { assetsOrigin, unsubscribeUrl }: { assetsOrigin: string; unsubscribeUrl: string },
 ): EditionContext {
   return {
     sender: settings.sender,
     social: settings.social,
     privacyPolicyUrl: settings.privacy_policy_url,
-    assetBaseUrl: assetBaseUrl(webOrigin),
+    assetBaseUrl: assetBaseUrl(assetsOrigin),
     unsubscribeUrl,
   };
 }

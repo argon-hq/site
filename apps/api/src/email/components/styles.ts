@@ -1,11 +1,11 @@
 import type { CSSProperties } from "react";
 import { theme } from "../theme";
 
-// Inline styles for the React Email tree, straight from the Figma tokens (node 6:5). Margins are
+// Inline styles for the React Email tree, from the brand tokens in ../theme. Margins are
 // written as longhands on purpose: the Text component emits its own margin longhands, and a
 // shorthand here would not override them in every client.
 
-const { color, font, width } = theme;
+const { color, font, mono, width } = theme;
 
 const noMargin = { marginTop: 0, marginRight: 0, marginBottom: 0, marginLeft: 0 } as const;
 const marginBottom = (px: number): CSSProperties => ({ ...noMargin, marginBottom: `${px}px` });
@@ -22,46 +22,63 @@ export const container: CSSProperties = {
   border: `1px solid ${color.border}`,
 };
 
-export const header: CSSProperties = { padding: "24px 40px", backgroundColor: color.dark };
+// The lilac rule under the band is the one accent of the header.
+export const header: CSSProperties = {
+  padding: "24px 40px",
+  backgroundColor: color.dark,
+  borderBottom: `2px solid ${color.linkOnDark}`,
+};
 
 export const brandCell: CSSProperties = { verticalAlign: "middle" };
 
+// The symbol takes the height of both lines; the name and the tagline stack beside it.
+export const brandMarkCell: CSSProperties = { width: "40px", verticalAlign: "middle" };
+
+// Alt text styles: a client that blocks images shows the alt in the image's box, so it gets a font
+// that fits there and a color that reads on the dark band, instead of the default serif in black.
+const altText = { color: "#ecebf4", fontFamily: font } as const;
+
 export const brandMark: CSSProperties = {
-  width: "36px",
-  height: "36px",
-  borderRadius: "4px",
-  backgroundColor: color.brandPlaceholder,
-  fontSize: 0,
-  lineHeight: 0,
+  ...altText,
+  display: "block",
+  width: "40px",
+  height: "40px",
+  border: 0,
+  fontSize: "8px",
+  lineHeight: "10px",
 };
 
-export const brandTextCell: CSSProperties = { paddingLeft: "10px", verticalAlign: "middle" };
+export const brandTextCell: CSSProperties = { paddingLeft: "12px", verticalAlign: "middle" };
 
+// The drawn ARGON, 120×20 on screen from a 2x PNG. The alt text is what a client that blocks
+// images shows in its place.
 export const brandName: CSSProperties = {
-  ...marginBottom(2),
-  fontFamily: font,
-  fontSize: "20px",
-  lineHeight: "24px",
+  ...altText,
+  display: "block",
+  width: "120px",
+  height: "20px",
+  border: 0,
+  fontSize: "16px",
+  lineHeight: "20px",
   fontWeight: 700,
-  letterSpacing: "1px",
+  letterSpacing: "4px",
   textTransform: "uppercase",
-  color: "#ffffff",
 };
 
 export const brandTagline: CSSProperties = {
   ...noMargin,
-  fontFamily: font,
-  fontSize: "9px",
-  lineHeight: "11px",
-  fontWeight: 700,
-  letterSpacing: "2px",
+  marginTop: "6px",
+  fontFamily: mono,
+  fontSize: "10px",
+  lineHeight: "12px",
+  letterSpacing: "1.5px",
   textTransform: "uppercase",
   color: color.headerMuted,
 };
 
 export const headerDate: CSSProperties = {
   verticalAlign: "middle",
-  fontFamily: font,
+  fontFamily: mono,
   fontSize: "12px",
   lineHeight: "15px",
   color: color.headerMuted,
@@ -96,10 +113,10 @@ export const socialIcon: CSSProperties = { display: "block", width: "20px", heig
 
 export const footerBrand: CSSProperties = {
   ...marginBottom(16),
-  fontFamily: font,
-  fontSize: "14px",
-  lineHeight: "17px",
-  fontWeight: 700,
+  fontFamily: mono,
+  fontSize: "12px",
+  lineHeight: "15px",
+  fontWeight: 500,
   letterSpacing: "2px",
   textTransform: "uppercase",
   color: "#ffffff",
@@ -110,7 +127,7 @@ export const footerSmall: CSSProperties = {
   fontFamily: font,
   fontSize: "11px",
   lineHeight: "13px",
-  color: color.muted,
+  color: color.headerMuted,
 };
 
 export const footerLinks: CSSProperties = {
@@ -118,10 +135,10 @@ export const footerLinks: CSSProperties = {
   fontFamily: font,
   fontSize: "11px",
   lineHeight: "13px",
-  color: color.muted,
+  color: color.headerMuted,
 };
 
-export const footerLink: CSSProperties = { color: color.link, textDecoration: "none" };
+export const footerLink: CSSProperties = { color: color.linkOnDark, textDecoration: "none" };
 
 // What inline styles cannot express: the narrow breakpoint and dark mode. Outlook (app and web)
 // ignores the media query and flips colors by itself, so it gets the data-ogsc/data-ogsb hooks.
@@ -131,13 +148,13 @@ export const HEAD_CSS = `
     .pad { padding-left: 20px !important; padding-right: 20px !important; }
   }
   @media (prefers-color-scheme: dark) {
-    .dark-bg { background-color: #0f0f10 !important; }
-    .dark-card { background-color: #1f1f21 !important; border-color: #333333 !important; }
-    .dark-text { color: #f2f2f2 !important; }
-    .dark-muted { color: #c8c8c8 !important; }
+    .dark-bg { background-color: #0b0a10 !important; }
+    .dark-card { background-color: #1b1824 !important; border-color: #2d2a38 !important; }
+    .dark-text { color: #ecebf4 !important; }
+    .dark-muted { color: #c3c0d0 !important; }
   }
-  [data-ogsb] .dark-bg { background-color: #0f0f10 !important; }
-  [data-ogsb] .dark-card { background-color: #1f1f21 !important; border-color: #333333 !important; }
-  [data-ogsc] .dark-text { color: #f2f2f2 !important; }
-  [data-ogsc] .dark-muted { color: #c8c8c8 !important; }
+  [data-ogsb] .dark-bg { background-color: #0b0a10 !important; }
+  [data-ogsb] .dark-card { background-color: #1b1824 !important; border-color: #2d2a38 !important; }
+  [data-ogsc] .dark-text { color: #ecebf4 !important; }
+  [data-ogsc] .dark-muted { color: #c3c0d0 !important; }
 `;

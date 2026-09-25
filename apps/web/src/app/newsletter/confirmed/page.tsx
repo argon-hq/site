@@ -28,7 +28,7 @@ export default function ConfirmedPage() {
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <div className="flex flex-col items-start gap-5">
             <BrandMark />
-            <p className="rounded-md border border-success/50 bg-success/10 px-3 py-1.5 text-xs font-bold tracking-[0.1em] text-success uppercase">
+            <p className="rounded-ctl border border-success/50 bg-success/10 px-3 py-1.5 font-mono text-xs font-medium tracking-[0.06em] text-success uppercase">
               {t("badge")}
             </p>
           </div>
@@ -43,7 +43,7 @@ export default function ConfirmedPage() {
             <PrimaryCta href="/">{t("primaryCta")}</PrimaryCta>
             <Link
               href="/"
-              className="text-base font-medium text-accent transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="text-base font-medium underline underline-offset-4 transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {t("secondaryCta")} <span aria-hidden="true">→</span>
             </Link>

@@ -36,6 +36,10 @@ const schema = z
     WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
     API_ORIGIN: z.string().url().default("http://localhost:3001"),
 
+    // Where the e-mail images come from (src/email/assets.ts). Unset, lab, dev and prod use the
+    // public bucket under their own prefix and a local machine uses the site; set, it wins.
+    PUBLIC_ASSETS_ORIGIN: z.string().url().optional(),
+
     // Mail. Resend delivers for real, so it is never the default: a development machine sends to
     // the local Mailpit, and only an explicit MAIL_TRANSPORT=resend reaches a real inbox.
     MAIL_TRANSPORT: z.enum(["smtp", "resend"]).default("smtp"),

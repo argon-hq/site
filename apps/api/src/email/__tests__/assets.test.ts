@@ -1,7 +1,7 @@
 import { Logger } from "@nestjs/common";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assetBaseUrl, assetUrls, EMAIL_ICONS } from "../assets";
+import { assetBaseUrl, assetsOrigin, assetUrls, EMAIL_ICONS, PUBLIC_BUCKET_URL } from "../assets";
 import { EmailAssets } from "../assets.service";
 
 const WEB_ORIGIN = "https://lab.argon.example";
@@ -40,16 +40,34 @@ describe("assetBaseUrl", () => {
   });
 });
 
+describe("assetsOrigin", () => {
+  it("reads a deployed environment's images from its prefix in the public bucket", () => {
+    expect(assetsOrigin({ ARGON_ENV: "prod", WEB_ORIGIN })).toBe(`${PUBLIC_BUCKET_URL}/prod`);
+    expect(assetsOrigin({ ARGON_ENV: "lab", WEB_ORIGIN })).toBe(`${PUBLIC_BUCKET_URL}/lab`);
+  });
+
+  it("reads them from the site on a local machine", () => {
+    expect(assetsOrigin({ ARGON_ENV: "local", WEB_ORIGIN })).toBe(WEB_ORIGIN);
+    expect(assetsOrigin({ WEB_ORIGIN })).toBe(WEB_ORIGIN);
+  });
+
+  it("lets PUBLIC_ASSETS_ORIGIN win over both", () => {
+    expect(assetsOrigin({ PUBLIC_ASSETS_ORIGIN: "https://cdn.example", ARGON_ENV: "dev", WEB_ORIGIN })).toBe(
+      "https://cdn.example",
+    );
+  });
+});
+
 describe("EmailAssets", () => {
-  it("passes when the site serves every icon as an image", async () => {
-    fetchReturning([png, png, png, png]);
+  it("passes when every image is served as an image", async () => {
+    fetchReturning([png, png, png, png, png, png]);
     const statuses = await Effect.runPromise(new EmailAssets(WEB_ORIGIN).check());
     expect(statuses.every((status) => status.ok)).toBe(true);
   });
 
   // The failure that started this: the site answers, but with its 404 page.
   it("calls a 404 page broken and logs it with the URL", async () => {
-    fetchReturning([png, { status: 404, type: "text/html; charset=utf-8" }, png, png]);
+    fetchReturning([png, png, png, { status: 404, type: "text/html; charset=utf-8" }, png, png]);
     const error = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
 
     const statuses = await Effect.runPromise(new EmailAssets(WEB_ORIGIN).report());
@@ -63,13 +81,13 @@ describe("EmailAssets", () => {
 
   // A 200 that is not an image is a rewrite or a login wall, and arrives just as broken.
   it("calls a 200 that is not an image broken", async () => {
-    fetchReturning([{ status: 200, type: "text/html" }, png, png, png]);
+    fetchReturning([{ status: 200, type: "text/html" }, png, png, png, png, png]);
     const statuses = await Effect.runPromise(new EmailAssets(WEB_ORIGIN).check());
     expect(statuses[0]).toMatchObject({ ok: false, detail: "200 text/html" });
   });
 
   it("survives a site that does not answer at all", async () => {
-    fetchReturning([new Error("timeout"), png, png, png]);
+    fetchReturning([new Error("timeout"), png, png, png, png, png]);
     const statuses = await Effect.runPromise(new EmailAssets(WEB_ORIGIN).check());
     expect(statuses[0]?.ok).toBe(false);
     expect(statuses[0]?.detail).toContain("timeout");

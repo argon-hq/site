@@ -91,7 +91,7 @@ src/
 │   └── globals.css       # tokens de cor e tema do Tailwind
 ├── components/
 │   ├── back-button.tsx
-│   ├── brand-mark.tsx    # placeholder do logo
+│   ├── brand-mark.tsx    # símbolo e nome ARGON
 │   ├── entry-path-tracker.tsx
 │   ├── flag-icon.tsx     # bandeiras em SVG inline
 │   ├── locale-switcher.tsx
@@ -172,15 +172,20 @@ o servidor do Gmail, não o site.
 
 ## Imagens do e-mail
 
-`public/email/*.png` são os ícones do rodapé da newsletter. Ficam aqui, e não na API, porque quem
-serve estático é o site — a API não tem rota pública além de `/health`. Cliente de e-mail não
-aceita SVG nem caminho relativo, então são PNG e a URL é absoluta: a API monta cada uma com
-`WEB_ORIGIN` + `/email`. Web e API sobem com a mesma tag, então apagar ou renomear um PNG aqui
-quebra o e-mail do mesmo deploy — e a API diz isso no log, ao subir (`EmailAssets`). Quem gera é o
+`public/email/*.png` são os ícones do rodapé da newsletter. Cliente de e-mail não aceita SVG nem
+caminho relativo, então são PNG e a URL é absoluta. Nos ambientes publicados, a API aponta para o
+bucket público, no prefixo do ambiente (`<bucket>/<env>/email/`), para onde o deploy copia esta
+pasta antes de reiniciar os containers; numa máquina local, aponta para o próprio site
+(`WEB_ORIGIN` + `/email`). Apagar ou renomear um PNG aqui quebra o e-mail do deploy seguinte — e a
+API diz isso no log, ao subir (`EmailAssets`). Quem gera os ícones das redes é o
 `pnpm -C apps/api email:icons`.
 
-## Pendências de design
+## Marca
 
-A Argon ainda não tem logo — `BrandMark` desenha um quadrado com a inicial. O painel visual à
-direita na newsletter ainda não tem arte. A cor de destaque em `globals.css` é provisória, até
-existir identidade visual.
+`BrandMark` desenha o símbolo e o nome ARGON; as cores, a Manrope e os raios vêm de
+`globals.css`. As decisões e os motivos estão em `design-systems/argon-brand/strategy.md`, e os
+arquivos da marca (SVG e PNG) em `public/brand/`, que o deploy também publica no bucket público
+(`deploy/aws/README.md`, "Arquivos públicos"). O `public/email/logo.png` é o símbolo em branco com
+o ponto lilás, no tamanho dos outros ícones do rodapé do e-mail.
+
+Pendência de design: o painel visual à direita na newsletter ainda não tem arte.

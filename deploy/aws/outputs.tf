@@ -32,3 +32,13 @@ output "api_health_check_id" {
   description = "Route 53 health check on the production API."
   value       = aws_route53_health_check.api.id
 }
+
+output "public_bucket" {
+  description = "Bucket of the public files; the deploy workflow writes apps/web/public into <env>/."
+  value       = aws_s3_bucket.public.bucket
+}
+
+output "public_base_url" {
+  description = "Base URL of the public files; append <env>/<path under apps/web/public>."
+  value       = "https://${aws_s3_bucket.public.bucket}.s3.${var.region}.amazonaws.com"
+}

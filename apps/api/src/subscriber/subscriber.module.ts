@@ -6,7 +6,7 @@ import { ConfirmationMail } from "./confirmation-mail";
 import { SubscriberController } from "./subscriber.controller";
 import { SubscriberService } from "./subscriber.service";
 import { UNSUBSCRIBE_SECRET } from "./token";
-import { ORIGINS } from "./urls";
+import { ORIGINS, originsFrom } from "./urls";
 
 @Module({})
 export class SubscriberModule {
@@ -20,7 +20,7 @@ export class SubscriberModule {
       imports: [ThrottlerModule.forRoot({ throttlers: [{ name: "default", ...SIGNUP_LIMIT }] })],
       controllers: [SubscriberController],
       providers: [
-        { provide: ORIGINS, useValue: { web: config.WEB_ORIGIN, api: config.API_ORIGIN } },
+        { provide: ORIGINS, useValue: originsFrom(config) },
         { provide: UNSUBSCRIBE_SECRET, useValue: config.UNSUBSCRIBE_TOKEN_SECRET },
         SubscriberService,
         ConfirmationMail,

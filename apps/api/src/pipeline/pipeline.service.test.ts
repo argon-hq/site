@@ -8,7 +8,7 @@ import { EditionLock } from "./lock";
 import type { OwnerAlert } from "./owner-alert";
 import { PipelineService } from "./pipeline.service";
 
-const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+const origins = { web: "https://argon.example", api: "https://api.argon.example", assets: "https://argon.example" };
 
 // A lock that always grants, recording what it was asked to hold; the real one is tested on its own.
 function grantingLock() {

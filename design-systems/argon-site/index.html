@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Argon Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="g33" viewBox="0 0 64 64"><g fill="currentColor"><path d="M27.30 5 42.70 5 20.18 58 4.78 58Z" style="fill:var(--mark-blade, currentColor)"/><circle cx="49" cy="48.3" r="10.5" style="fill:var(--mark-dot, currentColor)"/></g></symbol>
+    <symbol id="wm" viewBox="0 8 264 44"><defs><clipPath id="argon-wm-clip"><rect x="0" y="10" width="266" height="40"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="miter" stroke-miterlimit="10"><g clip-path="url(#argon-wm-clip)"><path d="M58.25 11.75H74A9.125 9.125 0 0 1 74 30H60V50"/><path d="M68 30 88.7 53"/><path fill="currentColor" stroke="none" d="M126.5 10H149.5L146.0 13.5H126.5Z"/><path d="M126.5 11.75A18.25 18.25 0 0 0 126.5 48.25H146.75V31H132"/><path d="M230 53V10L262 50V7"/></g><path d="M4 50 21 10 38 50"/><circle cx="190" cy="30" r="18.6"/></g></symbol>
+  </svg>
+
+  <header class="nav">
+    <a class="logo" href="#topo" aria-label="Argon, início">
+      <svg class="logo__mark" aria-hidden="true"><use href="#g33"/></svg><svg class="logo__wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+    </a>
+    <nav class="nav__links" aria-label="Principal">
+      <a class="lnk" href="#consultoria">Consultoria</a>
+      <a class="lnk" href="#newsletter">Newsletter</a>
+      <a class="lnk" href="#eventos">Eventos</a>
+    </nav>
+    <a class="btn btn--sm" href="#newsletter">Assinar a newsletter</a>
+  </header>
+
+  <main id="topo">
+    <section class="hero">
+      <div class="hero__copy">
+        <p class="t3">Consultoria de negócios</p>
+        <h1 class="h1">Clareza para decidir.</h1>
+        <p class="t2 hero__lead">A Argon lê o mercado todos os dias e ajuda pequenas e médias empresas a transformar informação em decisão. Comece pela newsletter; quando precisar, fale com a gente.</p>
+        <div class="hero__actions">
+          <a class="btn" href="#newsletter">Assinar a newsletter</a>
+          <a class="btn2" href="#consultoria">Conhecer a consultoria</a>
+        </div>
+      </div>
+
+      <article class="card" aria-label="Prévia da edição de hoje">
+        <header class="card__head">
+          <span class="t3">Edição 128</span>
+          <span class="t3">Terça, 22 de setembro</span>
+        </header>
+        <div class="card__item">
+          <p class="t3">Mercado &amp; Tecnologia</p>
+          <h2 class="h3">O que esperar do ecossistema de inovação nos próximos trimestres?</h2>
+          <p class="t2">As principais tendências em automação, investimentos de risco e as novas regulações que moldarão as decisões de tecnologia.</p>
+        </div>
+        <div class="card__item">
+          <p class="t3">Produtividade</p>
+          <h2 class="h3">Frameworks de foco que realmente funcionam para times híbridos</h2>
+        </div>
+        <footer class="card__foot t3">Leitura de 5 minutos</footer>
+      </article>
+    </section>
+
+    <section class="section section--news" id="newsletter" aria-labelledby="news-title">
+      <div class="section__head">
+        <p class="t3">Newsletter</p>
+        <h2 class="h2" id="news-title">Notícias de negócios, sem ruído.</h2>
+        <p class="t2">Um resumo curto do que importa para quem empreende, direto no seu e-mail. Leva menos de cinco minutos por dia.</p>
+      </div>
+      <form class="form" action="#newsletter">
+        <label class="sr-only" for="email">Seu e-mail</label>
+        <div class="form__row">
+          <input class="in" id="email" name="email" type="email" placeholder="Coloque o seu melhor e-mail" autocomplete="email">
+          <button class="btn" type="button">Inscreva-se</button>
+        </div>
+        <label class="form__consent t3" for="consent">
+          <input id="consent" name="consent" type="checkbox">
+          <span>Li e aceito a <a href="#rodape">política de privacidade</a> e quero receber a newsletter da Argon. Sem spam: você cancela quando quiser, em um clique.</span>
+        </label>
+      </form>
+      <dl class="facts">
+        <div><dt class="t3">Frequência</dt><dd>Segunda a sábado</dd></div>
+        <div><dt class="t3">Chega às</dt><dd>7h</dd></div>
+        <div><dt class="t3">Leitura</dt><dd>Menos de 5 minutos</dd></div>
+      </dl>
+    </section>
+
+    <section class="section" id="consultoria" aria-labelledby="consult-title">
+      <div class="section__head">
+        <p class="t3">Consultoria</p>
+        <h2 class="h2" id="consult-title">Três passos, do dado à decisão.</h2>
+      </div>
+      <ol class="steps">
+        <li class="card2">
+          <span class="t3 card2__num">1</span>
+          <h3 class="h3">Análise</h3>
+          <p class="t2">Levantamos números, mercado e concorrência para entender onde a empresa está de verdade.</p>
+        </li>
+        <li class="card2">
+          <span class="t3 card2__num">2</span>
+          <h3 class="h3">Estratégia</h3>
+          <p class="t2">Transformamos o diagnóstico em poucas prioridades claras, com metas e responsáveis.</p>
+        </li>
+        <li class="card2">
+          <span class="t3 card2__num">3</span>
+          <h3 class="h3">Execução</h3>
+          <p class="t2">Acompanhamos a implantação junto com o time até os resultados aparecerem.</p>
+        </li>
+      </ol>
+      <a class="btn2" href="#rodape">Falar com a Argon</a>
+    </section>
+
+    <section class="section" id="eventos" aria-labelledby="events-title">
+      <div class="section__head">
+        <p class="t3">Em breve</p>
+        <h2 class="h2" id="events-title">Eventos da região</h2>
+        <p class="t2">A agenda de negócios do Sul, num lugar só. Datas e nomes abaixo são exemplos.</p>
+      </div>
+      <ul class="rail">
+        <li class="rail__row">
+          <time class="t3 rail__date" datetime="2026-10-14">14 out</time>
+          <h3 class="h3">Café de negócios</h3>
+          <span class="t3 rail__where">Centro · exemplo</span>
+        </li>
+        <li class="rail__row">
+          <time class="t3 rail__date" datetime="2026-10-22">22 out</time>
+          <h3 class="h3">Encontro de gestores</h3>
+          <span class="t3 rail__where">Centro · exemplo</span>
+        </li>
+        <li class="rail__row">
+          <time class="t3 rail__date" datetime="2026-11-05">05 nov</time>
+          <h3 class="h3">Painel: crédito para pequenas e médias empresas</h3>
+          <span class="t3 rail__where">Online · exemplo</span>
+        </li>
+      </ul>
+      <a class="lnk lnk--under" href="#newsletter">Quero ser avisado</a>
+    </section>
+  </main>
+
+  <footer class="foot" id="rodape">
+    <a class="logo" href="#topo" aria-label="Argon, início">
+      <svg class="logo__mark" aria-hidden="true"><use href="#g33"/></svg><svg class="logo__wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+    </a>
+    <a class="lnk" href="#rodape">Política de privacidade</a>
+    <p class="t3 foot__rights">Argon · Business newsletter © 2026. Todos os direitos reservados.</p>
+  </footer>
+</body>
+</html>

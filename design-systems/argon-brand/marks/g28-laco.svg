@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g28-laco</title>
+  <defs><clipPath id="argon-g28"><rect x="0" y="0" width="64" height="58"/></clipPath></defs>
+  <path clip-path="url(#argon-g28)" d="M9.5 62 32 7 51.5 55C55 64 18 60 8 50C-2 40 20 29 42 31C54 32 61 37 60 43" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="butt"/>
+</svg>

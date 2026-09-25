@@ -63,14 +63,14 @@ export function UnsubscribePanel({ token, email, cancelled }: { token: string; e
             type="button"
             onClick={handleUnsubscribe}
             disabled={stage === "cancelling"}
-            className="rounded-lg bg-danger px-6 py-3.5 text-base font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-ctl bg-danger px-6 py-3.5 text-base font-medium text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60"
           >
             {stage === "cancelling" ? t("cancelling") : t("confirm")}
           </button>
 
           <Link
             href="/"
-            className="text-base font-medium text-accent transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="text-base font-medium underline underline-offset-4 transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             {t("keep")} <span aria-hidden="true">→</span>
           </Link>
@@ -127,7 +127,7 @@ function Cancelled({
   return (
     <div className="flex flex-col gap-10 lg:gap-12">
       <div className="flex flex-col gap-5">
-        <p className="w-fit rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-bold tracking-[0.1em] text-muted uppercase">
+        <p className="w-fit rounded-ctl border border-border bg-surface px-3 py-1.5 font-mono text-xs font-medium tracking-[0.06em] text-muted uppercase">
           {t("badge")}
         </p>
         <PageHeading>{t("heading")}</PageHeading>
@@ -139,7 +139,7 @@ function Cancelled({
         </p>
       </div>
 
-      <div className="flex max-w-xl flex-col gap-4 rounded-xl border border-border p-6">
+      <div className="flex max-w-xl flex-col gap-4 rounded-card border border-border p-6">
         <p className="text-base font-semibold">{t("mistake")}</p>
 
         <div className="flex items-start gap-3 text-sm text-muted">
@@ -168,7 +168,7 @@ function Cancelled({
           type="button"
           onClick={handleReactivate}
           disabled={reactivating}
-          className="w-fit rounded-lg bg-accent px-6 py-3 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-fit rounded-ctl bg-accent px-6 py-3 text-base font-medium text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           {reactivating ? t("reactivating") : t("reactivate")}
         </button>

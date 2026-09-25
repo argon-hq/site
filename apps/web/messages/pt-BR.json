@@ -8,10 +8,67 @@
     "tagline": "As últimas notícias sobre negócios, direto ao ponto."
   },
   "nav": {
-    "newsletter": "Newsletter"
+    "newsletter": "Newsletter",
+    "consulting": "Consultoria",
+    "events": "Eventos"
   },
   "home": {
-    "cta": "Assinar a newsletter"
+    "metaTitle": "Argon · Clareza para decidir.",
+    "metaDescription": "Consultoria de negócios para pequenas e médias empresas. A Argon lê o mercado todos os dias e ajuda a transformar informação em decisão, começando pela newsletter.",
+    "hero": {
+      "kicker": "Consultoria de negócios",
+      "heading": "Clareza para decidir.",
+      "lead": "A Argon lê o mercado todos os dias e ajuda pequenas e médias empresas a transformar informação em decisão. Comece pela newsletter; quando precisar, fale com a gente.",
+      "primaryCta": "Assinar a newsletter",
+      "secondaryCta": "Conhecer a consultoria"
+    },
+    "edition": {
+      "number": "Edição 128",
+      "date": "Terça, 22 de setembro",
+      "readingTime": "Leitura de 5 minutos"
+    },
+    "newsletter": {
+      "kicker": "Newsletter",
+      "facts": {
+        "frequency": {
+          "label": "Frequência",
+          "value": "Segunda a sábado"
+        },
+        "arrival": {
+          "label": "Chega às",
+          "value": "7h"
+        },
+        "reading": {
+          "label": "Leitura",
+          "value": "Menos de 5 minutos"
+        }
+      }
+    },
+    "consulting": {
+      "kicker": "Consultoria",
+      "heading": "Três passos, do dado à decisão.",
+      "steps": {
+        "analysis": {
+          "title": "Análise",
+          "body": "Levantamos números, mercado e concorrência para entender onde a empresa está de verdade."
+        },
+        "strategy": {
+          "title": "Estratégia",
+          "body": "Transformamos o diagnóstico em poucas prioridades claras, com metas e responsáveis."
+        },
+        "execution": {
+          "title": "Execução",
+          "body": "Acompanhamos a implantação junto com o time até os resultados aparecerem."
+        }
+      }
+    },
+    "events": {
+      "kicker": "Em breve",
+      "heading": "Eventos da região",
+      "body": "A agenda de negócios do Sul, num lugar só.",
+      "comingSoon": "A agenda está sendo montada. Assine a newsletter e avisamos quando as primeiras datas saírem.",
+      "notifyCta": "Quero ser avisado"
+    }
   },
   "newsletter": {
     "metaTitle": "Newsletter",

@@ -1,7 +1,7 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import type { Config } from "../config";
 import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
-import { ORIGINS } from "../subscriber/urls";
+import { ORIGINS, originsFrom } from "../subscriber/urls";
 import { DeliveryService } from "./delivery.service";
 import { EditionLock } from "./lock";
 import { OwnerAlert } from "./owner-alert";
@@ -21,7 +21,7 @@ export class PipelineModule {
       module: PipelineModule,
       controllers: [PipelineController],
       providers: [
-        { provide: ORIGINS, useValue: { web: config.WEB_ORIGIN, api: config.API_ORIGIN } },
+        { provide: ORIGINS, useValue: originsFrom(config) },
         // The sending step derives each subscriber's unsubscribe token itself, as the confirmation does.
         { provide: UNSUBSCRIBE_SECRET, useValue: config.UNSUBSCRIBE_TOKEN_SECRET },
         PipelineService,

@@ -19,8 +19,8 @@ export const settingsSchema = z.object({
   // Business identity: no sensible default in code
   sender: z.object({ name: z.string().min(1), address: z.email(), postalAddress: z.string().min(1) }),
   privacy_policy_url: z.url(),
-  // The base of the e-mail images is not here: it comes from WEB_ORIGIN (src/email/assets.ts), so
-  // each environment points at the site deployed from the same tag as this API.
+  // The base of the e-mail images is not here: it comes from the environment (src/email/assets.ts),
+  // the public bucket under this environment's prefix, so no row can pin every environment to one.
   social: z.object({
     site: z.url(),
     linkedin: z.url().optional(),

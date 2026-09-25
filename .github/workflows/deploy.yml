@@ -146,6 +146,24 @@ jobs:
             aws ecr put-image --repository-name "argon/$app" --image-tag "$TAG" --image-manifest "$MANIFEST" --image-manifest-media-type "$TYPE" >/dev/null
             echo "argon/$app:$ENV_NAME -> argon/$app:$TAG"
           done
+      # apps/web/public goes to the public bucket under <env>/ (deploy/aws/public-assets), before the
+      # containers restart: the e-mails of the API about to start read their images from there.
+      # Every deploy runs it: Terraform compares each file's MD5 with its state, so an unchanged
+      # folder uploads nothing, and an environment whose prefix is still empty gets filled. A
+      # rollback (tag) skips it: the checkout is not that tag's code.
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        if: inputs.tag == ''
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - name: Arquivos públicos
+        if: inputs.tag == ''
+        env:
+          SRC_DIR: ${{ steps.src.outputs.dir }}
+        run: |
+          terraform -chdir=deploy/aws/public-assets init -input=false -backend-config="key=public-assets/$ENV_NAME.tfstate"
+          terraform -chdir=deploy/aws/public-assets apply -input=false -auto-approve \
+            -var "env=$ENV_NAME" -var "public_dir=$GITHUB_WORKSPACE/$SRC_DIR/apps/web/public"
       - name: Deploy na instância
         env:
           INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}

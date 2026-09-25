@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — m12-arco-longo</title>
+  <defs><clipPath id="argon-clip-14"><rect width="64" height="56"/></clipPath></defs>
+  <g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-14)"><path d="M14.9 35Q20 22 28.6 10L57.5 61"/><path d="M4 18.2Q37 24.7 57.5 61" stroke-linecap="butt"/></g>
+</svg>

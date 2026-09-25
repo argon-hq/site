@@ -8,10 +8,67 @@
     "tagline": "The latest business news, straight to the point."
   },
   "nav": {
-    "newsletter": "Newsletter"
+    "newsletter": "Newsletter",
+    "consulting": "Consulting",
+    "events": "Events"
   },
   "home": {
-    "cta": "Subscribe to the newsletter"
+    "metaTitle": "Argon · Clarity to decide.",
+    "metaDescription": "Business consulting for small and mid-sized companies. Argon reads the market every day and helps turn information into decisions, starting with the newsletter.",
+    "hero": {
+      "kicker": "Business consulting",
+      "heading": "Clarity to decide.",
+      "lead": "Argon reads the market every day and helps small and mid-sized companies turn information into decisions. Start with the newsletter; when you need us, talk to us.",
+      "primaryCta": "Subscribe to the newsletter",
+      "secondaryCta": "About our consulting"
+    },
+    "edition": {
+      "number": "Issue 128",
+      "date": "Tuesday, September 22",
+      "readingTime": "5-minute read"
+    },
+    "newsletter": {
+      "kicker": "Newsletter",
+      "facts": {
+        "frequency": {
+          "label": "Frequency",
+          "value": "Monday to Saturday"
+        },
+        "arrival": {
+          "label": "Arrives at",
+          "value": "7 a.m."
+        },
+        "reading": {
+          "label": "Reading time",
+          "value": "Under 5 minutes"
+        }
+      }
+    },
+    "consulting": {
+      "kicker": "Consulting",
+      "heading": "Three steps, from data to decision.",
+      "steps": {
+        "analysis": {
+          "title": "Analysis",
+          "body": "We gather the numbers, the market and the competition to understand where the company really stands."
+        },
+        "strategy": {
+          "title": "Strategy",
+          "body": "We turn the diagnosis into a few clear priorities, with targets and owners."
+        },
+        "execution": {
+          "title": "Execution",
+          "body": "We follow the rollout alongside the team until the results show up."
+        }
+      }
+    },
+    "events": {
+      "kicker": "Coming soon",
+      "heading": "Regional events",
+      "body": "The business calendar of Southern Brazil, in one place.",
+      "comingSoon": "The calendar is being put together. Subscribe to the newsletter and we will let you know when the first dates are out.",
+      "notifyCta": "Notify me"
+    }
   },
   "newsletter": {
     "metaTitle": "Newsletter",
