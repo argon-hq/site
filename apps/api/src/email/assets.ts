@@ -8,7 +8,9 @@
 
 import type { Config } from "../config";
 
-export const EMAIL_ICONS = ["logo", "linkedin", "instagram", "youtube"] as const;
+// The header carries the symbol and the drawn ARGON as two images (light on the dark band, 2x);
+// the rest are the footer icons.
+export const EMAIL_ICONS = ["header-symbol", "header-wordmark", "logo", "linkedin", "instagram", "youtube"] as const;
 
 export type EmailIcon = (typeof EMAIL_ICONS)[number];
 

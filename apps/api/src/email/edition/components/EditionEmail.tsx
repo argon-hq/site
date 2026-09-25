@@ -11,7 +11,7 @@ import { Item } from "./Item";
 export function EditionEmail({ input }: { input: EditionInput }) {
   return (
     <EmailLayout title={input.subject} preheader={input.title}>
-      <Header dateLabel={formatDate(input.date)} />
+      <Header assetBaseUrl={input.assetBaseUrl} dateLabel={formatDate(input.date)} />
       {input.items.map((item) => (
         <Item key={item.url} item={item} />
       ))}

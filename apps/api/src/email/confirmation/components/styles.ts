@@ -28,11 +28,11 @@ export const body: CSSProperties = {
   color: color.body,
 };
 
-// A table cell painted dark, not a styled <a>: Outlook ignores padding and background on links.
+// A table cell painted lilac, not a styled <a>: Outlook ignores padding and background on links.
+// Square, like every corner of the newsletter.
 export const buttonCell: CSSProperties = {
   ...marginBottom(24),
-  backgroundColor: color.dark,
-  borderRadius: "6px",
+  backgroundColor: color.link,
   textAlign: "center",
 };
 

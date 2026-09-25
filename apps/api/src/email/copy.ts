@@ -1,7 +1,7 @@
 // Fixed e-mail strings in one place. Portuguese only by decision; if another language ever
 // comes, this becomes messages/<locale>.json read with createTranslator, as in the web app.
 export const copy = {
-  brand: { name: "Argon", tagline: "Business newsletter" },
+  brand: { name: "Argon", tagline: "Business newsletter", symbol: "Símbolo da Argon" },
   header: { edition: "Edição de hoje" },
   item: { readMore: "Ler matéria completa" },
   signoff: { line: "Até a próxima e um grande abraço,", signature: "Time Argon" },

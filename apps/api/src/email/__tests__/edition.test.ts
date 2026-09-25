@@ -108,9 +108,10 @@ describe("validateEdition", () => {
     const overHttp = { ...editionFixture, assetBaseUrl: "http://lab.argon.com.br/email" };
     const result = await codes(overHttp);
 
-    // One per icon in the footer, and nothing else: the src is under the base it was given.
+    // One per image (the two of the header and the footer icons), and nothing else: the src is
+    // under the base it was given.
     expect(new Set(result)).toEqual(new Set(["image_not_absolute"]));
-    expect(result).toHaveLength(4);
+    expect(result).toHaveLength(6);
   });
 
   it("reports a subject over the limit", async () => {
