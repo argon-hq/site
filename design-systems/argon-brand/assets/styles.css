@@ -635,3 +635,52 @@ main { max-width: var(--max); margin-inline: auto; }
 .r5__ours .mark--lg { width: 70%; height: auto; aspect-ratio: 1; }
 .r5__card p strong { color: var(--ink); font-weight: 600; }
 @media (max-width: 640px) { .r5__grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Passo 2 · cor. Paletas por data-palette no <html>; o acento entra só no ponto (--mark-dot) e em
+   destaques gráficos. --dot-paper vale sobre papel, --dot-ink sobre tinta (fundo escuro). */
+:root { --dot-paper: currentColor; --dot-ink: currentColor; --mark-dot: var(--dot-paper); --accent-line: var(--fixed-ink); }
+:root[data-palette="ocre"] { --dot-paper: #ad7f30; --dot-ink: #d4a85a; --accent-line: #ad7f30; }
+:root[data-palette="lilas"] { --dot-paper: #6a4df4; --dot-ink: #8b74ff; --accent-line: #6a4df4; }
+:root[data-palette="ocre"]:not([data-theme="dark"]) { --paper: #f4f4f1; --ink: #1b1d21; --focus: #1b1d21; }
+:root[data-palette="lilas"]:not([data-theme="dark"]) { --paper: #f5f4f8; --paper-2: #eae8f0; --ink: #121019; --focus: #121019; --rule: #dcd9e4; }
+:root[data-palette="ocre"] { --fixed-ink: #1b1d21; --fixed-paper: #f4f4f1; }
+:root[data-palette="lilas"] { --fixed-ink: #121019; --fixed-paper: #f5f4f8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --mark-dot: var(--dot-ink); }
+  :root[data-palette="ocre"]:not([data-theme="light"]) { --paper: #0d0e11; --ink: #ecece8; --focus: #ecece8; }
+  :root[data-palette="lilas"]:not([data-theme="light"]) { --paper: #121019; --paper-2: #1b1824; --ink: #ecebf4; --focus: #ecebf4; --rule: #2d2a38; }
+}
+:root[data-theme="dark"] { --mark-dot: var(--dot-ink); }
+:root[data-theme="dark"][data-palette="lilas"] { --paper: #121019; --paper-2: #1b1824; --ink: #ecebf4; --focus: #ecebf4; --rule: #2d2a38; }
+/* superfícies de cor fixa nas aplicações */
+.card-front, .avatar, .system__cell--ink, .swatch--ink, .p2__tile--dark { --mark-dot: var(--dot-ink); }
+.card-back, .mail, .badge, .system__cell--paper, .swatch--paper, .p2__tile--light { --mark-dot: var(--dot-paper); }
+.mail__head { border-bottom-color: var(--accent-line); }
+
+.p2__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.p2__tile { display: grid; gap: 18px; justify-items: start; padding: 28px; border: 1px solid var(--rule); }
+.p2__tile .lockup { font-size: 34px; }
+.p2__tile .mono { font-size: var(--step--1); opacity: 0.75; }
+.p2__tile--ocre { --dot-paper: #ad7f30; --dot-ink: #d4a85a; }
+.p2__tile--lilas { --dot-paper: #6a4df4; --dot-ink: #8b74ff; }
+.p2__tile--ocre.p2__tile--light { background: #f4f4f1; color: #1b1d21; }
+.p2__tile--ocre.p2__tile--dark { background: #0d0e11; color: #ecece8; }
+.p2__tile--lilas.p2__tile--light { background: #f5f4f8; color: #121019; }
+.p2__tile--lilas.p2__tile--dark { background: #121019; color: #ecebf4; }
+.p2__tile .lockup { color: inherit; }
+.p2__pals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.p2__pal { display: grid; gap: 10px; align-content: start; }
+.p2__chips { display: grid; grid-template-columns: 2fr 2fr 1fr 1fr; height: 72px; border: 1px solid var(--rule); }
+.p2__chips span { display: block; }
+.p2__table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.p2__table td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--rule); color: var(--ink-2); vertical-align: top; }
+.p2__table td:first-child { color: var(--ink); white-space: nowrap; }
+.p2__geo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.p2__geo figure { display: grid; gap: 8px; margin: 0; }
+.p2__geo .variant__stage { border: 1px solid var(--rule); padding: 24px; }
+.p2__geo .mark--lg { width: 160px; height: 160px; }
+.palette-pick { margin-left: 4px; }
+@media (max-width: 640px) {
+  .p2__tiles, .p2__pals, .p2__geo { grid-template-columns: minmax(0, 1fr); }
+  .p2__tile .lockup { font-size: 26px; }
+}

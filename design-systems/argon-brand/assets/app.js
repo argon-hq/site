@@ -30,7 +30,26 @@
     document.querySelectorAll(".js-try").forEach(function (btn) {
       btn.setAttribute("aria-pressed", String(btn.dataset.mark === id));
     });
-    var picker = document.querySelector(".js-picker");
+    // Paleta: ocre (padrão da prévia), lilás ou monocromática.
+  var PALETTES = ["ocre", "lilas", "mono"];
+  function applyPalette(p) {
+    if (p === "mono") root.removeAttribute("data-palette");
+    else root.setAttribute("data-palette", p);
+    var sel = document.querySelector(".js-palette");
+    if (sel && sel.value !== p) sel.value = p;
+  }
+  var palette = read("argon-brand-palette");
+  if (PALETTES.indexOf(palette) === -1) palette = "ocre";
+  applyPalette(palette);
+  var palettePicker = document.querySelector(".js-palette");
+  if (palettePicker) {
+    palettePicker.addEventListener("change", function () {
+      applyPalette(palettePicker.value);
+      write("argon-brand-palette", palettePicker.value);
+    });
+  }
+
+  var picker = document.querySelector(".js-picker");
     if (picker && picker.value !== id) picker.value = id;
   }
 
@@ -44,6 +63,25 @@
       theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
       applyTheme(theme);
       write("argon-brand-theme", theme);
+    });
+  }
+
+  // Paleta: ocre (padrão da prévia), lilás ou monocromática.
+  var PALETTES = ["ocre", "lilas", "mono"];
+  function applyPalette(p) {
+    if (p === "mono") root.removeAttribute("data-palette");
+    else root.setAttribute("data-palette", p);
+    var sel = document.querySelector(".js-palette");
+    if (sel && sel.value !== p) sel.value = p;
+  }
+  var palette = read("argon-brand-palette");
+  if (PALETTES.indexOf(palette) === -1) palette = "ocre";
+  applyPalette(palette);
+  var palettePicker = document.querySelector(".js-palette");
+  if (palettePicker) {
+    palettePicker.addEventListener("change", function () {
+      applyPalette(palettePicker.value);
+      write("argon-brand-palette", palettePicker.value);
     });
   }
 
