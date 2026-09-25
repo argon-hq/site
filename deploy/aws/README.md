@@ -80,15 +80,19 @@ São dois roots, cada um no seu ritmo:
 
 - **Este root** cria o bucket, a política pública e a permissão do papel de deploy. Roda à mão,
   como o resto, e só muda quando o bucket muda.
-- **`public-assets/`** cria um objeto por arquivo da pasta. Quem roda é o workflow de deploy, a
-  cada push em `dev` ou `main` que mexe em `apps/web/public` ou em `public-assets/`, e em todo
-  deploy manual (exceto rollback por tag). O Terraform compara o MD5 de cada arquivo com o estado:
+- **`public-assets/`** cria um objeto por arquivo da pasta. Quem roda é o workflow de deploy, em
+  todo deploy (exceto rollback por tag), antes de reiniciar os containers. O Terraform compara o MD5 de cada arquivo com o estado:
   arquivo alterado é reenviado, arquivo novo é criado, arquivo apagado sai do bucket, o resto não é
   tocado. O estado fica em `public-assets/<env>.tfstate`, no bucket de estado; o papel de deploy só
   enxerga esse prefixo, nunca o `site/terraform.tfstate`, que guarda valores de parâmetros.
 
 Para mudar a marca: troque o arquivo em `apps/web/public`, faça o commit e o push. Não há passo
 manual.
+
+**Quem lê daqui.** Os e-mails (edição, confirmação, prévia) buscam as imagens em
+`<bucket>/<env>/email/` (`apps/api/src/email/assets.ts`), e a API confere ao subir se elas
+respondem (`EmailAssets`). `PUBLIC_ASSETS_ORIGIN` no ambiente da API troca essa origem; uma
+máquina local usa o site (`WEB_ORIGIN`).
 
 **Primeira vez.** O `apply` deste root precisa acontecer antes do primeiro deploy com o passo novo;
 sem o bucket e a permissão, o passo "Arquivos públicos" falha. O `plan` deve mostrar só a criação

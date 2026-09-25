@@ -146,30 +146,18 @@ jobs:
             aws ecr put-image --repository-name "argon/$app" --image-tag "$TAG" --image-manifest "$MANIFEST" --image-manifest-media-type "$TYPE" >/dev/null
             echo "argon/$app:$ENV_NAME -> argon/$app:$TAG"
           done
-      # apps/web/public goes to the public bucket under <env>/ (deploy/aws/public-assets). Terraform
-      # compares each file's MD5 with its state: changed files are uploaded, deleted ones removed.
-      # A push runs it only when the folder or that root changed; a dispatch or a push with no
-      # usable base always runs it. A rollback (tag) skips it: the checkout is not that tag's code.
-      - id: public
-        if: inputs.tag == ''
-        env:
-          BEFORE: ${{ github.event.before }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          run=true
-          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE" 2>/dev/null \
-            && [ -z "$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- apps/web/public deploy/aws/public-assets)" ]; then
-            run=false
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "public files: run=$run"
+      # apps/web/public goes to the public bucket under <env>/ (deploy/aws/public-assets), before the
+      # containers restart: the e-mails of the API about to start read their images from there.
+      # Every deploy runs it: Terraform compares each file's MD5 with its state, so an unchanged
+      # folder uploads nothing, and an environment whose prefix is still empty gets filled. A
+      # rollback (tag) skips it: the checkout is not that tag's code.
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        if: steps.public.outputs.run == 'true'
+        if: inputs.tag == ''
         with:
           terraform_version: 1.16.4
           terraform_wrapper: false
       - name: Arquivos públicos
-        if: steps.public.outputs.run == 'true'
+        if: inputs.tag == ''
         env:
           SRC_DIR: ${{ steps.src.outputs.dir }}
         run: |

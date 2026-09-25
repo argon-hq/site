@@ -172,11 +172,12 @@ o servidor do Gmail, não o site.
 
 ## Imagens do e-mail
 
-`public/email/*.png` são os ícones do rodapé da newsletter. Ficam aqui, e não na API, porque quem
-serve estático é o site — a API não tem rota pública além de `/health`. Cliente de e-mail não
-aceita SVG nem caminho relativo, então são PNG e a URL é absoluta: a API monta cada uma com
-`WEB_ORIGIN` + `/email`. Web e API sobem com a mesma tag, então apagar ou renomear um PNG aqui
-quebra o e-mail do mesmo deploy — e a API diz isso no log, ao subir (`EmailAssets`). Quem gera é o
+`public/email/*.png` são os ícones do rodapé da newsletter. Cliente de e-mail não aceita SVG nem
+caminho relativo, então são PNG e a URL é absoluta. Nos ambientes publicados, a API aponta para o
+bucket público, no prefixo do ambiente (`<bucket>/<env>/email/`), para onde o deploy copia esta
+pasta antes de reiniciar os containers; numa máquina local, aponta para o próprio site
+(`WEB_ORIGIN` + `/email`). Apagar ou renomear um PNG aqui quebra o e-mail do deploy seguinte — e a
+API diz isso no log, ao subir (`EmailAssets`). Quem gera os ícones das redes é o
 `pnpm -C apps/api email:icons`.
 
 ## Marca
