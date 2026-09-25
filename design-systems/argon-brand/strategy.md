@@ -5,31 +5,36 @@ confirmação dos sócios antes de virar decisão.
 
 ## 1. Briefing
 
+_Fechado em 25/09/2026 pelos sócios._
+
 **O que é a Argon.** Consultoria de negócios. A porta de entrada é uma newsletter diária de
-negócios em português, de segunda a sábado. Depois vêm uma agenda de eventos da região e de
-negócios e, mais adiante, produtos próprios.
+negócios em português, de segunda a sábado. Depois vêm uma agenda de eventos de negócios e, mais
+adiante, produtos próprios.
 
-**Essência.** Clareza para decidir. A Argon separa o que importa do ruído e devolve isso em
-forma de leitura curta, de conversa e de ação.
+**Essência.** Clareza para decidir. A Argon separa o que importa do ruído e devolve isso em forma
+de leitura curta, de conversa e de ação.
 
-**Valores** — _a validar_:
+**Valores.**
 
-- **Clareza**: dizer o essencial, sem jargão.
-- **Rigor**: método antes de opinião; informação checada.
-- **Proximidade**: a região e as pessoas que fazem negócio nela.
+- **Clareza**: dizer o essencial, sem jargão. Se não cabe em poucas linhas, ainda não está claro.
+- **Rigor**: método antes de opinião; informação checada e fonte citada.
 
-**Público-alvo.**
+**Público.**
 
-- Agora: empresários, gestores e profissionais que querem entender o mercado em poucos minutos
-  por dia (leitores da newsletter).
-- Depois: empresas que contratam a consultoria e pessoas que participam dos eventos.
-- Região de atuação: _a validar_.
+- Principal: donos de pequenas e médias empresas. Decidem quase sozinhos, têm pouco tempo e
+  precisam entender o mercado em poucos minutos por dia. São os leitores da newsletter e os
+  futuros clientes da consultoria.
+- Secundário: gestores e profissionais que acompanham o mercado, e quem participa dos eventos.
+
+**Região.** A newsletter é nacional. Eventos e consultoria começam no Sul, e a proximidade com os
+negócios da região é o diferencial em relação às newsletters nacionais.
 
 **Objetivos de negócio.**
 
-1. Crescer a base de leitores da newsletter e virar referência de leitura diária.
-2. Converter a confiança da newsletter em projetos de consultoria.
-3. Reunir a comunidade de negócios da região em torno da agenda de eventos.
+1. Crescer a base de leitores da newsletter e virar referência de leitura diária para quem
+   comanda pequenas e médias empresas.
+2. Converter a confiança da newsletter em projetos de consultoria, começando pelo Sul.
+3. Reunir a comunidade de negócios do Sul em torno da agenda de eventos.
 
 **Tom de voz.** Sério sem ser frio. Direto, preciso, confiante. Frases curtas. Nada de
 exclamação, emoji ou promessa de "crescimento exponencial".
@@ -64,9 +69,8 @@ história, dá à Argon algo que as newsletters não têm, e o faz sem parecer b
 
 **Um A construído com poucos traços, cada um com um porquê.**
 
-- O **três** é o número da Argon. A leitura pública sugerida é *análise, estratégia,
-  execução* (_a validar_). A leitura completa fica com os sócios: o símbolo pode ter um
-  significado que só quem o criou conhece, e é isso que o torna próprio.
+- O **três** não aparece em público: é o significado privado dos sócios. Em público, o
+  símbolo conta só o A e o átomo.
 - **Argônio** é um gás nobre: estável, inerte, não reage à toa. É uma boa metáfora para uma
   consultoria sóbria e confiável, e justifica o minimalismo. Excitado, o argônio brilha em
   lilás. Isso rende uma cor de acento com história, e o site já usa um roxo (`#5b3df5`).
@@ -136,7 +140,7 @@ variações 7 (Convergência) e 8 (Raiz). A variação 9 (Três partes) é uma p
 dividido em três peças pelo recorte do A.
 
 O argônio tem três camadas de elétrons (2 · 8 · 8), e a última está completa, o que o torna
-estável. É uma leitura possível para o número três, _a validar_.
+estável. Essa leitura do número três fica com os sócios e não aparece em público (seção 3).
 
 A pedido, os esboços 1, 2, 5 e 9 foram passados a limpo com a maior fidelidade possível, como
 variações 10 (Gancho), 11 (Lâmina), 12 (Arco longo) e 13 (Gesto).
@@ -256,7 +260,7 @@ pequeno.
 
 ## 6. Próximos passos
 
-1. ~~Sócios escolhem o símbolo~~ (33, Ponto espelhado). Falta confirmar valores, público e região.
+1. ~~Sócios escolhem o símbolo e fecham o briefing~~ (33, Ponto espelhado; briefing de 25/09/2026).
 2. ~~Cor e ajuste fino da geometria~~ (lilás do argônio, acento no ponto).
 3. **Próximo:** aplicar a marca no site (`BrandMark`, favicon, tokens de cor) e no e-mail da newsletter.
 4. Fechar o manual: cores finais com CMYK e Pantone validados em prova de gráfica.
