@@ -179,7 +179,17 @@ no Dribbble.
 - **32, Cata-vento** (referência 5): três meios-discos em volta de um triângulo vazio que aponta
   para cima. Retoma o 18, Trevo.
 
+## 4h. Rodada 6 — símbolo escolhido
+
+Os sócios escolheram o 22, Ponto, espelhado na horizontal: o 33, Ponto espelhado. A lâmina é a
+perna esquerda do A e o ponto, o átomo, completa a direita (fechamento). Com o espelho, a lâmina tem
+a inclinação do primeiro traço do Λ do ARGON e o símbolo se lê da esquerda para a direita, como o
+nome. A logo é o 33 ao lado do ARGON por extenso.
+
 ## 5. Recomendação
+
+**Atualização (rodada 6):** o símbolo escolhido é o 33, Ponto espelhado. Substitui a Órbita (21)
+e as outras recomendações, que ficam registradas como histórico.
 
 **Atualização (rodada 5):** a escolha é entre duas histórias. O 21, Órbita, carrega o A do nome;
 o 30, Três anéis, carrega o número três e os átomos. A sugestão continua a Órbita, porque símbolo
