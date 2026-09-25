@@ -9,7 +9,7 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-auto border-t border-border">
-      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-8 text-sm text-muted">
+      <div className="mx-auto flex w-full max-w-290 flex-wrap items-center justify-between gap-x-8 gap-y-4 px-6 py-8 text-sm text-muted">
         <span className="text-foreground">
           <BrandMark size="sm" />
         </span>
