@@ -146,7 +146,32 @@ linha fina com o mesmo traço do nome (Linha), A completado por um ponto (Ponto)
 seu par em traço fino para usos grandes. A referência do A com anel lembra o logo dos Vingadores,
 por isso a versão da Argon é simétrica e sem cauda.
 
+## 4f. Rodada 4 — auditoria: outras Argons
+
+As cinco referências da rodada 4 são logos de outras empresas chamadas Argon. Não se reutilizam:
+mesmo nome com símbolo parecido é risco de conflito no registro de marca e confunde o público.
+Servem como auditoria e como aula de técnica.
+
+| # | Marca | Território que ocupa |
+| --- | --- | --- |
+| 1 | ARGON "Into my limit" | A sem barra com bolhas: A com partículas |
+| 2 | ARGON (luminária) | Luz dentro de moldura: arco, lâmpada e facho |
+| 3 | ARGON (anel triplo) | Trevo de traços curvos |
+| 4 | Átomo + a + estrela | Nó de três laços |
+| 5 | argon (supply chain) | Três meios-discos em cata-vento |
+
+**Regra: evitar trevo e três peças em rotação.** Três das cinco já estão nesse território. Por
+isso o 18, Trevo, foi descartado, e o 15, Três átomos, e o 25, Três vértices, não são
+recomendados. O 21, Órbita, e o 16, Núcleo, não se parecem com nenhuma delas.
+
+Três caminhos novos saíram das técnicas, não das formas: 26, Facho (luz, o facho é o A), 27,
+Dissolve (a perna vira três pontos, perto demais da referência 1) e 28, Laço (uma linha só, nó
+aberto). O A sem barra no nome aparece em duas das cinco; é comum e não pesa sozinho.
+
 ## 5. Recomendação
+
+**Atualização (rodada 4):** a recomendação continua o 21, Órbita, que passou pela auditoria sem
+conflito. O 26, Facho, é a segunda opção. O 18, Trevo, está descartado.
 
 **Atualização (rodada 3):** a recomendação é o 21, Órbita, ao lado do ARGON por extenso, com o 24,
 Linha, como versão em traço fino. Substitui a recomendação da rodada 2 (16, Núcleo).
