@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Transporter } from "nodemailer";
-import { formatAddress, type MailTransport, type Message, type SentMessage } from "../mail.types";
+import { formatAddress, type FilledMessage, type MailTransport, type SentMessage } from "../mail.types";
 
 // Injection token for the nodemailer transporter. Local development points it at Mailpit, which
 // accepts everything and delivers nothing: the e-mail opens at http://localhost:8025.
@@ -13,7 +13,9 @@ export class SmtpTransport implements MailTransport {
 
   constructor(@Inject(SMTP_TRANSPORTER) private readonly transporter: Pick<Transporter, "sendMail">) {}
 
-  async send(message: Required<Pick<Message, "from">> & Message): Promise<SentMessage> {
+  // No `sendBatch`: SMTP has no batch endpoint, and Mailpit genuinely delivers one at a time. The
+  // absence is the answer — MailService falls back to sending them in sequence.
+  async send(message: FilledMessage): Promise<SentMessage> {
     const sent = await this.transporter.sendMail({
       from: formatAddress(message.from),
       to: message.to,

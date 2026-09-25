@@ -1,0 +1,85 @@
+import { describe, expect, it } from "vitest";
+import { deploymentSchema, PROFILES, readDeployment, resolveMode, type Deployment } from "./profile";
+
+const cheaperThan = (a: Deployment, b: Deployment) => {
+  const cheap = PROFILES[a];
+  const rich = PROFILES[b];
+  expect(cheap.maxSearches).toBeLessThan(rich.maxSearches);
+  expect(cheap.maxReads).toBeLessThan(rich.maxReads);
+  expect(cheap.maxSteps).toBeLessThan(rich.maxSteps);
+  expect(cheap.maxTextChars).toBeLessThan(rich.maxTextChars);
+  expect(cheap.maxArticles).toBeLessThanOrEqual(rich.maxArticles);
+};
+
+describe("the environment profiles", () => {
+  it("only knows the four environments there are", () => {
+    expect(deploymentSchema.safeParse("staging").success).toBe(false);
+    expect(Object.keys(PROFILES).sort()).toEqual(["dev", "lab", "local", "prod"]);
+  });
+
+  it("runs the agent in production, over the fixture in lab and on a development machine", () => {
+    expect(PROFILES.prod.mode).toBe("live");
+    expect(PROFILES.dev.mode).toBe("live");
+    expect(PROFILES.lab.mode).toBe("mock");
+    expect(PROFILES.local.mode).toBe("mock");
+  });
+
+  it("pays for the best model only where the edition is read", () => {
+    expect(PROFILES.prod.model).toBe("claude-sonnet-5");
+    for (const env of ["dev", "lab", "local"] as const) expect(PROFILES[env].model).not.toBe(PROFILES.prod.model);
+  });
+
+  it("spends less the further it gets from production", () => {
+    cheaperThan("dev", "prod");
+    cheaperThan("lab", "dev");
+    expect(PROFILES.local).toEqual(PROFILES.lab);
+  });
+
+  it("makes every environment open more pages than it needs articles, so the rubric decides and not the headline", () => {
+    for (const env of ["prod", "dev", "lab", "local"] as const) {
+      const profile = PROFILES[env];
+      expect(profile.minReads).toBeGreaterThanOrEqual(profile.maxArticles);
+      expect(profile.minReads).toBeLessThan(profile.maxReads);
+    }
+  });
+
+  it("leaves room for the reads inside the turns it allows", () => {
+    // Every read is a tool call, and the searches, the skill and `recent_articles` take their own.
+    for (const env of ["prod", "dev", "lab", "local"] as const) {
+      const profile = PROFILES[env];
+      expect(profile.maxSteps).toBeGreaterThan(profile.maxReads + profile.maxSearches);
+    }
+  });
+
+  it("accepts a weaker edition outside production, so a run there still closes", () => {
+    for (const env of ["dev", "lab", "local"] as const) {
+      expect(PROFILES[env].scoreCutoff).toBeLessThan(PROFILES.prod.scoreCutoff);
+      expect(PROFILES[env].minArticles).toBeLessThan(PROFILES.prod.minArticles);
+    }
+  });
+});
+
+describe("resolveMode", () => {
+  it("does what the environment says when nobody asks", () => {
+    expect(resolveMode("lab")).toBe("mock");
+    expect(resolveMode("dev")).toBe("live");
+  });
+
+  it("lets lab and local pay for a real run when asked", () => {
+    expect(resolveMode("lab", "live")).toBe("live");
+    expect(resolveMode("local", "live")).toBe("live");
+  });
+
+  it("never runs production over a fixture, whoever asks", () => {
+    expect(resolveMode("prod")).toBe("live");
+    expect(resolveMode("prod", "mock")).toBe("live");
+  });
+});
+
+describe("readDeployment", () => {
+  it("is a development machine when nothing says otherwise, and refuses an unknown place by name", () => {
+    expect(readDeployment(undefined)).toBe("local");
+    expect(readDeployment("prod")).toBe("prod");
+    expect(() => readDeployment("staging")).toThrow(/ARGON_ENV must be one of local, lab, dev, prod/);
+  });
+});

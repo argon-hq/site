@@ -15,10 +15,7 @@ export async function SiteHeader() {
           {t("brand.name")}
         </Link>
         <nav className="flex items-center gap-3">
-          <Link
-            href="/newsletter"
-            className="text-sm font-medium text-muted transition hover:text-foreground"
-          >
+          <Link href="/newsletter" className="text-sm font-medium text-muted transition hover:text-foreground">
             {t("nav.newsletter")}
           </Link>
           <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@ import type { Article, Edition } from "../../generated/prisma/client";
 import { EditionNotReadyError } from "../errors";
 import { CATEGORIES } from "../../mastra/schemas/edition";
 import type { Settings } from "../../settings/settings.schema";
+import { assetBaseUrl } from "../assets";
 import type { EditionInput, EditionItem } from "../types";
 
 // Rows the adapter reads. Structural on purpose: tests build them without a database.
@@ -13,15 +14,19 @@ export type ArticleRow = Pick<Article, "canonicalUrl" | "headline" | "body" | "c
 // `unsubscribeUrl` is per subscriber, so the caller builds one context per recipient.
 export type EditionContext = Omit<EditionInput, "date" | "title" | "subject" | "items">;
 
-export type IdentitySettings = Pick<Settings, "sender" | "privacy_policy_url" | "asset_base_url" | "social">;
+export type IdentitySettings = Pick<Settings, "sender" | "privacy_policy_url" | "social">;
 
-// The settings are loaded once per run; only the unsubscribe URL changes between recipients.
-export function editionContext(settings: IdentitySettings, unsubscribeUrl: string): EditionContext {
+// The settings are loaded once per run and the origin of the site comes from the environment;
+// only the unsubscribe URL changes between recipients.
+export function editionContext(
+  settings: IdentitySettings,
+  { webOrigin, unsubscribeUrl }: { webOrigin: string; unsubscribeUrl: string },
+): EditionContext {
   return {
     sender: settings.sender,
     social: settings.social,
     privacyPolicyUrl: settings.privacy_policy_url,
-    assetBaseUrl: settings.asset_base_url,
+    assetBaseUrl: assetBaseUrl(webOrigin),
     unsubscribeUrl,
   };
 }

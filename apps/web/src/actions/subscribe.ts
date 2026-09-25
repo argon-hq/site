@@ -1,8 +1,15 @@
 "use server";
 
 import { headers } from "next/headers";
+import { z } from "zod";
 import { apiFetch } from "@/lib/api";
-import { isValidEmail, normalizeEmail } from "@/lib/email";
+
+// The action is a public endpoint: the form's own validation is no guarantee.
+// Trim and lowercase first, then check the shape, as the API expects it.
+const subscribeInput = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
+  consent: z.literal(true),
+});
 
 type SubscribeResult = { ok: boolean };
 
@@ -14,16 +21,18 @@ type SubscribeResult = { ok: boolean };
  * tela não revela quem está cadastrado.
  */
 export async function subscribe(input: { email: string; consent: boolean }): Promise<SubscribeResult> {
-  // A action é um endpoint público: a validação do formulário não vale como garantia.
-  if (!isValidEmail(input.email) || !input.consent) return { ok: false };
+  const parsed = subscribeInput.safeParse(input);
+  if (!parsed.success) return { ok: false };
 
   const requestHeaders = await headers();
 
   const result = await apiFetch<{ status: string }>("/subscriber", {
     method: "POST",
     body: {
-      email: normalizeEmail(input.email),
-      // Prova de opt-in exigida pela LGPD. Atrás do Caddy o IP real é o primeiro da lista.
+      email: parsed.data.email,
+      // Proof of opt-in (LGPD). The first address is the visitor's because Caddy, the only proxy
+      // in front, replaces whatever X-Forwarded-For a client sent (it has no trusted_proxies). A
+      // CDN in front of Caddy would change that: then the real address is the last one it added.
       consentIp: requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim(),
       consentUserAgent: requestHeaders.get("user-agent") ?? undefined,
     },

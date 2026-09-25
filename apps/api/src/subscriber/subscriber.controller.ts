@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Header, HttpCode, NotFoundException, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpCode, NotFoundException, Post, Query, UseGuards } from "@nestjs/common";
 import { z } from "zod";
+import { runEffect } from "../effect/nest";
 import { Public } from "../auth/public.decorator";
+import { SignupThrottleGuard } from "../auth/signup-throttle.guard";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { SubscriberService } from "./subscriber.service";
 
@@ -9,10 +11,7 @@ const signUpBody = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
   // Proof of opt-in (LGPD). A malformed address here is the proxy's problem, never the
   // subscriber's: `catch` drops the value instead of failing the sign-up.
-  consentIp: z
-    .union([z.ipv4(), z.ipv6()])
-    .optional()
-    .catch(undefined),
+  consentIp: z.union([z.ipv4(), z.ipv6()]).optional().catch(undefined),
   consentUserAgent: z.string().max(500).optional(),
 });
 
@@ -30,10 +29,12 @@ export class SubscriberController {
 
   // POST /subscriber { email, consentIp?, consentUserAgent? } → pending subscriber. Internal secret required.
   // The response never carries the token: it only reaches the subscriber through the confirmation e-mail.
+  // Rate limited by the visitor's address: see SignupThrottleGuard.
   @Post()
   @HttpCode(200)
+  @UseGuards(SignupThrottleGuard)
   async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>) {
-    const result = await this.subscribers.signUp(body);
+    const result = await runEffect("sign-up", this.subscribers.signUp(body));
     return { status: result.status };
   }
 
@@ -43,8 +44,8 @@ export class SubscriberController {
   @Post("confirm")
   @HttpCode(200)
   @Header("Referrer-Policy", "no-referrer")
-  async confirm(@Body(ZodBody(confirmBody)) body: z.infer<typeof confirmBody>) {
-    return this.subscribers.confirm(body.token);
+  confirm(@Body(ZodBody(confirmBody)) body: z.infer<typeof confirmBody>) {
+    return runEffect("confirm", this.subscribers.confirm(body.token));
   }
 
   // GET /subscriber/unsubscribe?token=… → who the token belongs to, so the page can confirm
@@ -54,7 +55,9 @@ export class SubscriberController {
   @Header("Referrer-Policy", "no-referrer")
   async lookup(@Query("token") token: string) {
     const parsed = unsubscribeToken.safeParse(token);
-    const subscriber = parsed.success ? await this.subscribers.findByUnsubscribeToken(parsed.data) : null;
+    const subscriber = parsed.success
+      ? await runEffect("lookup", this.subscribers.findByUnsubscribeToken(parsed.data))
+      : null;
     if (!subscriber) throw new NotFoundException({ status: "invalid" });
     return subscriber;
   }
@@ -64,8 +67,8 @@ export class SubscriberController {
   @Post("unsubscribe")
   @HttpCode(200)
   @Header("Referrer-Policy", "no-referrer")
-  async unsubscribe(@Body(ZodBody(unsubscribeBody)) body: z.infer<typeof unsubscribeBody>) {
-    return this.subscribers.unsubscribe(body.token);
+  unsubscribe(@Body(ZodBody(unsubscribeBody)) body: z.infer<typeof unsubscribeBody>) {
+    return runEffect("unsubscribe", this.subscribers.unsubscribe(body.token));
   }
 
   // One-click unsubscribe (RFC 8058): the URI announced in `List-Unsubscribe`, posted by the
@@ -74,12 +77,13 @@ export class SubscriberController {
   @Public()
   @Post("unsubscribe/one-click")
   @HttpCode(200)
+  @UseGuards(SignupThrottleGuard)
   @Header("Referrer-Policy", "no-referrer")
   async oneClick(@Query("token") token: string) {
     const parsed = unsubscribeToken.safeParse(token);
     // The mail client shows its own message and ignores the body; an invalid token still answers
     // 200, so a retry loop is not started over something a retry cannot fix.
-    if (parsed.success) await this.subscribers.unsubscribe(parsed.data);
+    if (parsed.success) await runEffect("one-click", this.subscribers.unsubscribe(parsed.data));
     return { status: "ok" };
   }
 }

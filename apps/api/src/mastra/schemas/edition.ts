@@ -12,13 +12,24 @@ export const CATEGORIES = {
   politics: "Política",
 } as const;
 
-export const categorySchema = z.enum(Object.keys(CATEGORIES) as [keyof typeof CATEGORIES, ...Array<keyof typeof CATEGORIES>]);
+export const categorySchema = z.enum(
+  Object.keys(CATEGORIES) as [keyof typeof CATEGORIES, ...Array<keyof typeof CATEGORIES>],
+);
 
-// Models sometimes append zero-width characters; strip them before measuring length.
+// Models sometimes append zero-width characters; strip them before measuring length. Control
+// characters, line breaks included, become a space: every field here is one line — the subject
+// and the headline end up in e-mail headers, and the body is one paragraph — and the mail
+// transports must never receive a break they did not put there.
 const clean = (max: number) =>
   z
     .string()
-    .transform((s) => s.replace(/[\u200b-\u200d\ufeff]/g, "").trim())
+    .transform((s) =>
+      s
+        .replace(/[\u200b-\u200d\ufeff]/g, "")
+        .replace(/\p{Cc}/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
     .pipe(z.string().min(1).max(max));
 
 // Writer output for one item. The link never comes from the model: it is the canonical URL.
@@ -28,12 +39,12 @@ export const writtenItemSchema = z.object({
   body: clean(BODY_MAX),
 });
 
-// Writer output for the whole edition.
-export const writtenEditionSchema = z.object({
+// Writer output for the edition header. The items are written one at a time, so the header is a
+// generation of its own, over the headlines that were approved.
+export const editionHeaderSchema = z.object({
   title: clean(80),
   subject: clean(SUBJECT_MAX),
-  items: z.array(writtenItemSchema).min(1),
 });
 
 export type WrittenItem = z.infer<typeof writtenItemSchema>;
-export type WrittenEdition = z.infer<typeof writtenEditionSchema>;
+export type EditionHeader = z.infer<typeof editionHeaderSchema>;

@@ -7,15 +7,7 @@ import { HEAD_CSS } from "./styles";
 // The shell every e-mail shares: head, dark-mode hooks, the page band and the 600px card.
 // `Head` already emits the charset and the Apple reformatting meta; `Preview` emits the hidden
 // preheader with its padding. Templates fill in the card.
-export function EmailLayout({
-  title,
-  preheader,
-  children,
-}: {
-  title: string;
-  preheader: string;
-  children: ReactNode;
-}) {
+export function EmailLayout({ title, preheader, children }: { title: string; preheader: string; children: ReactNode }) {
   return (
     <Html lang="pt-BR">
       <Head>

@@ -53,8 +53,13 @@ test e check-types.
 - Serviços recebem dependências por **injeção** — `EmailService`, provedor de modelos, banco.
 - Logs pelo Logger do Nest, em JSON, indexados pelo CloudWatch. Custo em tokens e resultado da
   revisão vão para o log, não para o banco.
-- `/health` é a única rota pública; todas as outras, inclusive as do Mastra, exigem
-  `x-internal-secret`.
+- Públicas são só `/health` e `POST /subscriber/unsubscribe/one-click`, que o servidor do cliente
+  de e-mail chama sozinho, e, onde `STUDIO_ENABLED` está ligado, os estáticos do Studio em
+  `/studio` mais `GET /mastra/auth/capabilities`, que o Studio precisa antes de desenhar a tela.
+  Todas as outras, inclusive as rotas do Mastra, exigem `x-internal-secret` — o Studio manda o
+  segredo que o operador guarda nele, no navegador. A chave de metadata do `@Public` é um
+  `Symbol`, não uma string: o `@mastra/nestjs` marca o `/health`, o `/ready` e o `/info` dele com
+  a chave `"isPublic"`, e uma string de mesmo nome abriria essas rotas junto.
 - Segredos no ambiente (Parameter Store em `/argon/<env>/`), nunca no repositório nem na tabela
   de configurações.
 - Documentação de biblioteca pelo **context7**.

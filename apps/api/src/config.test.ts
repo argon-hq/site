@@ -5,6 +5,7 @@ const valid = {
   DATABASE_URL: "postgresql://u:p@h:5432/db",
   ANTHROPIC_API_KEY: "sk-ant-x",
   INTERNAL_API_SECRET: "0123456789abcdef",
+  UNSUBSCRIBE_TOKEN_SECRET: "0123456789abcdef0123456789abcdef",
 };
 
 describe("loadConfig", () => {
@@ -13,6 +14,8 @@ describe("loadConfig", () => {
   });
 
   it("names the missing variables", () => {
-    expect(() => loadConfig({ DATABASE_URL: valid.DATABASE_URL })).toThrow(/ANTHROPIC_API_KEY, INTERNAL_API_SECRET/);
+    expect(() => loadConfig({ DATABASE_URL: valid.DATABASE_URL })).toThrow(
+      /ANTHROPIC_API_KEY, INTERNAL_API_SECRET, UNSUBSCRIBE_TOKEN_SECRET/,
+    );
   });
 });

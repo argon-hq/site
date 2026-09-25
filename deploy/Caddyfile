@@ -1,24 +1,153 @@
-# TLS automático (Let's Encrypt). Ao trocar de domínio, só estas linhas mudam.
+# TLS automático (Let's Encrypt). Ao trocar de domínio, só os nomes dos sites mudam.
+
+# Every site imports this. Referrer-Policy uses `?` so the stricter `no-referrer` the site already
+# sends wins; the others overwrite whatever the app said. 1 MB is far above the largest legitimate
+# body (a sign-up form, a Studio call) and stops a client from streaming gigabytes at Node.
+(secure) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		?Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	request_body {
+		max_size 1MB
+	}
+}
+
+# Operator-only surfaces: the Studio, the Mastra routes and the non-production API hosts. The
+# internal secret still applies behind this; the password just keeps the internet from probing it.
+# Credentials come from /argon/caddy/ in Parameter Store, through env/caddy.env (deploy.sh).
+(operator) {
+	basic_auth {
+		{$STUDIO_AUTH_USER} {$STUDIO_AUTH_HASH}
+	}
+}
+
+# The Studio, with one login. The password is asked once, at /studio, and the answer sets a session
+# cookie; from then on every call the Studio makes under /mastra carries the cookie, the proxy lets it
+# through and adds the environment's internal secret itself — nothing to type into the Studio's
+# settings. A browser would otherwise be asked for the password on every path under /mastra, because
+# it only reuses a basic_auth password below the path it was challenged on. Without the cookie the
+# password still works (curl -u). The cookie value is a secret of its own (/argon/caddy/OPERATOR_SESSION):
+# whoever holds it is the operator, so it is HttpOnly, Secure, same-site and thirty days long.
+# `route` forces the order: the cookie is only set after basic_auth let the request through.
+# Args: the API upstream and the internal secret of that environment.
+(studio) {
+	@studio path /studio /studio/*
+	handle @studio {
+		route {
+			import operator
+			header +Set-Cookie "argon_operator={$OPERATOR_SESSION}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=2592000"
+			reverse_proxy {args[0]}
+		}
+	}
+	@mastra path /mastra /mastra/*
+	handle @mastra {
+		@no_session not header Cookie *argon_operator={$OPERATOR_SESSION}*
+		basic_auth @no_session {
+			{$STUDIO_AUTH_USER} {$STUDIO_AUTH_HASH}
+		}
+		reverse_proxy {args[0]} {
+			header_up x-internal-secret "{args[1]}"
+		}
+	}
+}
+
+# What a non-production API host still answers without a password: the health check the deploy
+# smoke-tests, and the one-click unsubscribe that mail clients call on their own (RFC 8058).
+(open_api_routes) {
+	@open expression `({method} == "GET" && {path} == "/health") || ({method} == "POST" && {path} == "/subscriber/unsubscribe/one-click")`
+}
+
 argon.eduardofockink.com {
+	import secure
+	log {
+		output stdout
+		format json
+	}
 	reverse_proxy web-prod:3000
 }
 
 api.argon.eduardofockink.com {
+	import secure
+	log {
+		output stdout
+		format json
+	}
 	reverse_proxy api-prod:3001
 }
 
 dev.argon.eduardofockink.com {
-	reverse_proxy web-dev:3000
+	import secure
+	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
+	# under /mastra on this same host, so the browser calls them same-origin — no CORS. The login
+	# and the internal secret are the proxy's business here (see the studio snippet). STUDIO_ENABLED
+	# still decides whether the API serves anything there.
+	import studio api-dev:3001 "{$DEV_INTERNAL_API_SECRET}"
+	handle {
+		reverse_proxy web-dev:3000
+	}
 }
 
 api.dev.argon.eduardofockink.com {
-	reverse_proxy api-dev:3001
+	import secure
+	import open_api_routes
+	handle @open {
+		reverse_proxy api-dev:3001
+	}
+	handle {
+		import operator
+		reverse_proxy api-dev:3001
+	}
+}
+
+# O lab para sozinho depois de um tempo sem uso (lab-idle-stop.sh). Os dois hosts escrevem no mesmo
+# arquivo: a data de modificação dele é o último sinal de vida do ambiente.
+# A stopped lab is a 502 from the proxy; anything else is a real error and keeps its own code, so a
+# crash loop does not read as "just start it again".
+(lab_errors) {
+	handle_errors {
+		@down expression {err.status_code} == 502
+		handle @down {
+			respond "O lab está parado. Publique uma branch em Actions → Deploy → Run workflow para subir de novo." 503
+		}
+		handle {
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
+	}
 }
 
 lab.argon.eduardofockink.com {
-	reverse_proxy web-lab:3000
+	import secure
+	log {
+		output file /var/log/caddy/lab.log
+	}
+	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
+	# under /mastra on this same host, so the browser calls them same-origin — no CORS. The login
+	# and the internal secret are the proxy's business here (see the studio snippet). STUDIO_ENABLED
+	# still decides whether the API serves anything there.
+	import studio api-lab:3001 "{$LAB_INTERNAL_API_SECRET}"
+	handle {
+		reverse_proxy web-lab:3000
+	}
+	import lab_errors
 }
 
 api.lab.argon.eduardofockink.com {
-	reverse_proxy api-lab:3001
+	import secure
+	log {
+		output file /var/log/caddy/lab.log
+	}
+	import open_api_routes
+	handle @open {
+		reverse_proxy api-lab:3001
+	}
+	handle {
+		import operator
+		reverse_proxy api-lab:3001
+	}
+	import lab_errors
 }

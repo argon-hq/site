@@ -2,15 +2,27 @@ import { Effect, Either } from "effect";
 import { describe, expect, it } from "vitest";
 import { Prisma } from "../../generated/prisma/client";
 import { buildEdition } from "../edition/build";
-import { editionContext, editionDay, toEditionInput, type ArticleRow, type EditionContext, type EditionRow } from "../edition/from-db";
+import {
+  editionContext,
+  editionDay,
+  toEditionInput,
+  type ArticleRow,
+  type EditionContext,
+  type EditionRow,
+} from "../edition/from-db";
 import { EditionNotReadyError } from "../errors";
 import { editionFixture } from "../fixtures/edition";
 import { collectEditionErrors } from "../validate";
 
 const { sender, unsubscribeUrl, privacyPolicyUrl, assetBaseUrl, social } = editionFixture;
 const ctx: EditionContext = { sender, unsubscribeUrl, privacyPolicyUrl, assetBaseUrl, social };
+const WEB_ORIGIN = "https://example.com";
 
-const edition: EditionRow = { date: new Date("2026-09-11T00:00:00.000Z"), title: "Três notícias", subject: "Crédito, SELIC e IA" };
+const edition: EditionRow = {
+  date: new Date("2026-09-11T00:00:00.000Z"),
+  title: "Três notícias",
+  subject: "Crédito, SELIC e IA",
+};
 
 const article = (n: number, over: Partial<ArticleRow> = {}): ArticleRow => ({
   canonicalUrl: `https://example.com/noticias/${n}`,
@@ -37,14 +49,16 @@ const failureOf = (row: EditionRow, rows: ArticleRow[]) =>
   Effect.runPromise(Effect.either(toEditionInput(row, rows, ctx)));
 
 describe("editionContext", () => {
-  it("maps the identity settings and keeps the unsubscribe URL per recipient", async () => {
+  it("maps the identity settings, derives the image base from the site and keeps the unsubscribe URL per recipient", async () => {
     const settings = {
       sender: { name: "Argon", address: "news@example.com", postalAddress: "Passo Fundo, RS" },
       privacy_policy_url: "https://example.com/privacy",
-      asset_base_url: "https://example.com/email",
       social: { site: "https://example.com" },
     };
-    const context = editionContext(settings, "https://example.com/unsubscribe?token=abc");
+    const context = editionContext(settings, {
+      webOrigin: WEB_ORIGIN,
+      unsubscribeUrl: "https://example.com/unsubscribe?token=abc",
+    });
 
     expect(context).toEqual({
       sender: settings.sender,
@@ -62,7 +76,12 @@ describe("toEditionInput", () => {
 
     expect(input.title).toBe(edition.title);
     expect(input.subject).toBe(edition.subject);
-    expect(input.items[0]).toEqual({ category: "Economia", headline: "Manchete 3", body: "Corpo 3", url: "https://example.com/noticias/3" });
+    expect(input.items[0]).toEqual({
+      category: "Economia",
+      headline: "Manchete 3",
+      body: "Corpo 3",
+      url: "https://example.com/noticias/3",
+    });
     expect(input.unsubscribeUrl).toBe(ctx.unsubscribeUrl);
     expect(errors).toEqual([]);
   });

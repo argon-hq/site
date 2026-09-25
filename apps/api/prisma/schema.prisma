@@ -91,7 +91,7 @@ model Article {
   canonicalUrl  String                       @unique @map("canonical_url") // identity and link
   sourceName    String                       @map("source_name") // source from the ingestor prompt
   originalTitle String                       @map("original_title")
-  extractedText String?                      @map("extracted_text") // cleared after 30 days
+  extractedText String?                      @map("extracted_text") // cleared after 30 days by RetentionScheduler
   publishedAt   DateTime?                    @map("published_at") @db.Timestamptz
   category      ArticleCategory?
   embedding     Unsupported("vector(1536)")? // dedup by similarity
@@ -106,6 +106,10 @@ model Article {
 
   @@index([publishedAt(sort: Desc)])
   @@index([editionId, score(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  // Plus, in SQL only: a partial index on (created_at, score desc) where edition_id is null and
+  // extracted_text is not null — what the writing step selects from — and partial unique indexes on
+  // the two token hashes of `subscriber`. See migration 20260924120000_retention_indexes.
   @@map("article")
 }
 
@@ -155,4 +159,14 @@ model Setting {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("setting")
+}
+
+// Links already evaluated by the collector, saved or not, so a later run does not visit them again.
+// Rows older than the retention window are deleted by RetentionScheduler.
+model SeenUrl {
+  url    String   @id
+  seenAt DateTime @default(now()) @map("seen_at") @db.Timestamptz
+
+  @@index([seenAt])
+  @@map("seen_url")
 }
