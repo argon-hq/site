@@ -24,6 +24,15 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --prod --filter api...
+# The prisma CLI is in the image for one command, `migrate deploy` (deploy.sh). It loads its Studio
+# and `prisma dev` modules at startup, so those stay; what it never touches on that path goes:
+# pglite (the local dev server's database) and TypeScript, an optional peer that nothing runs.
+# @prisma/client ships a query compiler for every database it supports, twice; only the PostgreSQL
+# one is ever loaded here. Measured on 25/09/2026 (amd64, with the single copy of effect from
+# pnpm-workspace.yaml): 1.13 GB down to 945 MB. If `migrate deploy` ever needs one of these, the
+# deploy fails before any container is replaced.
+RUN rm -rf node_modules/.pnpm/@electric-sql+pglite* node_modules/.pnpm/typescript@* \
+ && find node_modules/.pnpm -path '*/@prisma/client/runtime/*' -name 'query_compiler_*' ! -name '*postgresql*' -delete
 
 FROM node:22.23-alpine AS run
 ENV NODE_ENV=production PORT=3001
