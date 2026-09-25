@@ -688,3 +688,28 @@ svg { --mark-dot: var(--acc); --mark-blade: currentColor; }
   .p2__tiles, .p2__pals, .p2__geo { grid-template-columns: minmax(0, 1fr); }
   .p2__tile .lockup { font-size: 26px; }
 }
+
+/* Rodada de fonte: cada cartão define as famílias e mostra o mesmo trecho na paleta lilás. */
+.ft__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 24px; }
+.ft { display: grid; gap: 10px; align-content: start; }
+.ft p { color: var(--ink-2); }
+.ft__stage { display: grid; gap: 12px; justify-items: start; padding: 28px; background: #f5f4f8; color: #121019; border: 1px solid var(--rule); font-family: var(--ft-body); --dot-paper: #6a4df4; --acc: #6a4df4; }
+.ft__stage p { color: inherit; margin: 0; }
+.ft__lockup { font-size: 22px; color: #121019; margin-bottom: 8px; }
+.ft__kicker { font-family: var(--ft-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f5c6a !important; }
+.ft__h1 { font-family: var(--ft-head); font-size: 44px; font-weight: var(--ft-head-w, 500); line-height: 1; letter-spacing: var(--ft-head-ls, -0.03em); }
+.ft__lead { font-size: 16px; line-height: 1.5; color: #3b3947 !important; max-width: 36ch; }
+.ft__btn { display: inline-block; padding: 11px 18px; background: #6a4df4; color: #fff; font-weight: 500; font-size: 15px; border-radius: 2px; }
+.ft__mail { display: grid; gap: 6px; width: 100%; margin-top: 10px; padding-top: 14px; border-top: 2px solid #6a4df4; }
+.ft__h3 { font-family: var(--ft-head); font-size: 21px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.ft__text { font-size: 15px; line-height: 1.5; color: #3b3947 !important; font-variant-numeric: tabular-nums; }
+.ft--geist { --ft-head: "Geist", sans-serif; --ft-body: "Geist", sans-serif; --ft-mono: "Geist Mono", monospace; }
+.ft--plex { --ft-head: "IBM Plex Sans", sans-serif; --ft-body: "IBM Plex Sans", sans-serif; --ft-mono: "IBM Plex Mono", monospace; }
+.ft--news { --ft-head: "Newsreader", Georgia, serif; --ft-head-w: 400; --ft-head-ls: -0.02em; --ft-body: "Geist", sans-serif; --ft-mono: "Geist Mono", monospace; }
+.ft--news .ft__h3 { font-weight: 500; font-size: 23px; }
+.ft--manrope { --ft-head: "Manrope", sans-serif; --ft-head-w: 600; --ft-body: "Manrope", sans-serif; --ft-mono: "Geist Mono", monospace; }
+@media (max-width: 760px) {
+  .ft__grid { grid-template-columns: minmax(0, 1fr); }
+  .ft__stage { padding: 20px; }
+  .ft__h1 { font-size: 34px; }
+}
