@@ -37,8 +37,10 @@ pnpm dev; pnpm build; pnpm lint; pnpm check-types; pnpm test
 Em um pacote só: `pnpm -C apps/api <script>`. Na API: `db:up` sobe o Postgres local,
 `db:migrate` cria migration, `mastra:dev` abre o Studio, `email:preview` renderiza o e-mail.
 
-O cliente Prisma é gerado em `apps/api/src/generated/prisma`, fora do git, antes de build, dev,
-test e check-types.
+O cliente Prisma é gerado em `apps/api/src/generated/prisma`, fora do git, pela tarefa `generate`
+do turbo, da qual build, dev, lint, test e check-types dependem: roda uma vez por execução e só
+quando o schema muda. Quem chama um script direto no pacote gera antes, com
+`pnpm -C apps/api generate`.
 
 ## 3. Código
 
