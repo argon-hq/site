@@ -143,7 +143,7 @@ No e-mail, Gmail e Outlook ignoram fontes da web; a fonte reserva é a que o lei
 
 | Onde | Botões, campos, etiquetas | Cartões | Símbolo com fundo |
 | --- | --- | --- | --- |
-| Site e peças digitais | 4 px | 6 px | raio de 12% do lado |
+| Site e peças digitais | 4 px | 6 px | arredondado sutil, raio de 12% do lado |
 | Newsletter (e-mail) | 0 | 0 | quadrado |
 
 O sutil tira só a aresta: mantém a seriedade e conversa com a Manrope. A newsletter é a peça mais
