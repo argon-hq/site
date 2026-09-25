@@ -30,7 +30,7 @@
     document.querySelectorAll(".js-try").forEach(function (btn) {
       btn.setAttribute("aria-pressed", String(btn.dataset.mark === id));
     });
-    // Paleta: ocre (padrão da prévia), lilás ou monocromática.
+    // Paleta: lilás do argônio (escolhida), ocre ou monocromática.
   var PALETTES = ["ocre", "lilas", "mono"];
   function applyPalette(p) {
     if (p === "mono") root.removeAttribute("data-palette");
@@ -38,14 +38,14 @@
     var sel = document.querySelector(".js-palette");
     if (sel && sel.value !== p) sel.value = p;
   }
-  var palette = read("argon-brand-palette");
-  if (PALETTES.indexOf(palette) === -1) palette = "ocre";
+  var palette = read("argon-brand-palette-2");
+  if (PALETTES.indexOf(palette) === -1) palette = "lilas";
   applyPalette(palette);
   var palettePicker = document.querySelector(".js-palette");
   if (palettePicker) {
     palettePicker.addEventListener("change", function () {
       applyPalette(palettePicker.value);
-      write("argon-brand-palette", palettePicker.value);
+      write("argon-brand-palette-2", palettePicker.value);
     });
   }
 
@@ -56,14 +56,14 @@
     var sel = document.querySelector(".js-accent");
     if (sel && sel.value !== a) sel.value = a;
   }
-  var accent = read("argon-brand-accent");
+  var accent = read("argon-brand-accent-2");
   if (accent !== "blade") accent = "dot";
   applyAccent(accent);
   var accentPicker = document.querySelector(".js-accent");
   if (accentPicker) {
     accentPicker.addEventListener("change", function () {
       applyAccent(accentPicker.value);
-      write("argon-brand-accent", accentPicker.value);
+      write("argon-brand-accent-2", accentPicker.value);
     });
   }
 
@@ -84,7 +84,7 @@
     });
   }
 
-  // Paleta: ocre (padrão da prévia), lilás ou monocromática.
+  // Paleta: lilás do argônio (escolhida), ocre ou monocromática.
   var PALETTES = ["ocre", "lilas", "mono"];
   function applyPalette(p) {
     if (p === "mono") root.removeAttribute("data-palette");
@@ -92,14 +92,14 @@
     var sel = document.querySelector(".js-palette");
     if (sel && sel.value !== p) sel.value = p;
   }
-  var palette = read("argon-brand-palette");
-  if (PALETTES.indexOf(palette) === -1) palette = "ocre";
+  var palette = read("argon-brand-palette-2");
+  if (PALETTES.indexOf(palette) === -1) palette = "lilas";
   applyPalette(palette);
   var palettePicker = document.querySelector(".js-palette");
   if (palettePicker) {
     palettePicker.addEventListener("change", function () {
       applyPalette(palettePicker.value);
-      write("argon-brand-palette", palettePicker.value);
+      write("argon-brand-palette-2", palettePicker.value);
     });
   }
 

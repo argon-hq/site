@@ -102,6 +102,17 @@ símbolo, nos botões e em fios de destaque; nunca em texto corrido. Contraste m
 
 O ocre da rodada 1 (`#B8893B`) ficava em 2,85:1 sobre o papel e foi escurecido para `#AD7F30`.
 
+**Decisão (25/09/2026, sócios):** paleta lilás do argônio, com acento só no ponto do símbolo, em
+botões e em fios de destaque. Grafite + ocre e acento no traço ficam como histórico.
+
+| Papel | Cor |
+| --- | --- |
+| Tinta | `#121019` (no escuro, texto `#ECEBF4`) |
+| Papel | `#F5F4F8` (no escuro, fundo `#121019`) |
+| Lilás no papel | `#6A4DF4`, 4,82:1 |
+| Lilás no escuro | `#8B74FF`, 5,42:1 |
+| Botão | fundo lilás, texto branco (5,28:1); no escuro, texto `#121019` |
+
 ### Tipografia
 
 - **Wordmark:** "argon" em caixa baixa, tracking levemente aberto.
@@ -207,7 +218,7 @@ e lilás do argônio (tabela na seção 4). O 33 recebeu três correções ótic
   menores que as retas;
 - o ponto e a lâmina são peças separadas, e qualquer uma pode receber a cor de acento.
 
-Em teste: acento no traço em vez do ponto; os dois modos estão na página para comparar.
+O acento no traço foi comparado e descartado: a cor fica no ponto.
 
 ## 5. Recomendação
 
@@ -246,6 +257,6 @@ pequeno.
 ## 6. Próximos passos
 
 1. ~~Sócios escolhem o símbolo~~ (33, Ponto espelhado). Falta confirmar valores, público e região.
-2. Cor e ajuste fino da geometria. _Em andamento: escolher entre grafite + ocre e lilás do argônio._
-3. Aplicar a marca no site (`BrandMark`, favicon) e no e-mail da newsletter.
+2. ~~Cor e ajuste fino da geometria~~ (lilás do argônio, acento no ponto).
+3. **Próximo:** aplicar a marca no site (`BrandMark`, favicon, tokens de cor) e no e-mail da newsletter.
 4. Fechar o manual: cores finais com CMYK e Pantone validados em prova de gráfica.
