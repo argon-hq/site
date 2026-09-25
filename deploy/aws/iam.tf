@@ -189,7 +189,13 @@ resource "aws_iam_role" "github_deploy" {
   assume_role_policy = data.aws_iam_policy_document.github_trust.json
 }
 
-# Push images, then run deploy.sh on the instance through SSM Run Command.
+# The bucket backend.tf points at. A backend block cannot read locals, so the name is repeated.
+locals {
+  state_bucket = "argon-terraform-state-${var.account_id}"
+}
+
+# Push images, then run deploy.sh on the instance through SSM Run Command, and publish
+# apps/web/public to the public bucket.
 data "aws_iam_policy_document" "github_deploy" {
   statement {
     effect    = "Allow"
@@ -249,6 +255,50 @@ data "aws_iam_policy_document" "github_deploy" {
     effect    = "Allow"
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.backups.arn}/deploy/*"]
+  }
+
+  # The ./public-assets root writes apps/web/public into the public bucket, one prefix per
+  # environment. Tagging comes from the provider's default_tags on every object.
+  statement {
+    sid       = "ListaArquivosPublicos"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.public.arn]
+  }
+
+  statement {
+    sid    = "PublicaArquivosPublicos"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:GetObjectTagging",
+      "s3:PutObjectTagging",
+    ]
+    resources = ["${aws_s3_bucket.public.arn}/*"]
+  }
+
+  # Its state sits in the state bucket under public-assets/, and that is all of the state bucket
+  # this role sees: the main state (site/) holds parameter values and stays out of reach.
+  statement {
+    sid       = "ListaEstadoDosArquivosPublicos"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${local.state_bucket}"]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["public-assets/*"]
+    }
+  }
+
+  statement {
+    sid       = "EstadoDosArquivosPublicos"
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["arn:aws:s3:::${local.state_bucket}/public-assets/*"]
   }
 }
 
