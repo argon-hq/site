@@ -35,14 +35,17 @@ describe("buildEdition", () => {
   });
 
   it("escapes content that comes from the model", async () => {
-    const input = { ...editionFixture, items: [{ ...editionFixture.items[0], headline: '<script>alert("x")</script> & "aspas"' }] };
+    const input = {
+      ...editionFixture,
+      items: [{ ...editionFixture.items[0]!, headline: '<script>alert("x")</script> & "aspas"' }],
+    };
     const { html } = await build(input);
     expect(html).not.toContain("<script>alert");
     expect(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &quot;aspas&quot;");
   });
 
   it("stays under 100 KB with six items", async () => {
-    const input = { ...editionFixture, items: [...editionFixture.items, editionFixture.items[0]] };
+    const input = { ...editionFixture, items: [...editionFixture.items, editionFixture.items[0]!] };
     expect(Buffer.byteLength((await build(input)).html)).toBeLessThan(limits.htmlMaxBytes);
   });
 
@@ -60,7 +63,7 @@ describe("renderText", () => {
     for (const line of text.split("\n")) {
       if (!/https?:\/\//.test(line)) expect(line.length).toBeLessThanOrEqual(TEXT_WIDTH);
     }
-    expect(text).toContain(editionFixture.items[0].url);
+    expect(text).toContain(editionFixture.items[0]!.url);
   });
 
   it("does not split words", () => {
@@ -76,12 +79,12 @@ describe("validateEdition", () => {
 
   it("accepts the edge cases, which sit exactly on the limits", async () => {
     expect(editionEdgeFixture.subject.length).toBe(limits.subjectMax);
-    expect(editionEdgeFixture.items[0].body.length).toBe(limits.bodyMax);
+    expect(editionEdgeFixture.items[0]!.body.length).toBe(limits.bodyMax);
     expect(await codes(editionEdgeFixture)).toEqual([]);
   });
 
   it("fails with a typed error carrying every problem", async () => {
-    const input = { ...editionFixture, items: [{ ...editionFixture.items[0], body: "x".repeat(limits.bodyMax + 1) }] };
+    const input = { ...editionFixture, items: [{ ...editionFixture.items[0]!, body: "x".repeat(limits.bodyMax + 1) }] };
     const built = await build(input);
     const result = await Effect.runPromise(Effect.either(validateEdition(input, built)));
 
@@ -94,12 +97,26 @@ describe("validateEdition", () => {
   });
 
   it("reports a link that is not absolute https", async () => {
-    const input = { ...editionFixture, items: [{ ...editionFixture.items[0], url: "http://example.com/x" }] };
+    const input = { ...editionFixture, items: [{ ...editionFixture.items[0]!, url: "http://example.com/x" }] };
     expect(await codes(input)).toEqual(["link_not_absolute"]);
   });
 
+  // The lab failure of 23/09: the base of the images was typed by hand into the settings as http,
+  // the site answered 308 to https, and the icons arrived as empty boxes. The prefix check alone
+  // said nothing, because the src did start with the base it was given.
+  it("reports an image that is not https, even when it is under the allowed base", async () => {
+    const overHttp = { ...editionFixture, assetBaseUrl: "http://lab.argon.com.br/email" };
+    const result = await codes(overHttp);
+
+    // One per icon in the footer, and nothing else: the src is under the base it was given.
+    expect(new Set(result)).toEqual(new Set(["image_not_absolute"]));
+    expect(result).toHaveLength(4);
+  });
+
   it("reports a subject over the limit", async () => {
-    expect(await codes({ ...editionFixture, subject: "x".repeat(limits.subjectMax + 1) })).toEqual(["subject_too_long"]);
+    expect(await codes({ ...editionFixture, subject: "x".repeat(limits.subjectMax + 1) })).toEqual([
+      "subject_too_long",
+    ]);
   });
 
   it("reports script, image outside the allowlist and missing links in tampered HTML", async () => {
@@ -109,7 +126,7 @@ describe("validateEdition", () => {
       html: built.html
         .replace("</body>", '<script>1</script><img src="https://evil.example/x.png"></body>')
         .replaceAll(editionFixture.unsubscribeUrl, "https://other.example/unsub")
-        .replaceAll(editionFixture.items[2].url, "https://other.example/3"),
+        .replaceAll(editionFixture.items[2]!.url, "https://other.example/3"),
       text: built.text.replaceAll(editionFixture.sender.postalAddress, ""),
     };
     const errors = await Effect.runPromise(collectEditionErrors(editionFixture, tampered));

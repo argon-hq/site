@@ -17,6 +17,15 @@ export function unsubscribePageUrl({ web }: Origins, token: string): string {
   return `${web}/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
+// The edition is built once for everyone, so the stored HTML cannot carry a real token. It carries
+// this one instead, and the sending step swaps it for each subscriber's. A sentinel, not a template
+// syntax: it is an absolute https URL, so the built edition passes the same validation as a real one.
+export const UNSUBSCRIBE_PLACEHOLDER = "__UNSUBSCRIBE_TOKEN__";
+
+export function unsubscribePlaceholderUrl(origins: Origins): string {
+  return unsubscribePageUrl(origins, UNSUBSCRIBE_PLACEHOLDER);
+}
+
 // The endpoint the mail client posts to by itself (RFC 8058). It is on the API, which is public and
 // needs no secret here: the token is the credential, and the request comes from Gmail, not the site.
 export function unsubscribeOneClickUrl({ api }: Origins, token: string): string {

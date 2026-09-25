@@ -1,6 +1,7 @@
 {
   "common": {
-    "back": "Voltar"
+    "back": "Voltar",
+    "skipToContent": "Pular para o conteúdo"
   },
   "brand": {
     "name": "Argon",

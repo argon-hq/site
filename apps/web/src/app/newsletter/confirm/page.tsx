@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { BrandMark } from "@/components/brand-mark";
 import { ConfirmPanel } from "@/components/confirm-panel";
 import { EditionPreview } from "@/components/edition-preview";
+import { firstParam, tokenSchema } from "@/lib/token";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("confirm");
@@ -15,22 +16,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ConfirmPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ token?: string }>;
-}) {
-  const { token } = await searchParams;
+export default async function ConfirmPage({ searchParams }: { searchParams: Promise<{ token?: string | string[] }> }) {
+  const params = await searchParams;
+  // A malformed token shows the invalid state right away, without a round trip.
+  const token = tokenSchema.safeParse(firstParam(params.token));
   const preview = await getTranslations("preview");
 
   return (
     <div className="grid min-h-svh flex-1 lg:grid-cols-[16fr_9fr]">
-      <section className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
+      <main id="main-content" className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <BrandMark />
-          <ConfirmPanel token={token ?? null} />
+          <ConfirmPanel token={token.success ? token.data : null} />
         </div>
-      </section>
+      </main>
 
       <aside
         aria-label={preview("label")}

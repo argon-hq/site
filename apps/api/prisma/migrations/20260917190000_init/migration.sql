@@ -99,6 +99,14 @@ CREATE TABLE "setting" (
     CONSTRAINT "setting_pkey" PRIMARY KEY ("key")
 );
 
+-- CreateTable
+CREATE TABLE "seen_url" (
+    "url" TEXT NOT NULL,
+    "seen_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "seen_url_pkey" PRIMARY KEY ("url")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "subscriber_email_key" ON "subscriber"("email");
 

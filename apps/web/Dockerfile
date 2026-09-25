@@ -1,6 +1,10 @@
+# syntax=docker/dockerfile:1
 # Site (Next.js) em modo standalone. Build a partir da raiz do monorepo:
 #   docker build -f apps/web/Dockerfile -t argon/web .
-FROM node:22-alpine AS base
+# The pnpm store is a cache mount (the syntax line above enables it): packages already fetched by
+# an earlier build are not downloaded again. Needs BuildKit — the default with buildx installed,
+# DOCKER_BUILDKIT=1 otherwise.
+FROM node:22.23-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 WORKDIR /repo
 
@@ -8,14 +12,14 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter web...
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter web...
 
 FROM deps AS build
 COPY apps/web apps/web
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter web build
 
-FROM node:22-alpine AS run
+FROM node:22.23-alpine AS run
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
