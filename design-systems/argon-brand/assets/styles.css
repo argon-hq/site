@@ -713,3 +713,49 @@ svg { --mark-dot: var(--acc); --mark-blade: currentColor; }
   .ft__stage { padding: 20px; }
   .ft__h1 { font-size: 34px; }
 }
+
+/* Símbolo com fundo: bloco da cor inversa, quadrado ou arredondado (raio de 22%). */
+.bt { display: inline-grid; place-items: center; width: 1em; height: 1em; flex: none; background: var(--bt-bg); color: var(--bt-fg); --acc: var(--bt-dot); }
+.bt .mark { width: 0.62em; height: 0.62em; }
+.bt--round { border-radius: 22%; }
+.bt-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 24px; }
+.bt-col { display: grid; gap: 10px; align-content: start; }
+.bt-col > p { color: var(--ink-2); }
+.bt-panels { display: grid; gap: 12px; margin-top: 6px; }
+.bt-panel { display: grid; gap: 18px; justify-items: start; padding: 28px; border: 1px solid var(--rule); }
+.bt-panel--light { background: #f5f4f8; color: #121019; --bt-bg: #121019; --bt-fg: #f5f4f8; --bt-dot: #8b74ff; }
+.bt-panel--dark { background: #121019; color: #ecebf4; --bt-bg: #f5f4f8; --bt-fg: #121019; --bt-dot: #6a4df4; }
+.bt-sizes { display: flex; align-items: flex-end; gap: 14px; }
+.bt-lockup { display: flex; align-items: center; gap: 14px; }
+.bt-lockup .wm { height: 20px; }
+.bt-label { font-size: var(--step--1); opacity: 0.7; }
+@media (max-width: 760px) {
+  .bt-cols { grid-template-columns: minmax(0, 1fr); }
+  .bt-panel .bt[style*="168px"] { font-size: 128px !important; }
+}
+
+/* Arredondamento: a mesma bancada de componentes em quatro escalas (--rd-ctl para controles,
+   --rd-card para cartões, --rd-tile em proporção do bloco do símbolo). */
+.rd__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 24px; }
+.rd { display: grid; gap: 10px; align-content: start; }
+.rd > p { color: var(--ink-2); }
+.rd__spec { font-size: var(--step--1); font-weight: 400; color: var(--muted); margin-left: 6px; }
+.rd__stage { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 24px; background: #f5f4f8; color: #121019; border: 1px solid var(--rule); font-family: "Manrope", var(--font-sans); --bt-bg: #121019; --bt-fg: #f5f4f8; --bt-dot: #8b74ff; }
+.rd__btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: #6a4df4; color: #fff; font-weight: 500; font-size: 15px; border: 1px solid #6a4df4; border-radius: var(--rd-ctl); }
+.rd__btn--ghost { background: transparent; color: #121019; border-color: #121019; }
+.rd__in { display: inline-flex; align-items: center; min-height: 44px; min-width: 220px; padding: 0 14px; background: #fff; color: #5f5c6a; font-size: 15px; border: 1px solid #dcd9e4; border-radius: var(--rd-ctl); }
+.rd__tag { display: inline-flex; align-items: center; padding: 4px 10px; font-family: "Geist Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #121019; border: 1px solid #121019; border-radius: var(--rd-tag, var(--rd-ctl)); }
+.rd__card { display: grid; gap: 4px; flex: 1 1 220px; padding: 14px 16px; background: #eae8f0; border-top: 2px solid #6a4df4; border-radius: var(--rd-card); font-size: 15px; }
+.rd__kicker { font-family: "Geist Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5f5c6a; }
+.rd--0 { --rd-ctl: 0; --rd-card: 0; }
+.rd--4 { --rd-ctl: 4px; --rd-card: 6px; }
+.rd--8 { --rd-ctl: 8px; --rd-card: 12px; }
+.rd--pill { --rd-ctl: 999px; --rd-card: 16px; }
+.bt--r0 { border-radius: 0; }
+.bt--r4 { border-radius: 12%; }
+.bt--r8 { border-radius: 22%; }
+.bt--rpill { border-radius: 50%; }
+@media (max-width: 760px) {
+  .rd__grid { grid-template-columns: minmax(0, 1fr); }
+  .rd__in { min-width: 0; flex: 1 1 100%; }
+}
