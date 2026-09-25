@@ -7,7 +7,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step), `editor/agents/<id>.json`, `prompts/`, `schemas/`, `tools/`, `workflows/`. `MastraModule` is imported last and mounted under `/mastra`.
   `paths.ts` names the two folders that are data and not code — the skills and the Studio's overrides. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
   The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
-  `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+  `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each — and `workflows/operations.ts` holds the other clocks of the day: `send`, `watch`, `retention` and the Sunday `heartbeat`. They are registered on the instance, so the Studio draws them, runs them and shows the state of every step. Since the instance is built at import time, with no Nest around, the steps reach the application through a port Nest binds at boot (`workflows/context.ts`); `workflows/step.ts` is the one shape every step shares. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect. `tools/operator.ts` holds the operator's tools, registered on the instance and on no agent (see Schedules).
 - `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
   `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
   São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
@@ -26,12 +26,14 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   unsubscribe link carries `UNSUBSCRIBE_PLACEHOLDER` (`src/subscriber/urls.ts`) and the sending step swaps the
   sentinel for each subscriber's token; it is an absolute https URL, so nothing in the validation is relaxed for it.
   `POST /pipeline/run` is the whole generation, as one run of the `edition` workflow: the same three steps, in order, each
-  retried on its own, with the day of the edition as the only input (`run.ts`). The steps keep reading the real clock,
-  because the collection window is relative to it, and a run for another day stops before touching anything. A run below
-  the minimum ends after the writing: there is no edition to build. The clock lives in Nest and not in
-  `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
-  and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
-  and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
+  retried on its own; the day (today, by default) and the mode (the profile's, by default) are its only input. The steps
+  keep reading the real clock, because the collection window is relative to it, and a run for another day stops before
+  touching anything. A run below the minimum ends after the writing: there is no edition to build. A step that gives up
+  mails the owners on its last attempt (`mastra/workflows/step.ts`), whoever started the run. The per-step routes stay,
+  for debugging.
+  The clock is Mastra's (see Schedules below). The steps reach the pipeline through a port Nest binds at boot
+  (`mastra/workflows/context.ts`, `pipeline/port.ts`), not through the run context: a run the Studio or the scheduler
+  starts begins from JSON and cannot carry a live service.
   Every step runs holding a Postgres advisory lock on the edition's day (`lock.ts`): the 5h30 workflow, a per-step
   route fired by hand and a second container all contend on the database, not on a flag in memory, and a busy edition
   answers 409. `watch.ts` looks at boot and at 8h for an edition left `generating` or `sending` for more than three
@@ -43,8 +45,8 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `sending`, which is the state a run that stopped halfway leaves and the only way out of — creates one `delivery` row
   per confirmed subscriber as `pending`, and hands them to the provider in batches of 100 under the idempotency key
   `<edition>:<batch>`. The queue is whatever the database calls pending, so running again only picks up what is left; the
-  edition closes as `sent` when nothing is pending. `scheduler.ts` fires it at 7h, the same days, behind the same
-  `SCHEDULER_ENABLED`. Two things to know about what it means: the key the provider dedupes on **expires after 24h**, so
+  edition closes as `sent` when nothing is pending. The `send` workflow is the same send, fired at 7h the same days;
+  its output is the report per batch, and the `delivery_status` tool reads where any day's edition stands. Two things to know about what it means: the key the provider dedupes on **expires after 24h**, so
   resuming the same morning is safe and resuming a two-day-old edition would deliver again; and without the delivery
   webhook (ARG-100's second half) `sent` means the provider accepted the message, not that anyone received it —
   `delivered`, the bounces and `complaint` are unreachable and `subscriber.soft_bounces` stays at zero.
@@ -115,17 +117,65 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 ```bash
 pnpm db:up             # local Postgres 16 with pgvector and Mailpit (Docker); inbox at http://localhost:8025
 cp .env.example .env   # fill ANTHROPIC_API_KEY and INTERNAL_API_SECRET
-pnpm dev               # http://localhost:3001
-pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
+pnpm dev               # http://localhost:3001, and the Studio at /studio with STUDIO_ENABLED=true
 pnpm test
 pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
 ```
 
+## Schedules
+
+Every clock of the day is a Mastra workflow fired by Mastra's scheduler, so the Studio shows each
+run, step by step, whoever started it:
+
+| Schedule | Workflow | When (America/Sao_Paulo) |
+| --- | --- | --- |
+| `retention` | `retention` | 4h, every day |
+| `edition` | `edition` | 5h30, Monday to Saturday |
+| `send` | `send` | 7h, Monday to Saturday |
+| `watch` | `watch` | 8h, Monday to Saturday |
+| `edition-sunday`, `send-sunday` | `heartbeat` | 5h30 and 7h on Sunday: the log lines the daily alarms count |
+
+The rows live in `mastra.mastra_schedules`, and the history of every fire in
+`mastra.mastra_schedule_triggers`. `src/pipeline/schedules.ts` is the table in code; at boot the API
+creates the rows that are missing and leaves the rest alone, so a change made from the Studio survives
+restarts and deploys. The boot logs `schedule differs from code` for a row that moved away, and skips —
+`schedule missed` — a fire that passed more than ten minutes before the process came up, as the Nest
+clock this replaced did: after a night down the generation, the send and the watch would otherwise all
+fire at once.
+
+`@mastra/nestjs` starts none of it; `src/pipeline/clock.ts` calls `mastra.startWorkers()` where
+`SCHEDULER_ENABLED` is on, and writes `schedule fired` (the line a CloudWatch alarm counts) for every
+fire. Two containers polling the same database never fire the same time twice: the claim is a
+compare-and-swap on the next fire. A fired run goes through Mastra's evented engine, which never calls
+a workflow's `onError`, and that is why the alert lives in the step.
+
+The Studio's schedule page lists the clocks, shows each one's history and pauses and resumes it. The
+rest is in **Tools**, which the Studio runs with a form and no model:
+
+- `schedules_list`: every clock, with what the code says next to it.
+- `schedule_update`: cron, zone, the edition's `mode` (`live`, `mock` or `profile`), pause and resume.
+- `schedule_run`: fires one now, with its own input; the history marks it `manual`.
+- `schedule_reset`: one clock, or all of them, back to the code.
+- `delivery_status`: a day's edition on its way out — its state, the rows by status, each batch, the first errors.
+- `dataset_add_edition`: a day's articles into the `write` dataset (see Studio below).
+
+To test a clock locally, turn `SCHEDULER_ENABLED` on, `schedule_update` the `edition` to `*/2 * * * *`
+in `mock`, watch it run under Workflows, and `schedule_reset` it after.
+
 ## Studio
 
-`pnpm mastra:dev` is the Studio of a development machine, against the local database. The agents of
-a deployed environment are reached through the Studio this API serves itself, under `/studio`, where
-`STUDIO_ENABLED` is on — dev and lab, never prod:
+The Studio is the one this API serves itself, under `/studio`, where `STUDIO_ENABLED` is on — a
+development machine at <http://localhost:3001/studio>, dev and lab, never prod. Locally there is no
+Caddy in front, so the `x-internal-secret` header is saved once in the Studio's own Settings (instance
+`http://localhost:3001`, prefix `/mastra`). The separate `mastra dev` server is gone: it is another
+process, with no Nest and so no pipeline for the workflows, and it would start a second scheduler
+against the same database.
+
+Where the Studio is served, Mastra also keeps **traces** (`@mastra/observability`, stored in
+`mastra.mastra_ai_spans`): every agent call with its tools, time and tokens. The architecture keeps token
+cost out of storage, so production never traces, and the retention deletes traces after 30 days.
+
+The Studio of a deployed environment:
 
 | Environment | Address |
 | --- | --- |
@@ -203,9 +253,9 @@ Migrations run before the new container starts and never run backwards, so every
 compatible with the code already running: expand first (a new column, a new table), contract later
 (drop the old one), in separate deploys.
 
-Retention runs inside the API, behind `SCHEDULER_ENABLED`, at 4h every day (`src/pipeline/retention.ts`):
-the text of an article is cleared after 30 days, a seen link is forgotten after 30, and a cancelled
-subscriber is purged after 90 — in batches of a thousand, so a table that grew for months is trimmed
+Retention is the `retention` schedule, at 4h every day (`src/pipeline/retention.ts`): the text of an
+article is cleared after 30 days, a seen link is forgotten after 30, a cancelled subscriber is purged
+after 90 and a Mastra trace after 30 — in batches of a thousand, so a table that grew for months is trimmed
 without holding a lock. Bounced and blocked addresses stay, so they are never written to again.
 
 Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database is the Postgres container on the instance (`deploy/README.md`). Mastra keeps its own tables in the `mastra` schema, outside Prisma.

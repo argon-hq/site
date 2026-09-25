@@ -3,7 +3,7 @@ import { Data, Effect, Match } from "effect";
 import { dbEffect } from "../effect/db";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
-import { fetchArticle, type FetchFailed, type PageUnreadable, type UrlNotAllowed } from "../mastra/tools/read-page";
+import { readScreened, type FetchFailed, type PageUnreadable, type UrlNotAllowed } from "../mastra/tools/read-page";
 import type { Candidate } from "./collect.schema";
 import { canonicalize, isAllowedDomain } from "./rules";
 
@@ -120,7 +120,7 @@ const persist = (candidate: Candidate, ctx: PersistContext, read: ReadPage) =>
 export const persistCandidate = (
   candidate: Candidate,
   ctx: PersistContext,
-  read: ReadPage = fetchArticle,
+  read: ReadPage = (url) => readScreened(url),
 ): Effect.Effect<Outcome, DbFailed> =>
   persist(candidate, ctx, read).pipe(
     Effect.catchTags({

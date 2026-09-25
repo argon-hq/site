@@ -11,7 +11,7 @@ export default defineConfig({
       exclude: [
         "**/*.test.ts",
         "src/pipeline/fixtures/**",
-        "src/pipeline/scheduler.ts",
+        "src/pipeline/clock.ts",
         "src/pipeline/pipeline.controller.ts",
       ],
       reporter: ["text-summary", "text"],

@@ -14,7 +14,14 @@
     "incremental": true,
     "resolveJsonModule": true,
     "jsx": "react-jsx",
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    // Node10 resolution ignores the `exports` map, and @mastra/evals ships its API only on subpaths
+    // (Node resolves them at runtime). These point the compiler at the same files.
+    "baseUrl": ".",
+    "paths": {
+      "@mastra/evals/scorers/prebuilt": ["node_modules/@mastra/evals/dist/scorers/prebuilt/index.d.ts"],
+      "@mastra/evals/scorers/utils": ["node_modules/@mastra/evals/dist/scorers/utils.d.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]

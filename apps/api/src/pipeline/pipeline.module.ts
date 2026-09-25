@@ -2,13 +2,16 @@ import { DynamicModule, Module } from "@nestjs/common";
 import type { Config } from "../config";
 import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
 import { ORIGINS, originsFrom } from "../subscriber/urls";
+import { MastraClock } from "./clock";
 import { DeliveryService } from "./delivery.service";
 import { EditionLock } from "./lock";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
-import { RetentionScheduler } from "./retention";
-import { PipelineScheduler } from "./scheduler";
+import { PipelinePortAdapter } from "./port";
+import { RetentionService } from "./retention";
+import { ScheduleRegistry } from "./schedules";
+import { WriteDataset } from "./write-dataset";
 import { EditionWatch } from "./watch";
 
 @Module({})
@@ -30,9 +33,15 @@ export class PipelineModule {
         // The lock opens a connection of its own, outside the pool, so it takes the URL directly.
         { provide: EditionLock, useFactory: () => new EditionLock(config.DATABASE_URL) },
         EditionWatch,
-        // The clock is only wired where it should tick. An environment with it off has no timer at
-        // all, instead of a timer nobody wanted: the run is still one POST /pipeline/run away.
-        ...(config.SCHEDULER_ENABLED ? [PipelineScheduler, RetentionScheduler] : []),
+        RetentionService,
+        ScheduleRegistry,
+        WriteDataset,
+        // What the workflows and the operator's tools reach the application through.
+        PipelinePortAdapter,
+        // The clock is only started where it should tick. An environment with it off has no timer at
+        // all, instead of a timer nobody wanted: the run is still one POST /pipeline/run away, and the
+        // schedule rows are still there for the Studio to show.
+        ...(config.SCHEDULER_ENABLED ? [MastraClock] : []),
       ],
     };
   }

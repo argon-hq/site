@@ -229,7 +229,8 @@ Docker, swap e timers prontos; o primeiro deploy pelo workflow sobe o resto.
 ## Riscos conhecidos
 
 - Os alarmes diários avaliam por dia UTC e avisam tarde (no dia seguinte); o domingo sem edição é
-  coberto pelos heartbeats que a API registra às 5h30 e às 7h (`src/pipeline/scheduler.ts`).
+  coberto pelos heartbeats que a API registra às 5h30 e às 7h (workflow `heartbeat`, agendamentos
+  `edition-sunday` e `send-sunday` em `src/pipeline/schedules.ts`).
 - `/argon/prod/api` pode ter sido criado pelo `awslogs` entre a escrita deste código e o
   primeiro `apply`. Se o `plan` tentar criá-lo e o `apply` falhar com "already exists", adicione
   o import em `imports.tf`.

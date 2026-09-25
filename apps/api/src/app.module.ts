@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD, Reflector } from "@nestjs/core";
-import { ScheduleModule } from "@nestjs/schedule";
 import { MastraModule } from "@mastra/nestjs";
 import { InternalSecretGuard } from "./auth/internal-secret.guard";
 import { loadConfig } from "./config";
@@ -18,7 +17,6 @@ const config = loadConfig();
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
     PrismaModule.forRoot(config.DATABASE_URL),
     SettingsModule,
     EmailModule.forRoot(config),
