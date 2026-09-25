@@ -91,7 +91,7 @@ src/
 │   └── globals.css       # tokens de cor e tema do Tailwind
 ├── components/
 │   ├── back-button.tsx
-│   ├── brand-mark.tsx    # placeholder do logo
+│   ├── brand-mark.tsx    # símbolo e nome ARGON
 │   ├── entry-path-tracker.tsx
 │   ├── flag-icon.tsx     # bandeiras em SVG inline
 │   ├── locale-switcher.tsx
@@ -179,8 +179,12 @@ aceita SVG nem caminho relativo, então são PNG e a URL é absoluta: a API mont
 quebra o e-mail do mesmo deploy — e a API diz isso no log, ao subir (`EmailAssets`). Quem gera é o
 `pnpm -C apps/api email:icons`.
 
-## Pendências de design
+## Marca
 
-A Argon ainda não tem logo — `BrandMark` desenha um quadrado com a inicial. O painel visual à
-direita na newsletter ainda não tem arte. A cor de destaque em `globals.css` é provisória, até
-existir identidade visual.
+`BrandMark` desenha o símbolo e o nome ARGON; as cores, a Manrope e os raios vêm de
+`globals.css`. As decisões e os motivos estão em `design-systems/argon-brand/strategy.md`, e os
+arquivos da marca (SVG e PNG) em `public/brand/`, que o deploy também publica no bucket público
+(`deploy/aws/README.md`, "Arquivos públicos"). O `public/email/logo.png` é o símbolo em branco com
+o ponto lilás, no tamanho dos outros ícones do rodapé do e-mail.
+
+Pendência de design: o painel visual à direita na newsletter ainda não tem arte.
