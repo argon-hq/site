@@ -624,3 +624,14 @@ main { max-width: var(--max); margin-inline: auto; }
   .r4__map td:nth-child(3), .r4__map td:nth-child(2) { white-space: normal; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Rodada 5 */
+.r5__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.r5__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.r5__pair figure { display: grid; gap: 6px; margin: 0; align-content: start; }
+.r5__pair figcaption { font-size: var(--step--1); color: var(--muted); }
+.r5__ours .variant__stage { box-sizing: border-box; width: 100%; min-width: 0; aspect-ratio: 1; padding: 12px; border: 1px solid var(--rule); }
+.r5__pair figure { min-width: 0; }
+.r5__ours .mark--lg { width: 70%; height: auto; aspect-ratio: 1; }
+.r5__card p strong { color: var(--ink); font-weight: 600; }
+@media (max-width: 640px) { .r5__grid { grid-template-columns: minmax(0, 1fr); } }

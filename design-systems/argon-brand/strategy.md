@@ -146,32 +146,47 @@ linha fina com o mesmo traço do nome (Linha), A completado por um ponto (Ponto)
 seu par em traço fino para usos grandes. A referência do A com anel lembra o logo dos Vingadores,
 por isso a versão da Argon é simétrica e sem cauda.
 
-## 4f. Rodada 4 — auditoria: outras Argons
+## 4f. Rodada 4 — referências do Dribbble
 
-As cinco referências da rodada 4 são logos de outras empresas chamadas Argon. Não se reutilizam:
-mesmo nome com símbolo parecido é risco de conflito no registro de marca e confunde o público.
-Servem como auditoria e como aula de técnica.
+As cinco referências da rodada 4 são conceitos publicados no Dribbble com o nome Argon, sem
+vínculo com empresas. Na rodada 4 elas foram tratadas como marcas de terceiros; a premissa foi
+corrigida pelos sócios, e na rodada 5 quatro delas foram reaproveitadas.
 
-| # | Marca | Território que ocupa |
+| # | Referência | Ideia |
 | --- | --- | --- |
-| 1 | ARGON "Into my limit" | A sem barra com bolhas: A com partículas |
+| 1 | ARGON "Into my limit" | A sem barra com bolhas: o gás |
 | 2 | ARGON (luminária) | Luz dentro de moldura: arco, lâmpada e facho |
-| 3 | ARGON (anel triplo) | Trevo de traços curvos |
+| 3 | ARGON (anel triplo) | Três traços curvos entrelaçados |
 | 4 | Átomo + a + estrela | Nó de três laços |
 | 5 | argon (supply chain) | Três meios-discos em cata-vento |
 
-**Regra: evitar trevo e três peças em rotação.** Três das cinco já estão nesse território. Por
-isso o 18, Trevo, foi descartado, e o 15, Três átomos, e o 25, Três vértices, não são
-recomendados. O 21, Órbita, e o 16, Núcleo, não se parecem com nenhuma delas.
+Três caminhos originais saíram das técnicas: 26, Facho (luz, o facho é o A), 27, Dissolve (a
+perna vira três pontos) e 28, Laço (uma linha só, nó aberto).
 
-Três caminhos novos saíram das técnicas, não das formas: 26, Facho (luz, o facho é o A), 27,
-Dissolve (a perna vira três pontos, perto demais da referência 1) e 28, Laço (uma linha só, nó
-aberto). O A sem barra no nome aparece em duas das cinco; é comum e não pesa sozinho.
+## 4g. Rodada 5 — reaproveitamento
+
+Quatro referências reinterpretadas: a ideia fica, a forma é redesenhada no grid de 64 u, com o
+traço de 6 u da Órbita e os cortes retos do ARGON. Cada símbolo é baseado em conceito publicado
+no Dribbble.
+
+- **30, Três anéis** (referência 3): três anéis fechados e entrelaçados, cada um por cima de um
+  vizinho e por baixo do outro. Três átomos, ou as três camadas do argônio, ligados. O melhor da
+  rodada.
+- **31, Nó** (referência 4): o nó de três voltas em retas, com cantos em miter e a volta de cima
+  em ponta, como o A.
+- **29, Bolhas** (referência 1): o A da Órbita com três bolhas que sobem ao lado da perna direita
+  e diminuem. O mais próximo da referência.
+- **32, Cata-vento** (referência 5): três meios-discos em volta de um triângulo vazio que aponta
+  para cima. Retoma o 18, Trevo.
 
 ## 5. Recomendação
 
-**Atualização (rodada 4):** a recomendação continua o 21, Órbita, que passou pela auditoria sem
-conflito. O 26, Facho, é a segunda opção. O 18, Trevo, está descartado.
+**Atualização (rodada 5):** a escolha é entre duas histórias. O 21, Órbita, carrega o A do nome;
+o 30, Três anéis, carrega o número três e os átomos. A sugestão continua a Órbita, porque símbolo
+e nome se reforçam; os Três anéis são a melhor versão da história do três. _A validar com os
+sócios._
+
+**Atualização (rodada 4):** a recomendação continua o 21, Órbita. O 26, Facho, é a segunda opção.
 
 **Atualização (rodada 3):** a recomendação é o 21, Órbita, ao lado do ARGON por extenso, com o 24,
 Linha, como versão em traço fino. Substitui a recomendação da rodada 2 (16, Núcleo).
