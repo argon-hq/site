@@ -49,11 +49,19 @@ deploys podem chegar juntos, e os dois mexem no `.env`, no Caddy e no prune. O s
 também confere o banco, e `/` no site; um container em crash loop derruba o deploy em vez de
 fingir sucesso.
 
+Imagens na instância: ao fim de cada deploy ficam só a tag que cada ambiente está rodando (as três
+do `.env`, então um lab parado pela ociosidade mantém a dele) e a tag que o ambiente recém-publicado
+rodava antes, para um rollback sem esperar o pull. Todo o resto das imagens `argon/*` é removido;
+caddy e postgres nunca são candidatas. É um conjunto, não uma janela de tempo: guardar "as de hoje"
+deixava dez deploys num dia estacionarem 7 GB de imagens da API num disco de 16 GB, que foi o que
+o encheu em 23/09. A imagem da API sai da build com uma poda do que o runtime nunca executa
+(`apps/api/Dockerfile`, estágio `deps`); o `prisma migrate deploy` do deploy é o teste dela.
+
 ### Configuração manual no GitHub
 
 O repositório não expressa isto; confira em Settings do repositório `argon-hq/site`:
 
-- Environment `prod` com *Required reviewers* (ao menos uma pessoa) e *Deployment branches*
+- Environment `prod` com _Required reviewers_ (ao menos uma pessoa) e _Deployment branches_
   limitado a `main`. O workflow recusa `branch` preenchida fora do lab, mas só a proteção do
   environment impede um dispatch de `prod` a partir de outra branch.
 - Segredo `AWS_ALERTS_TOPIC_ARN` com o ARN do tópico SNS de alertas da conta.
@@ -151,17 +159,17 @@ chaves de modelo e de e-mail nunca entram no container do site. Os arquivos fica
 `700` no diretório e `600` nos arquivos, só root. Todo ambiente espera estas nove, e aceita uma
 décima:
 
-| Variável | Quem lê | Tipo |
-| --- | --- | --- |
-| `DATABASE_URL` | API | SecureString |
-| `ANTHROPIC_API_KEY` | API | SecureString |
-| `RESEND_API_KEY` | API | SecureString |
-| `INTERNAL_API_SECRET` | site e API | SecureString |
-| `API_URL` | site | String |
-| `WEB_ORIGIN`, `API_ORIGIN` | API | String |
-| `MAIL_TRANSPORT` | API | String |
-| `UNSUBSCRIBE_TOKEN_SECRET` | API | SecureString |
-| `SCHEDULER_ENABLED` | API | String, opcional |
+| Variável                   | Quem lê    | Tipo             |
+| -------------------------- | ---------- | ---------------- |
+| `DATABASE_URL`             | API        | SecureString     |
+| `ANTHROPIC_API_KEY`        | API        | SecureString     |
+| `RESEND_API_KEY`           | API        | SecureString     |
+| `INTERNAL_API_SECRET`      | site e API | SecureString     |
+| `API_URL`                  | site       | String           |
+| `WEB_ORIGIN`, `API_ORIGIN` | API        | String           |
+| `MAIL_TRANSPORT`           | API        | String           |
+| `UNSUBSCRIBE_TOKEN_SECRET` | API        | SecureString     |
+| `SCHEDULER_ENABLED`        | API        | String, opcional |
 
 `UNSUBSCRIBE_TOKEN_SECRET` deriva o token de descadastro de cada assinante (`apps/api/src/subscriber/token.ts`):
 pelo menos 32 caracteres, um por ambiente, e trocá-lo invalida todo link de descadastro já enviado.
@@ -235,17 +243,17 @@ deploys separados.
 
 ## Recursos criados (17/09/2026, conta 382597877834, sa-east-1)
 
-| Recurso | Id |
-| --- | --- |
-| Instância EC2 | `i-00296133cc8e8093d` (t4g.small, 16 GB, IP elástico 54.94.89.230) |
-| Security groups | `sg-0768581b67b050a67` (web), `sg-003868d936307df4b` (db) |
-| Banco | Container `postgres` no compose, volume `db-data`. Senha do superusuário em `/argon/postgres/POSTGRES_PASSWORD` |
-| Backup | Bucket S3 `ARGON_BACKUP_BUCKET` em `/opt/argon/.env`, timer `argon-backup` |
-| ECR | `argon/web`, `argon/api` |
-| Papel do GitHub | `argon-github-deploy` (OIDC, repositório argon-hq/site) |
-| DNS | `argon.eduardofockink.com`, `dev.argon.eduardofockink.com`, `lab.argon.eduardofockink.com`, `api.argon.eduardofockink.com`, `api.dev.argon.eduardofockink.com`, `api.lab.argon.eduardofockink.com` (zona na conta 663702377780, provisória até a ARG-68) |
-| Segredos no GitHub | `AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`, `AWS_ALERTS_TOPIC_ARN` |
-| Orçamento | `argon-mensal`, US$ 30, avisos em 80% e 100% |
+| Recurso            | Id                                                                                                                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instância EC2      | `i-00296133cc8e8093d` (t4g.small, 16 GB, IP elástico 54.94.89.230)                                                                                                                                                                                       |
+| Security groups    | `sg-0768581b67b050a67` (web), `sg-003868d936307df4b` (db)                                                                                                                                                                                                |
+| Banco              | Container `postgres` no compose, volume `db-data`. Senha do superusuário em `/argon/postgres/POSTGRES_PASSWORD`                                                                                                                                          |
+| Backup             | Bucket S3 `ARGON_BACKUP_BUCKET` em `/opt/argon/.env`, timer `argon-backup`                                                                                                                                                                               |
+| ECR                | `argon/web`, `argon/api`                                                                                                                                                                                                                                 |
+| Papel do GitHub    | `argon-github-deploy` (OIDC, repositório argon-hq/site)                                                                                                                                                                                                  |
+| DNS                | `argon.eduardofockink.com`, `dev.argon.eduardofockink.com`, `lab.argon.eduardofockink.com`, `api.argon.eduardofockink.com`, `api.dev.argon.eduardofockink.com`, `api.lab.argon.eduardofockink.com` (zona na conta 663702377780, provisória até a ARG-68) |
+| Segredos no GitHub | `AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`, `AWS_ALERTS_TOPIC_ARN`                                                                                                                                                                                         |
+| Orçamento          | `argon-mensal`, US$ 30, avisos em 80% e 100%                                                                                                                                                                                                             |
 
 Acesso à instância: `aws ssm start-session --target i-00296133cc8e8093d`. Sem SSH.
 
@@ -295,7 +303,7 @@ systemctl start argon-restore-drill.service && journalctl -u argon-restore-drill
 ```
 
 A extensão `vector` é criada pelo `provision-db.sh` como superusuário, e o restore pula as entradas
-de extensão do dump: pgvector não é uma extensão *trusted*, então o `CREATE EXTENSION` do próprio
+de extensão do dump: pgvector não é uma extensão _trusted_, então o `CREATE EXTENSION` do próprio
 dump falharia rodando como `argon_lab`. O resto restaura como o papel do lab, que fica dono das
 tabelas como uma migration deixaria.
 
