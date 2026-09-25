@@ -34,13 +34,36 @@ export const brandCell: CSSProperties = { verticalAlign: "middle" };
 // The symbol takes the height of both lines; the name and the tagline stack beside it.
 export const brandMarkCell: CSSProperties = { width: "40px", verticalAlign: "middle" };
 
-export const brandMark: CSSProperties = { display: "block", width: "40px", height: "40px", border: 0 };
+// Alt text styles: a client that blocks images shows the alt in the image's box, so it gets a font
+// that fits there and a color that reads on the dark band, instead of the default serif in black.
+const altText = { color: "#ecebf4", fontFamily: font } as const;
+
+export const brandMark: CSSProperties = {
+  ...altText,
+  display: "block",
+  width: "40px",
+  height: "40px",
+  border: 0,
+  fontSize: "8px",
+  lineHeight: "10px",
+};
 
 export const brandTextCell: CSSProperties = { paddingLeft: "12px", verticalAlign: "middle" };
 
 // The drawn ARGON, 120×20 on screen from a 2x PNG. The alt text is what a client that blocks
 // images shows in its place.
-export const brandName: CSSProperties = { display: "block", width: "120px", height: "20px", border: 0 };
+export const brandName: CSSProperties = {
+  ...altText,
+  display: "block",
+  width: "120px",
+  height: "20px",
+  border: 0,
+  fontSize: "16px",
+  lineHeight: "20px",
+  fontWeight: 700,
+  letterSpacing: "4px",
+  textTransform: "uppercase",
+};
 
 export const brandTagline: CSSProperties = {
   ...noMargin,

@@ -21,7 +21,7 @@ export function Footer({ sender, social, assetBaseUrl, unsubscribeUrl, privacyPo
     <Section className="pad" style={styles.footer}>
       <Social social={social} assetBaseUrl={assetBaseUrl} />
       <Text style={styles.footerBrand}>
-        {copy.brand.name} &nbsp;&middot; {copy.brand.tagline}
+        {copy.brand.name} &middot; {copy.brand.tagline}
       </Text>
       <Text style={styles.footerSmall}>{copy.footer.reason}</Text>
       <Text style={styles.footerSmall}>
