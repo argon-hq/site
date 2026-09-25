@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR" data-palette="ocre">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -138,43 +138,7 @@
       <svg class="logo__mark" aria-hidden="true"><use href="#g33"/></svg><svg class="logo__wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
     </a>
     <a class="lnk" href="#rodape">Política de privacidade</a>
-    <label class="pal t3" for="pal">Paleta
-      <select class="pal__select" id="pal">
-        <option value="ocre">Grafite + ocre</option>
-        <option value="lilas">Lilás do argônio</option>
-        <option value="mono">Monocromática</option>
-      </select>
-    </label>
-    <label class="pal t3" for="acc">Acento
-      <select class="pal__select" id="acc">
-        <option value="dot">no ponto</option>
-        <option value="blade">no traço</option>
-      </select>
-    </label>
     <p class="t3 foot__rights">Argon · Business newsletter © 2026. Todos os direitos reservados.</p>
   </footer>
-  <script>
-    // Prévia do passo 2: troca a paleta e guarda a escolha neste navegador.
-    (function () {
-      var root = document.documentElement, sel = document.getElementById("pal"), p = null;
-      try { p = localStorage.getItem("argon-site-palette"); } catch (e) {}
-      if (["ocre", "lilas", "mono"].indexOf(p) === -1) p = "ocre";
-      function apply(v) { root.setAttribute("data-palette", v); sel.value = v; }
-      apply(p);
-      sel.addEventListener("change", function () {
-        apply(sel.value);
-        try { localStorage.setItem("argon-site-palette", sel.value); } catch (e) {}
-      });
-      var acc = document.getElementById("acc"), a = null;
-      try { a = localStorage.getItem("argon-site-accent"); } catch (e) {}
-      if (a !== "blade") a = "dot";
-      function applyAcc(v) { if (v === "blade") root.setAttribute("data-accent", "blade"); else root.removeAttribute("data-accent"); acc.value = v; }
-      applyAcc(a);
-      acc.addEventListener("change", function () {
-        applyAcc(acc.value);
-        try { localStorage.setItem("argon-site-accent", acc.value); } catch (e) {}
-      });
-    })();
-  </script>
 </body>
 </html>
