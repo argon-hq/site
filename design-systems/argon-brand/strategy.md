@@ -119,11 +119,22 @@ botões e em fios de destaque. Grafite + ocre e acento no traço ficam como hist
 
 ### Tipografia
 
-- **Wordmark:** "argon" em caixa baixa, tracking levemente aberto.
-- **Geist** (recomendada): grotesca neutra e técnica. Já é a fonte do site, então há
-  continuidade.
-- Alternativas em comparação: **Outfit**, mais geométrica e amigável; **Newsreader**, uma
-  serifa com tom editorial e consultivo, que aproxima a marca de jornal de negócios.
+- **Nome:** ARGON desenhado, em caixa alta, traço fino e constante, com o A sem barra. Não é
+  fonte: é o arquivo `wm` do sprite.
+
+**Decisão (25/09/2026, sócios):** **Manrope** para títulos e texto, **Geist Mono** para
+rótulos, datas e detalhes. A Manrope é geométrica, de O e G redondos como os do ARGON: conversa com
+a marca e deixa a Argon mais próxima; os títulos de matéria usam peso 600 para manter a firmeza. Foram
+comparadas Geist (a fonte anterior do app), IBM Plex Sans e Newsreader nos títulos.
+
+| Uso | Fonte | Pesos | No e-mail |
+| --- | --- | --- | --- |
+| Título de destaque (h1, h2) | Manrope | 500 | Arial, Helvetica |
+| Títulos de matéria e cartão | Manrope | 600 | Arial, Helvetica |
+| Texto | Manrope | 400, 500 | Arial, Helvetica |
+| Rótulos, datas, números de edição | Geist Mono | 400, 500 | Courier New / monospace |
+
+No e-mail, Gmail e Outlook ignoram fontes da web; a fonte reserva é a que o leitor vê.
 
 ### Gestalt aplicada
 
