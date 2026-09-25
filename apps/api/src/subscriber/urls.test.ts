@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { confirmUrl, unsubscribeHeaders, unsubscribeOneClickUrl, unsubscribePageUrl } from "./urls";
 
-const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+const origins = { web: "https://argon.example", api: "https://api.argon.example", assets: "https://argon.example" };
 // base64url has `-` and `_`, which survive a query string; a token is never re-encoded by hand.
 const token = "aB3-_xY9";
 

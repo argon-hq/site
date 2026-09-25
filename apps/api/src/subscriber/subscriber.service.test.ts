@@ -23,7 +23,7 @@ type Write = {
 type UpsertArgs = { where: { email: string }; create: Write; update: Write };
 type Row = { id: string; status: string; lastConfirmationSentAt?: Date | null } | null;
 
-const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+const origins = { web: "https://argon.example", api: "https://api.argon.example", assets: "https://argon.example" };
 const SECRET = "0123456789abcdef0123456789abcdef";
 
 function service(existing: Row) {

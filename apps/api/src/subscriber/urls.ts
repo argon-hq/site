@@ -1,10 +1,20 @@
+import type { Config } from "../config";
+import { assetsOrigin } from "../email/assets";
 // Every address the subscriber reaches from an e-mail, each carrying one of their tokens. The
 // e-mail builders receive them ready (they build no URL); the format is decided here.
 
-export type Origins = { web: string; api: string };
+// `assets` is where the e-mail images come from (src/email/assets.ts): the public bucket in a
+// deployed environment, the site on a local machine.
+export type Origins = { web: string; api: string; assets: string };
 
-// Injection token: the module binds the two origins from the environment once.
+// Injection token: the module binds the origins from the environment once.
 export const ORIGINS = "ORIGINS";
+
+export function originsFrom(
+  config: Pick<Config, "WEB_ORIGIN" | "API_ORIGIN" | "PUBLIC_ASSETS_ORIGIN" | "ARGON_ENV">,
+): Origins {
+  return { web: config.WEB_ORIGIN, api: config.API_ORIGIN, assets: assetsOrigin(config) };
+}
 
 // Where the confirmation e-mail points: a one-time token that expires, and a page that confirms.
 export function confirmUrl({ web }: Origins, token: string): string {

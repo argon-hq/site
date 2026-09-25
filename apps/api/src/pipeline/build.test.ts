@@ -109,7 +109,7 @@ describe("buildReason", () => {
 // step swaps per subscriber. It has to survive the builder and pass the same validation a real
 // token would: nothing about the check is relaxed for it.
 describe("unsubscribe placeholder", () => {
-  const origins = { web: "https://argon.com.br", api: "https://api.argon.com.br" };
+  const origins = { web: "https://argon.com.br", api: "https://api.argon.com.br", assets: "https://argon.com.br" };
   const settings = {
     sender: editionFixture.sender,
     privacy_policy_url: editionFixture.privacyPolicyUrl,
@@ -127,7 +127,7 @@ describe("unsubscribe placeholder", () => {
 
   it("validates clean and reaches both formats", async () => {
     const context = editionContext(settings, {
-      webOrigin: origins.web,
+      assetsOrigin: origins.assets,
       unsubscribeUrl: unsubscribePlaceholderUrl(origins),
     });
     const built = await Effect.runPromise(

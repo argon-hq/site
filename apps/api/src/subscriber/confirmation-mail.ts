@@ -36,7 +36,7 @@ export class ConfirmationMail {
         expiresInHours: CONFIRMATION_TTL_HOURS,
         sender: identity.sender,
         privacyPolicyUrl: identity.privacy_policy_url,
-        assetBaseUrl: assetBaseUrl(origins.web),
+        assetBaseUrl: assetBaseUrl(origins.assets),
         social: identity.social,
       }).pipe(Effect.mapError((error) => failed(`the confirmation failed to render: ${String(error.cause)}`)));
 

@@ -8,7 +8,7 @@ import { unsubscribeTokenFor } from "../subscriber/token";
 import { UNSUBSCRIBE_PLACEHOLDER } from "../subscriber/urls";
 import { DeliveryService } from "./delivery.service";
 
-const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+const origins = { web: "https://argon.example", api: "https://api.argon.example", assets: "https://argon.example" };
 const secret = "0123456789abcdef0123456789abcdef";
 const date = new Date("2026-09-24T00:00:00Z");
 const now = new Date("2026-09-24T10:00:00Z");

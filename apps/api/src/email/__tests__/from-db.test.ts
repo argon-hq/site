@@ -56,7 +56,7 @@ describe("editionContext", () => {
       social: { site: "https://example.com" },
     };
     const context = editionContext(settings, {
-      webOrigin: WEB_ORIGIN,
+      assetsOrigin: WEB_ORIGIN,
       unsubscribeUrl: "https://example.com/unsubscribe?token=abc",
     });
 

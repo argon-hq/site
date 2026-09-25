@@ -1,7 +1,7 @@
 import { Logger } from "@nestjs/common";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assetBaseUrl, assetUrls, EMAIL_ICONS } from "../assets";
+import { assetBaseUrl, assetsOrigin, assetUrls, EMAIL_ICONS, PUBLIC_BUCKET_URL } from "../assets";
 import { EmailAssets } from "../assets.service";
 
 const WEB_ORIGIN = "https://lab.argon.example";
@@ -37,6 +37,24 @@ describe("assetBaseUrl", () => {
 
   it("lists every icon the template can ask for", () => {
     expect(assetUrls(WEB_ORIGIN)).toEqual(EMAIL_ICONS.map((icon) => `https://lab.argon.example/email/${icon}.png`));
+  });
+});
+
+describe("assetsOrigin", () => {
+  it("reads a deployed environment's images from its prefix in the public bucket", () => {
+    expect(assetsOrigin({ ARGON_ENV: "prod", WEB_ORIGIN })).toBe(`${PUBLIC_BUCKET_URL}/prod`);
+    expect(assetsOrigin({ ARGON_ENV: "lab", WEB_ORIGIN })).toBe(`${PUBLIC_BUCKET_URL}/lab`);
+  });
+
+  it("reads them from the site on a local machine", () => {
+    expect(assetsOrigin({ ARGON_ENV: "local", WEB_ORIGIN })).toBe(WEB_ORIGIN);
+    expect(assetsOrigin({ WEB_ORIGIN })).toBe(WEB_ORIGIN);
+  });
+
+  it("lets PUBLIC_ASSETS_ORIGIN win over both", () => {
+    expect(assetsOrigin({ PUBLIC_ASSETS_ORIGIN: "https://cdn.example", ARGON_ENV: "dev", WEB_ORIGIN })).toBe(
+      "https://cdn.example",
+    );
   });
 });
 

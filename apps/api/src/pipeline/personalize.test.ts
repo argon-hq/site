@@ -3,7 +3,7 @@ import { unsubscribeTokenFor, verifyUnsubscribeToken } from "../subscriber/token
 import { UNSUBSCRIBE_PLACEHOLDER, unsubscribeOneClickUrl } from "../subscriber/urls";
 import { personalize } from "./personalize";
 
-const origins = { web: "https://argon.example", api: "https://api.argon.example" };
+const origins = { web: "https://argon.example", api: "https://api.argon.example", assets: "https://argon.example" };
 const secret = "0123456789abcdef0123456789abcdef";
 const recipient = { subscriberId: "5f7c2a1e-9b3d-4c6e-8a2f-1d3e5b7c9a0f", email: "joao@example.com" };
 
