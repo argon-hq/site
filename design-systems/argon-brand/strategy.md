@@ -136,6 +136,24 @@ comparadas Geist (a fonte anterior do app), IBM Plex Sans e Newsreader nos títu
 
 No e-mail, Gmail e Outlook ignoram fontes da web; a fonte reserva é a que o leitor vê.
 
+### Arredondamento
+
+**Decisão (25/09/2026, sócios):** arredondamento **sutil** no site e nas peças digitais, e
+**reto** no template da newsletter.
+
+| Onde | Botões, campos, etiquetas | Cartões | Símbolo com fundo |
+| --- | --- | --- | --- |
+| Site e peças digitais | 4 px | 6 px | raio de 12% do lado |
+| Newsletter (e-mail) | 0 | 0 | quadrado |
+
+O sutil tira só a aresta: mantém a seriedade e conversa com a Manrope. A newsletter é a peça mais
+editorial da marca e fica reta, como os cortes da lâmina; cantos retos também saem iguais em
+qualquer cliente de e-mail (o Outlook no Windows ignora `border-radius`).
+
+**Símbolo com fundo:** o bloco inverte as cores do lugar (tinta em fundo claro, claro em fundo
+escuro), o símbolo ocupa 62% do bloco e o ponto segue lilás no tom do fundo do bloco. Ícones de
+sistema (iOS, Android, favicon) recebem o bloco sem raio próprio; o sistema aplica a máscara dele.
+
 ### Gestalt aplicada
 
 - **Fechamento**: barras e ápices que não se tocam, completados pelo olhar.

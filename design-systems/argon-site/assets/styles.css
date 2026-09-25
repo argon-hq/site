@@ -15,6 +15,10 @@
   --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
+  /* Arredondamento sutil (25/09/2026): 4 px em controles, 6 px em cartões. */
+  --radius-ctl: 4px;
+  --radius-card: 6px;
+
   --gutter: clamp(16px, 5vw, 64px);
   --max: 1160px;
 }
@@ -60,7 +64,7 @@ ol, ul { padding: 0; list-style: none; }
   font-weight: 500;
   text-decoration: none;
   border: 1px solid var(--foreground);
-  border-radius: 2px;
+  border-radius: var(--radius-ctl);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -107,7 +111,7 @@ main { max-width: var(--max); margin-inline: auto; }
 .hero__lead { font-size: 1.1875rem; line-height: 1.5; }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 
-.card { display: grid; background: var(--surface); border-top: 2px solid var(--accent); }
+.card { display: grid; background: var(--surface); border-top: 2px solid var(--accent); border-radius: var(--radius-card); overflow: hidden; }
 .card__head { display: flex; justify-content: space-between; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); }
 .card__item { display: grid; gap: 8px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
 .card__foot { padding: 14px 24px; }
@@ -127,7 +131,7 @@ main { max-width: var(--max); margin-inline: auto; }
   color: var(--foreground);
   background: var(--background);
   border: 1px solid var(--border);
-  border-radius: 2px;
+  border-radius: var(--radius-ctl);
 }
 .in::placeholder { color: var(--muted); }
 .in:focus { border-color: var(--foreground); outline: none; }
@@ -139,7 +143,7 @@ main { max-width: var(--max); margin-inline: auto; }
 .facts dd { font-weight: 500; }
 
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: none; }
-.card2 { display: grid; gap: 10px; align-content: start; padding: 24px 24px 28px; border: 1px solid var(--border); }
+.card2 { display: grid; gap: 10px; align-content: start; padding: 24px 24px 28px; border: 1px solid var(--border); border-radius: var(--radius-card); }
 .card2__num { font-size: 0.875rem; color: var(--foreground); }
 
 .rail { display: grid; border-top: 1px solid var(--foreground); }
