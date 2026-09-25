@@ -292,4 +292,8 @@ pequeno.
 1. ~~Sócios escolhem o símbolo e fecham o briefing~~ (33, Ponto espelhado; briefing de 25/09/2026).
 2. ~~Cor e ajuste fino da geometria~~ (lilás do argônio, acento no ponto).
 3. **Próximo:** aplicar a marca no site (`BrandMark`, favicon, tokens de cor) e no e-mail da newsletter.
+   Os arquivos da marca já estão em `apps/web/public/brand/` (símbolo, logo, bloco sutil e bloco
+   quadrado, em SVG e PNG) e o deploy os publica em
+   `https://argon-public-382597877834.s3.sa-east-1.amazonaws.com/<env>/brand/` (ver
+   `deploy/aws/README.md`, "Arquivos públicos").
 4. Fechar o manual: cores finais com CMYK e Pantone validados em prova de gráfica.

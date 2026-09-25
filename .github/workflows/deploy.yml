@@ -146,6 +146,36 @@ jobs:
             aws ecr put-image --repository-name "argon/$app" --image-tag "$TAG" --image-manifest "$MANIFEST" --image-manifest-media-type "$TYPE" >/dev/null
             echo "argon/$app:$ENV_NAME -> argon/$app:$TAG"
           done
+      # apps/web/public goes to the public bucket under <env>/ (deploy/aws/public-assets). Terraform
+      # compares each file's MD5 with its state: changed files are uploaded, deleted ones removed.
+      # A push runs it only when the folder or that root changed; a dispatch or a push with no
+      # usable base always runs it. A rollback (tag) skips it: the checkout is not that tag's code.
+      - id: public
+        if: inputs.tag == ''
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          run=true
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE" 2>/dev/null \
+            && [ -z "$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- apps/web/public deploy/aws/public-assets)" ]; then
+            run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "public files: run=$run"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        if: steps.public.outputs.run == 'true'
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - name: Arquivos públicos
+        if: steps.public.outputs.run == 'true'
+        env:
+          SRC_DIR: ${{ steps.src.outputs.dir }}
+        run: |
+          terraform -chdir=deploy/aws/public-assets init -input=false -backend-config="key=public-assets/$ENV_NAME.tfstate"
+          terraform -chdir=deploy/aws/public-assets apply -input=false -auto-approve \
+            -var "env=$ENV_NAME" -var "public_dir=$GITHUB_WORKSPACE/$SRC_DIR/apps/web/public"
       - name: Deploy na instância
         env:
           INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
