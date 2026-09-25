@@ -205,7 +205,9 @@ e lilás do argônio (tabela na seção 4). O 33 recebeu três correções ótic
 - a lâmina tem a inclinação da perna do Λ do ARGON (17 u a cada 40 u), com a mesma espessura;
 - o ponto passa 0,8 u da linha de base e cresceu 0,5 u de raio, porque formas redondas parecem
   menores que as retas;
-- o ponto é uma peça separada, que recebe a cor de acento.
+- o ponto e a lâmina são peças separadas, e qualquer uma pode receber a cor de acento.
+
+Em teste: acento no traço em vez do ponto; os dois modos estão na página para comparar.
 
 ## 5. Recomendação
 

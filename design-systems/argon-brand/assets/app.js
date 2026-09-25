@@ -49,6 +49,24 @@
     });
   }
 
+  // Acento: no ponto (padrão) ou no traço.
+  function applyAccent(a) {
+    if (a === "blade") root.setAttribute("data-accent", "blade");
+    else root.removeAttribute("data-accent");
+    var sel = document.querySelector(".js-accent");
+    if (sel && sel.value !== a) sel.value = a;
+  }
+  var accent = read("argon-brand-accent");
+  if (accent !== "blade") accent = "dot";
+  applyAccent(accent);
+  var accentPicker = document.querySelector(".js-accent");
+  if (accentPicker) {
+    accentPicker.addEventListener("change", function () {
+      applyAccent(accentPicker.value);
+      write("argon-brand-accent", accentPicker.value);
+    });
+  }
+
   var picker = document.querySelector(".js-picker");
     if (picker && picker.value !== id) picker.value = id;
   }

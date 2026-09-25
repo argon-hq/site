@@ -53,7 +53,7 @@
     <symbol id="g19" viewBox="0 0 64 64"><defs><mask id="argon-g19" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 32 54 72 10 72Z" fill="#000"/></mask></defs><g mask="url(#argon-g19)"><circle cx="32" cy="32" r="27.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="18.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="9.5" fill="none" stroke="currentColor" stroke-width="5"/></g><circle cx="32" cy="32" r="3.5" fill="currentColor"/></symbol>
     <symbol id="g20" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><circle cx="32" cy="7" r="4.6"/><circle cx="49.68" cy="14.32" r="4.6"/><circle cx="57" cy="32" r="4.6"/><circle cx="49.68" cy="49.68" r="4.6"/><circle cx="32" cy="57" r="4.6"/><circle cx="14.32" cy="49.68" r="4.6"/><circle cx="7" cy="32" r="4.6"/><circle cx="14.32" cy="14.32" r="4.6"/><circle cx="32" cy="32" r="10"/></g></symbol>
     <symbol id="g21" viewBox="0 0 64 64"><defs><mask id="argon-g21-ring" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="miter"/></mask></defs><circle cx="32" cy="33" r="21" fill="none" stroke="currentColor" stroke-width="6" mask="url(#argon-g21-ring)"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="currentColor"/></symbol>
-<symbol id="g33" viewBox="0 0 64 64"><g fill="currentColor"><path d="M27.30 5 42.70 5 20.18 58 4.78 58Z"/><circle cx="49" cy="48.3" r="10.5" style="fill:var(--mark-dot, currentColor)"/></g></symbol>
+<symbol id="g33" viewBox="0 0 64 64"><g fill="currentColor"><path d="M27.30 5 42.70 5 20.18 58 4.78 58Z" style="fill:var(--mark-blade, currentColor)"/><circle cx="49" cy="48.3" r="10.5" style="fill:var(--mark-dot, currentColor)"/></g></symbol>
     <symbol id="g33a" viewBox="0 0 64 64"><g fill="currentColor"><path d="M24.5 5 39.5 5 21 58 6 58Z"/><circle cx="49" cy="48" r="10"/></g></symbol>
     <symbol id="g22" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><path d="M24.5 5 39.5 5 58 58 43 58Z"/><circle cx="15" cy="48" r="10"/></g></symbol>
     <symbol id="g23" viewBox="0 0 64 64"><defs><clipPath id="argon-g23-base"><rect x="0" y="0" width="64" height="58"/></clipPath><mask id="argon-g23-split" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><rect x="30.4" y="-4" width="3.2" height="72" fill="#000"/></mask></defs><g clip-path="url(#argon-g23-base)"><path d="M9 66 32 5 55 66" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="miter" stroke-miterlimit="10" mask="url(#argon-g23-split)"/></g><circle cx="32" cy="49" r="6.2" fill="currentColor"/></symbol>
@@ -114,6 +114,13 @@
           <option value="mono">Monocromática</option>
         </select>
       </label>
+      <label class="picker palette-pick" for="accent-picker">
+        <span class="mono">Acento</span>
+        <select id="accent-picker" class="js-accent">
+          <option value="dot" selected>no ponto</option>
+          <option value="blade">no traço</option>
+        </select>
+      </label>
       <button class="theme-btn js-theme" type="button" aria-label="Alternar tema claro e escuro">
         <span class="js-theme-label">Tema: sistema</span>
       </button>
@@ -143,13 +150,21 @@
       <div class="section__head">
         <p class="eyebrow mono">Passo 2 · as duas paletas</p>
         <h2 id="p2-pal-title" class="h2">Grafite + ocre ou lilás do argônio</h2>
-        <p class="section__lead">Cada paleta tem um acento para o papel e outro, mais claro, para fundos escuros. Os contrastes foram medidos pela WCAG: 3:1 é o mínimo para elementos gráficos e 4,5:1 para texto.</p>
+        <p class="section__lead">Cada paleta tem um acento para o papel e outro, mais claro, para fundos escuros. As duas linhas comparam o acento no ponto e no traço; o seletor "Acento", no topo, troca todas as aplicações. Os contrastes foram medidos pela WCAG: 3:1 é o mínimo para elementos gráficos e 4,5:1 para texto.</p>
       </div>
+      <p class="p2__row-label mono">Acento no ponto</p>
       <div class="p2__tiles">
-          <div class="p2__tile p2__tile--ocre p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · claro</span></div>
-          <div class="p2__tile p2__tile--ocre p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · escuro</span></div>
-          <div class="p2__tile p2__tile--lilas p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · claro</span></div>
-          <div class="p2__tile p2__tile--lilas p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · escuro</span></div>
+          <div class="p2__tile p2__tile--ocre p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · claro · acento no ponto</span></div>
+          <div class="p2__tile p2__tile--ocre p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · escuro · acento no ponto</span></div>
+          <div class="p2__tile p2__tile--lilas p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · claro · acento no ponto</span></div>
+          <div class="p2__tile p2__tile--lilas p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · escuro · acento no ponto</span></div>
+      </div>
+      <p class="p2__row-label mono">Acento no traço</p>
+      <div class="p2__tiles">
+          <div class="p2__tile p2__tile--blade p2__tile--ocre p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · claro · acento no traço</span></div>
+          <div class="p2__tile p2__tile--blade p2__tile--ocre p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · escuro · acento no traço</span></div>
+          <div class="p2__tile p2__tile--blade p2__tile--lilas p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · claro · acento no traço</span></div>
+          <div class="p2__tile p2__tile--blade p2__tile--lilas p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · escuro · acento no traço</span></div>
       </div>
       <div class="p2__pals">
         <article class="p2__pal">
