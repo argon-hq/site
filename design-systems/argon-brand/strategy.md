@@ -91,6 +91,17 @@ A rodada 1 é **monocromática**: a forma precisa funcionar sem cor. Propostas p
 | Verde-petróleo | `#0F3B3A` `#E9EFEC` `#7FA89F` | Transmite confiança e estabilidade sem o clichê do azul. Também remete à região e ao crescimento, sem seta. |
 | Lilás do argônio | `#121019` `#F5F4F8` `#6A4DF4` | A cor que o argônio emite quando excitado. É a ponte com o nome e com o roxo que o site já usa. Acento usado com parcimônia. |
 
+**Passo 2:** as finalistas são grafite + ocre e lilás do argônio. O acento entra **só no ponto** do
+símbolo, nos botões e em fios de destaque; nunca em texto corrido. Contraste medido pela WCAG
+(3:1 para gráfico, 4,5:1 para texto):
+
+| Paleta | Acento no papel | Acento no escuro | Botão |
+| --- | --- | --- | --- |
+| Grafite + ocre | `#AD7F30`, 3,25:1 sobre `#F4F4F1` | `#D4A85A`, 8,8:1 sobre `#0D0E11` | texto em tinta, 4,71:1 |
+| Lilás do argônio | `#6A4DF4`, 4,82:1 sobre `#F5F4F8` | `#8B74FF`, 5,42:1 sobre `#121019` | texto branco, 5,28:1 |
+
+O ocre da rodada 1 (`#B8893B`) ficava em 2,85:1 sobre o papel e foi escurecido para `#AD7F30`.
+
 ### Tipografia
 
 - **Wordmark:** "argon" em caixa baixa, tracking levemente aberto.
@@ -186,6 +197,16 @@ perna esquerda do A e o ponto, o átomo, completa a direita (fechamento). Com o 
 a inclinação do primeiro traço do Λ do ARGON e o símbolo se lê da esquerda para a direita, como o
 nome. A logo é o 33 ao lado do ARGON por extenso.
 
+## 4i. Passo 2 — cor e ajuste fino
+
+Duas paletas aplicadas na marca, no site e na newsletter para os sócios escolherem: grafite + ocre
+e lilás do argônio (tabela na seção 4). O 33 recebeu três correções óticas:
+
+- a lâmina tem a inclinação da perna do Λ do ARGON (17 u a cada 40 u), com a mesma espessura;
+- o ponto passa 0,8 u da linha de base e cresceu 0,5 u de raio, porque formas redondas parecem
+  menores que as retas;
+- o ponto é uma peça separada, que recebe a cor de acento.
+
 ## 5. Recomendação
 
 **Atualização (rodada 6):** o símbolo escolhido é o 33, Ponto espelhado. Substitui a Órbita (21)
@@ -222,7 +243,7 @@ pequeno.
 
 ## 6. Próximos passos
 
-1. Sócios escolhem uma ou duas variações e confirmam valores, público e região.
-2. Rodada 2: cor (uma das três paletas) e ajuste fino da geometria.
+1. ~~Sócios escolhem o símbolo~~ (33, Ponto espelhado). Falta confirmar valores, público e região.
+2. Cor e ajuste fino da geometria. _Em andamento: escolher entre grafite + ocre e lilás do argônio._
 3. Aplicar a marca no site (`BrandMark`, favicon) e no e-mail da newsletter.
 4. Fechar o manual: cores finais com CMYK e Pantone validados em prova de gráfica.

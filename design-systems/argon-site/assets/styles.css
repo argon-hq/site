@@ -11,6 +11,7 @@
   --border: light-dark(#d9d9d3, #2a2c32);
   --accent: var(--foreground);
   --accent-foreground: var(--background);
+  --mark-dot: currentColor;
 
   --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -20,6 +21,25 @@
 }
 
 :root[data-theme="light"] { color-scheme: light; }
+
+/* Passo 2 · paletas. O acento vai no ponto do símbolo, nos botões e no fio do cartão. */
+:root[data-palette="ocre"] {
+  --background: light-dark(#f4f4f1, #0d0e11);
+  --foreground: light-dark(#1b1d21, #ecece8);
+  --accent: light-dark(#ad7f30, #d4a85a);
+  --accent-foreground: light-dark(#1b1d21, #0d0e11);
+  --mark-dot: var(--accent);
+}
+:root[data-palette="lilas"] {
+  --background: light-dark(#f5f4f8, #121019);
+  --surface: light-dark(#eae8f0, #1b1824);
+  --foreground: light-dark(#121019, #ecebf4);
+  --muted: light-dark(#5f5c6a, #9a97a6);
+  --border: light-dark(#dcd9e4, #2d2a38);
+  --accent: light-dark(#6a4df4, #8b74ff);
+  --accent-foreground: light-dark(#ffffff, #121019);
+  --mark-dot: var(--accent);
+}
 :root[data-theme="dark"] { color-scheme: dark; }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -63,7 +83,7 @@ ol, ul { padding: 0; list-style: none; }
   cursor: pointer;
   white-space: nowrap;
 }
-.btn { background: var(--accent); color: var(--accent-foreground); }
+.btn { background: var(--accent); color: var(--accent-foreground); border-color: var(--accent); }
 .btn:hover { opacity: 0.88; }
 .btn2 { background: transparent; color: var(--foreground); justify-self: start; }
 .btn2:hover { background: var(--surface); }
@@ -74,7 +94,7 @@ ol, ul { padding: 0; list-style: none; }
 .lnk--under { justify-self: start; text-decoration: underline; text-underline-offset: 4px; }
 
 /* Logo */
-/* Logo: símbolo da rodada 6 (Ponto espelhado) + ARGON por extenso. */
+/* Logo: símbolo 33 (Ponto espelhado) + ARGON por extenso. O ponto recebe o acento da paleta. */
 .logo { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
 .logo__mark { width: 28px; height: 28px; flex: none; }
 .logo__wm { display: block; height: 17px; width: auto; aspect-ratio: 264 / 44; flex: none; }
@@ -106,7 +126,7 @@ main { max-width: var(--max); margin-inline: auto; }
 .hero__lead { font-size: 1.1875rem; line-height: 1.5; }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 
-.card { display: grid; background: var(--surface); border-top: 2px solid var(--foreground); }
+.card { display: grid; background: var(--surface); border-top: 2px solid var(--accent); }
 .card__head { display: flex; justify-content: space-between; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border); }
 .card__item { display: grid; gap: 8px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
 .card__foot { padding: 14px 24px; }
@@ -166,6 +186,8 @@ main { max-width: var(--max); margin-inline: auto; }
 .foot .logo__mark { width: 20px; height: 20px; }
 .foot .logo__wm { height: 13px; }
 .foot__rights { flex-basis: 100%; text-transform: none; letter-spacing: 0.02em; }
+.pal { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.pal__select { font: inherit; text-transform: none; letter-spacing: 0; color: var(--foreground); background: var(--background); border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; }
 
 @media (max-width: 860px) {
   .hero { grid-template-columns: minmax(0, 1fr); }

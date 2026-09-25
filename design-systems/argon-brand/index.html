@@ -53,7 +53,8 @@
     <symbol id="g19" viewBox="0 0 64 64"><defs><mask id="argon-g19" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 32 54 72 10 72Z" fill="#000"/></mask></defs><g mask="url(#argon-g19)"><circle cx="32" cy="32" r="27.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="18.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="9.5" fill="none" stroke="currentColor" stroke-width="5"/></g><circle cx="32" cy="32" r="3.5" fill="currentColor"/></symbol>
     <symbol id="g20" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><circle cx="32" cy="7" r="4.6"/><circle cx="49.68" cy="14.32" r="4.6"/><circle cx="57" cy="32" r="4.6"/><circle cx="49.68" cy="49.68" r="4.6"/><circle cx="32" cy="57" r="4.6"/><circle cx="14.32" cy="49.68" r="4.6"/><circle cx="7" cy="32" r="4.6"/><circle cx="14.32" cy="14.32" r="4.6"/><circle cx="32" cy="32" r="10"/></g></symbol>
     <symbol id="g21" viewBox="0 0 64 64"><defs><mask id="argon-g21-ring" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="miter"/></mask></defs><circle cx="32" cy="33" r="21" fill="none" stroke="currentColor" stroke-width="6" mask="url(#argon-g21-ring)"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="currentColor"/></symbol>
-    <symbol id="g33" viewBox="0 0 64 64"><g fill="currentColor"><path d="M24.5 5 39.5 5 21 58 6 58Z"/><circle cx="49" cy="48" r="10"/></g></symbol>
+<symbol id="g33" viewBox="0 0 64 64"><g fill="currentColor"><path d="M27.30 5 42.70 5 20.18 58 4.78 58Z"/><circle cx="49" cy="48.3" r="10.5" style="fill:var(--mark-dot, currentColor)"/></g></symbol>
+    <symbol id="g33a" viewBox="0 0 64 64"><g fill="currentColor"><path d="M24.5 5 39.5 5 21 58 6 58Z"/><circle cx="49" cy="48" r="10"/></g></symbol>
     <symbol id="g22" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><path d="M24.5 5 39.5 5 58 58 43 58Z"/><circle cx="15" cy="48" r="10"/></g></symbol>
     <symbol id="g23" viewBox="0 0 64 64"><defs><clipPath id="argon-g23-base"><rect x="0" y="0" width="64" height="58"/></clipPath><mask id="argon-g23-split" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><rect x="30.4" y="-4" width="3.2" height="72" fill="#000"/></mask></defs><g clip-path="url(#argon-g23-base)"><path d="M9 66 32 5 55 66" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="miter" stroke-miterlimit="10" mask="url(#argon-g23-split)"/></g><circle cx="32" cy="49" r="6.2" fill="currentColor"/></symbol>
     <symbol id="g24" viewBox="0 0 64 64"><defs></defs><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter" stroke-miterlimit="10"><circle cx="32" cy="32" r="27"/><path d="M11.88 50 32 5 52.12 50"/></g></symbol>
@@ -65,7 +66,7 @@
       <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
       <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
     </a>
-    <span class="top__meta mono">Identidade visual · rascunho, rodada 6 · setembro de 2026</span>
+    <span class="top__meta mono">Identidade visual · rascunho, passo 2 · setembro de 2026</span>
     <div class="top__actions">
       <label class="picker" for="mark-picker">
         <span class="mono">Marca em teste</span>
@@ -105,6 +106,14 @@
           <option value="m13">13 · Gesto (esboço 9)</option>
         </select>
       </label>
+      <label class="picker palette-pick" for="palette-picker">
+        <span class="mono">Paleta</span>
+        <select id="palette-picker" class="js-palette">
+          <option value="ocre" selected>Grafite + ocre</option>
+          <option value="lilas">Lilás do argônio</option>
+          <option value="mono">Monocromática</option>
+        </select>
+      </label>
       <button class="theme-btn js-theme" type="button" aria-label="Alternar tema claro e escuro">
         <span class="js-theme-label">Tema: sistema</span>
       </button>
@@ -112,10 +121,82 @@
   </header>
 
   <main id="inicio">
+    <section class="chosen p2" aria-labelledby="p2-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Passo 2 · cor</p>
+        <h1 id="p2-title" class="h1">A cor mora no ponto.</h1>
+        <p class="lead">Duas paletas para comparar. A lâmina e o nome ficam em tinta; o ponto, o átomo, recebe o acento. No site, o acento aparece só em botões e em fios de destaque, nunca em texto corrido. Use o seletor de paleta no topo para ver todas as aplicações em cada uma.</p>
+        <dl class="specs">
+          <div><dt class="mono">Paletas</dt><dd>grafite + ocre · lilás</dd></div>
+          <div><dt class="mono">Acento</dt><dd>só no ponto e em botões</dd></div>
+          <div><dt class="mono">Símbolo</dt><dd>33, com ajuste fino</dd></div>
+          <div><dt class="mono">Decisão</dt><dd>dos sócios</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark" role="img" aria-label="Símbolo 33 na paleta escolhida"><use href="#g33"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="p2-pal-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Passo 2 · as duas paletas</p>
+        <h2 id="p2-pal-title" class="h2">Grafite + ocre ou lilás do argônio</h2>
+        <p class="section__lead">Cada paleta tem um acento para o papel e outro, mais claro, para fundos escuros. Os contrastes foram medidos pela WCAG: 3:1 é o mínimo para elementos gráficos e 4,5:1 para texto.</p>
+      </div>
+      <div class="p2__tiles">
+          <div class="p2__tile p2__tile--ocre p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · claro</span></div>
+          <div class="p2__tile p2__tile--ocre p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · escuro</span></div>
+          <div class="p2__tile p2__tile--lilas p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · claro</span></div>
+          <div class="p2__tile p2__tile--lilas p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · escuro</span></div>
+      </div>
+      <div class="p2__pals">
+        <article class="p2__pal">
+          <div class="p2__chips"><span style="background:#1B1D21"></span><span style="background:#F4F4F1"></span><span style="background:#AD7F30"></span><span style="background:#D4A85A"></span></div>
+          <h3 class="h3">Grafite + ocre</h3>
+          <p class="variant__tags mono">Sóbria e editorial</p>
+          <table class="p2__table"><tbody>
+            <tr><td class="mono">Tinta</td><td>#1B1D21 · rgb 27 29 33</td></tr>
+            <tr><td class="mono">Papel</td><td>#F4F4F1 · rgb 244 244 241</td></tr>
+            <tr><td class="mono">Ocre, no papel</td><td>#AD7F30 · rgb 173 127 48 · 3,25:1 sobre o papel</td></tr>
+            <tr><td class="mono">Ocre, no escuro</td><td>#D4A85A · rgb 212 168 90 · 8,8:1 sobre #0D0E11</td></tr>
+            <tr><td class="mono">Botão</td><td>fundo ocre, texto em tinta · 4,71:1</td></tr>
+          </tbody></table>
+          <p>O ocre da rodada 1 (#B8893B) ficou em 2,85:1 sobre o papel, abaixo do mínimo, e foi escurecido um pouco. Transmite valor e maturidade; fica bem no impresso.</p>
+        </article>
+        <article class="p2__pal">
+          <div class="p2__chips"><span style="background:#121019"></span><span style="background:#F5F4F8"></span><span style="background:#6A4DF4"></span><span style="background:#8B74FF"></span></div>
+          <h3 class="h3">Lilás do argônio</h3>
+          <p class="variant__tags mono">A cor que o argônio emite</p>
+          <table class="p2__table"><tbody>
+            <tr><td class="mono">Tinta</td><td>#121019 · rgb 18 16 25</td></tr>
+            <tr><td class="mono">Papel</td><td>#F5F4F8 · rgb 245 244 248</td></tr>
+            <tr><td class="mono">Lilás, no papel</td><td>#6A4DF4 · rgb 106 77 244 · 4,82:1 sobre o papel</td></tr>
+            <tr><td class="mono">Lilás, no escuro</td><td>#8B74FF · rgb 139 116 255 · 5,42:1 sobre #121019</td></tr>
+            <tr><td class="mono">Botão</td><td>fundo lilás, texto branco · 5,28:1</td></tr>
+          </tbody></table>
+          <p>Tem história (o brilho do argônio) e já conversa com o roxo do site. Mais tecnológica que a ocre; na tela, chama mais atenção.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="p2-geo-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Passo 2 · ajuste fino</p>
+        <h2 id="p2-geo-title" class="h2">O mesmo símbolo, com três correções óticas</h2>
+        <p class="section__lead">A lâmina ganhou a inclinação exata da perna do Λ do ARGON (17 u a cada 40 u) e manteve a espessura. O ponto passa 0,8 u da linha de base e cresceu 0,5 u de raio: formas redondas parecem menores que as retas do mesmo tamanho. E o ponto virou uma peça separada, para receber a cor.</p>
+      </div>
+      <div class="p2__geo">
+        <figure><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g33a"/></svg></div><figcaption class="mono caption">Antes</figcaption></figure>
+        <figure><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g33"/></svg></div><figcaption class="mono caption">Depois</figcaption></figure>
+      </div>
+    </section>
+
     <section class="chosen r6" aria-labelledby="r6-title">
       <div class="chosen__copy">
         <p class="eyebrow mono">Rodada 6 · símbolo escolhido</p>
-        <h1 id="r6-title" class="h1">Um traço e um ponto.</h1>
+        <h2 id="r6-title" class="h1">Um traço e um ponto.</h2>
         <p class="lead">O 22, Ponto, espelhado. A lâmina é a perna esquerda do A e o ponto, o átomo, completa a direita: fechamento. Com o espelho, a lâmina tem a inclinação do primeiro traço do Λ do ARGON, e o símbolo se lê da esquerda para a direita, como o nome.</p>
         <dl class="specs">
           <div><dt class="mono">Símbolo</dt><dd>33 · Ponto espelhado</dd></div>
@@ -922,7 +1003,7 @@
       <div class="section__head">
         <p class="eyebrow mono">Cor</p>
         <h2 id="color-title" class="h2">Primeiro a forma, depois a cor</h2>
-        <p class="section__lead">A rodada 1 é monocromática: se a marca funciona em preto sobre papel, funciona em qualquer lugar. As três paletas abaixo são para a rodada 2.</p>
+        <p class="section__lead">A rodada 1 é monocromática: se a marca funciona em preto sobre papel, funciona em qualquer lugar. As três paletas abaixo são para a rodada 2. <strong>Grafite + ocre e lilás foram aplicadas no passo 2.</strong></p>
       </div>
       <div class="inst">
         <div class="swatch swatch--ink">
