@@ -638,7 +638,7 @@ main { max-width: var(--max); margin-inline: auto; }
 
 /* Passo 2 · cor. Paletas por data-palette no <html>; o acento entra só no ponto (--mark-dot) e em
    destaques gráficos. --dot-paper vale sobre papel, --dot-ink sobre tinta (fundo escuro). */
-:root { --dot-paper: currentColor; --dot-ink: currentColor; --mark-dot: var(--dot-paper); --accent-line: var(--fixed-ink); }
+:root { --dot-paper: currentColor; --dot-ink: currentColor; --acc: var(--dot-paper); --accent-line: var(--fixed-ink); }
 :root[data-palette="ocre"] { --dot-paper: #ad7f30; --dot-ink: #d4a85a; --accent-line: #ad7f30; }
 :root[data-palette="lilas"] { --dot-paper: #6a4df4; --dot-ink: #8b74ff; --accent-line: #6a4df4; }
 :root[data-palette="ocre"]:not([data-theme="dark"]) { --paper: #f4f4f1; --ink: #1b1d21; --focus: #1b1d21; }
@@ -646,18 +646,22 @@ main { max-width: var(--max); margin-inline: auto; }
 :root[data-palette="ocre"] { --fixed-ink: #1b1d21; --fixed-paper: #f4f4f1; }
 :root[data-palette="lilas"] { --fixed-ink: #121019; --fixed-paper: #f5f4f8; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --mark-dot: var(--dot-ink); }
+  :root:not([data-theme="light"]) { --acc: var(--dot-ink); }
   :root[data-palette="ocre"]:not([data-theme="light"]) { --paper: #0d0e11; --ink: #ecece8; --focus: #ecece8; }
   :root[data-palette="lilas"]:not([data-theme="light"]) { --paper: #121019; --paper-2: #1b1824; --ink: #ecebf4; --focus: #ecebf4; --rule: #2d2a38; }
 }
-:root[data-theme="dark"] { --mark-dot: var(--dot-ink); }
+:root[data-theme="dark"] { --acc: var(--dot-ink); }
+/* O próprio svg resolve onde vai o acento: no ponto (padrão) ou no traço (data-accent="blade"). */
+svg { --mark-dot: var(--acc); --mark-blade: currentColor; }
+:root[data-accent="blade"] svg, .p2__tile--blade svg { --mark-dot: currentColor; --mark-blade: var(--acc); }
 :root[data-theme="dark"][data-palette="lilas"] { --paper: #121019; --paper-2: #1b1824; --ink: #ecebf4; --focus: #ecebf4; --rule: #2d2a38; }
 /* superfícies de cor fixa nas aplicações */
-.card-front, .avatar, .system__cell--ink, .swatch--ink, .p2__tile--dark { --mark-dot: var(--dot-ink); }
-.card-back, .mail, .badge, .system__cell--paper, .swatch--paper, .p2__tile--light { --mark-dot: var(--dot-paper); }
+.card-front, .avatar, .system__cell--ink, .swatch--ink, .p2__tile--dark { --acc: var(--dot-ink); }
+.card-back, .mail, .badge, .system__cell--paper, .swatch--paper, .p2__tile--light { --acc: var(--dot-paper); }
 .mail__head { border-bottom-color: var(--accent-line); }
 
 .p2__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.p2__row-label { margin: 8px 0 -4px; color: var(--muted); font-size: var(--step--1); }
 .p2__tile { display: grid; gap: 18px; justify-items: start; padding: 28px; border: 1px solid var(--rule); }
 .p2__tile .lockup { font-size: 34px; }
 .p2__tile .mono { font-size: var(--step--1); opacity: 0.75; }
