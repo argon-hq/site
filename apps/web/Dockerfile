@@ -4,7 +4,7 @@
 # The pnpm store is a cache mount (the syntax line above enables it): packages already fetched by
 # an earlier build are not downloaded again. Needs BuildKit — the default with buildx installed,
 # DOCKER_BUILDKIT=1 otherwise.
-FROM node:22.23-alpine AS base
+FROM node:26.10-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 WORKDIR /repo
 
@@ -19,7 +19,7 @@ COPY apps/web apps/web
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter web build
 
-FROM node:22.23-alpine AS run
+FROM node:26.10-alpine AS run
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
