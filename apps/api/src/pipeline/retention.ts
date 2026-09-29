@@ -13,6 +13,11 @@ export const TEXT_RETENTION_DAYS = 30;
 export const SEEN_URL_RETENTION_DAYS = 30;
 export const CANCELLED_RETENTION_DAYS = 90;
 
+// A sign-up nobody confirmed is discarded once its link has been dead for this long. The wait is not
+// a courtesy: a click on an expired link answers "expired, sign up again" only while the row is still
+// there — without it the same click says "invalid".
+export const UNCONFIRMED_GRACE_DAYS = 7;
+
 // One pass a day, in the quiet hour between the backup and the generation. Every day: the tables
 // grow on Sunday too.
 export const RETENTION_SCHEDULE = "0 4 * * *";
@@ -23,7 +28,12 @@ export const RETENTION_BATCH = 1_000;
 
 export class RetentionDbFailed extends Data.TaggedError("RetentionDbFailed")<{ reason: string }> {}
 
-export type RetentionReport = { textsCleared: number; seenUrlsDeleted: number; subscribersPurged: number };
+export type RetentionReport = {
+  textsCleared: number;
+  seenUrlsDeleted: number;
+  subscribersPurged: number;
+  unconfirmedDiscarded: number;
+};
 
 @Injectable()
 export class RetentionScheduler {
@@ -37,7 +47,7 @@ export class RetentionScheduler {
     await Effect.runPromise(Effect.ignore(this.run()));
   }
 
-  // Runs the three trims and reports what each took. A failure in one is logged and stops the
+  // Runs the four trims and reports what each took. A failure in one is logged and stops the
   // pass; tomorrow's pass picks up where it left, because every statement only touches what is
   // still past the window.
   run(now: Date = new Date()): Effect.Effect<RetentionReport, RetentionDbFailed> {
@@ -68,7 +78,18 @@ export class RetentionScheduler {
             LIMIT ${limit}
           )`),
       );
-      const report = { textsCleared, seenUrlsDeleted, subscribersPurged };
+      // Still `pending` a week after the link died: the address never confirmed, so the consent was never
+      // completed and nothing is owed to it. The delivery rows a reopened subscription may hold go with it.
+      const unconfirmedDiscarded = yield* this.drain("discard unconfirmed sign-ups", (limit) =>
+        this.prisma.$executeRaw(Prisma.sql`
+          DELETE FROM "subscriber"
+          WHERE "id" IN (
+            SELECT "id" FROM "subscriber"
+            WHERE "status" = 'pending' AND "token_expires_at" < ${daysBefore(now, UNCONFIRMED_GRACE_DAYS)}
+            LIMIT ${limit}
+          )`),
+      );
+      const report = { textsCleared, seenUrlsDeleted, subscribersPurged, unconfirmedDiscarded };
       this.logger.log({ msg: "retention finished", ...report });
       return report;
     }).pipe(
