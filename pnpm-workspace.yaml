@@ -6,12 +6,15 @@ packages:
 # until Nest moves on its own. pnpm 11 reads overrides here, not from package.json.
 overrides:
   multer: ">=2.4.0"
+  # @prisma/config pins effect 3.20 while the API runs 3.22: one copy in the image, not two. Keep
+  # this in step with apps/api/package.json when effect is bumped.
+  "@prisma/config>effect": "^3.22.2"
 
 allowBuilds:
-  '@parcel/watcher': false
-  '@swc/core': false
+  "@parcel/watcher": false
+  "@swc/core": false
   unrs-resolver: true
   esbuild: true
-  '@prisma/engines': true
+  "@prisma/engines": true
   prisma: true
   sharp: false

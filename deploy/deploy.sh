@@ -78,15 +78,24 @@ if [ "$ENV_NAME" = lab ]; then touch logs/lab.log; fi
 docker compose up -d --wait --wait-timeout 180 caddy $SERVICES
 # The Caddyfile is a bind mount: a changed file needs an explicit reload, or new hosts never get certificates.
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
-# Only now is this tag the one that is running.
+# Only now is this tag the one that is running. The one it replaces stays on disk (see the image
+# cleanup below) so a rollback to it does not wait for a pull.
+PREV_TAG="$(grep "^$KEY=" .env | cut -d= -f2)"
 sed -i "s|^$KEY=.*|$KEY=$TAG|" .env
 # Retenção de 30 dias nos logs do ambiente; o grupo é criado pelo driver awslogs no primeiro start.
 sleep 5; for g in $(for a in $APPS; do echo "/argon/$ENV_NAME/$a"; done) /argon/postgres /argon/caddy; do
   aws logs put-retention-policy --region sa-east-1 --log-group-name "$g" --retention-in-days 30 || true
 done
-# Plain `prune -f` only drops dangling images, and every deploy tags one with its commit: the old
-# ones stayed tagged forever and filled the 16 GB disk (43 images, 10 GB, deploys failing with "no
-# space left on device"). With -a the tagged ones no container uses go too — a stopped container
-# still holds its image, so an idle-stopped lab keeps its own. The filter spares today's, for rollback.
-docker image prune -af --filter "until=24h" >/dev/null
+# Image retention is a set, not a time window. Every deploy tags an image with its commit, and the
+# old ones once stayed forever and filled the 16 GB disk (43 images, 10 GB, "no space left on
+# device"); pruning what was older than 24 h replaced that with a slower version of the same
+# failure — ten deploys in a day park 7 GB of api images before any of them ages out. What stays:
+# the tag each environment runs (.env, so an idle-stopped lab keeps its own) and the tag this
+# environment ran before, for a rollback that does not wait on a pull. Only our ECR images are
+# touched; caddy and postgres are never candidates.
+keep=" $PREV_TAG $(grep -E '^(PROD|DEV|LAB)_TAG=' .env | cut -d= -f2 | tr '\n' ' ') "
+docker images --format '{{.Repository}}:{{.Tag}}' --filter 'reference=*/argon/*' | while read -r image; do
+  case "$keep" in *" ${image##*:} "*) ;; *) docker rmi "$image" >/dev/null 2>&1 || true ;; esac
+done
+docker image prune -f >/dev/null
 echo "deploy $ENV_NAME $TAG ok"
