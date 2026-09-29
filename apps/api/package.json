@@ -23,21 +23,21 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@mastra/core": "^1.68.0",
-    "@mastra/editor": "^0.15.1",
-    "@mastra/nestjs": "^0.2.27",
-    "@mastra/pg": "^1.26.0",
+    "@mastra/core": "^1.71.0",
+    "@mastra/editor": "^0.15.3",
+    "@mastra/nestjs": "^0.2.30",
+    "@mastra/pg": "^1.27.1",
     "@mozilla/readability": "^0.6.0",
     "@nestjs/common": "^11.2.5",
     "@nestjs/core": "^11.2.5",
     "@nestjs/platform-express": "^11.2.5",
     "@nestjs/schedule": "^12.0.2",
-    "@nestjs/throttler": "^6.7.0",
+    "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
-    "dotenv": "^18.0.3",
+    "dotenv": "^18.0.4",
     "effect": "^3.22.2",
     "linkedom": "^0.18.13",
     "nodemailer": "^10.0.10",
@@ -46,7 +46,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "reflect-metadata": "^0.2.2",
-    "resend": "^6.28.1",
+    "resend": "^6.30.0",
     "rxjs": "^7.8.2",
     "zod": "^4.6.5"
   },
@@ -61,13 +61,13 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.11.0",
-    "mastra": "^1.31.0",
+    "mastra": "^1.31.3",
     "sharp": "^0.35.4",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   }
 }
