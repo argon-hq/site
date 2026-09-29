@@ -14,7 +14,9 @@ COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter api...
 COPY apps/api apps/api
-RUN pnpm --filter api build
+# Straight to the package, past turbo, so the Prisma client is generated here by hand: the build
+# compiles against it. `turbo run build` does the same through the `generate` task.
+RUN pnpm --filter api generate && pnpm --filter api build
 # The Studio bundle travels with the `mastra` CLI, a devDependency that the runtime stage does not
 # install. Copied out of node_modules here, dereferenced (pnpm links it), for the stage below.
 RUN cp -rL apps/api/node_modules/mastra/dist/studio apps/api/studio
