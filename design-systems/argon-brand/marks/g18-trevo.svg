@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g18-trevo</title>
+  <defs><mask id="argon-g18" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 21.5L17 -4.48" stroke="#000" stroke-width="3.2"/><path d="M44.56 43.25L74.56 43.25" stroke="#000" stroke-width="3.2"/><path d="M19.44 43.25L4.44 69.23" stroke="#000" stroke-width="3.2"/></mask></defs>
+  <g fill="currentColor" mask="url(#argon-g18)"><path fill-rule="evenodd" d="M32 5.5 58.41 51.25 5.59 51.25ZM32 21.5 44.56 43.25 19.44 43.25Z"/></g>
+</svg>

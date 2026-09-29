@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g21-orbita</title>
+  <defs><mask id="argon-g21-ring" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="miter"/></mask></defs>
+  <circle cx="32" cy="33" r="21" fill="none" stroke="currentColor" stroke-width="6" mask="url(#argon-g21-ring)"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="currentColor"/>
+</svg>

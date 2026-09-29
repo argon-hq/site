@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — m14s-conexao-tela-pequena</title>
+  <defs><clipPath id="argon-clip-17"><rect width="64" height="58"/></clipPath><mask id="argon-mask-17" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M1.2 28Q31.6 13.6 59 58.5" fill="none" stroke="#000" stroke-width="12"/></mask></defs>
+  <g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linejoin="miter" clip-path="url(#argon-clip-17)"><path d="M6.3 62 31.4 7.5 51 50" mask="url(#argon-mask-17)"/><path d="M1.2 28Q31.6 13.6 59 58.5"/></g>
+</svg>

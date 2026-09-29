@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g19-orbitas</title>
+  <defs><mask id="argon-g19" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 32 54 72 10 72Z" fill="#000"/></mask></defs>
+  <g mask="url(#argon-g19)"><circle cx="32" cy="32" r="27.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="18.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="9.5" fill="none" stroke="currentColor" stroke-width="5"/></g><circle cx="32" cy="32" r="3.5" fill="currentColor"/>
+</svg>

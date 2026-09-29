@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g26-facho</title>
+  <defs><mask id="argon-g26" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 38 44 58.5 20 58.5Z" fill="#000"/></mask></defs>
+  <g fill="currentColor"><rect x="20" y="5" width="24" height="6"/><path d="M26 16 38 16 58 58 6 58Z" mask="url(#argon-g26)"/></g>
+</svg>

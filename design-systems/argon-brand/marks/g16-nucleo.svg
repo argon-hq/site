@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g16-nucleo</title>
+  <defs><mask id="argon-g16" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M-0.3 70 32 -6 64.3 70" fill="none" stroke="#000" stroke-width="4.5" stroke-linejoin="miter" stroke-miterlimit="10"/></mask></defs>
+  <circle cx="32" cy="33" r="28" fill="currentColor" mask="url(#argon-g16)"/>
+</svg>

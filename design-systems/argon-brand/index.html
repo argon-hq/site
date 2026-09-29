@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Identidade Argon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;family=Outfit:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="m1" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-1"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-1)"><path d="M7.1 62 32 10 56.9 62"/><path d="M16.7 42H35"/></g></symbol>
+    <symbol id="m2" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-2"><rect width="64" height="56"/></clipPath></defs><g fill="currentColor"><path d="M8 56h8l16-50z"/><path d="M32 6l16 50h8z"/><path d="M19 39.5v6l21-3z"/></g></symbol>
+    <symbol id="m3" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-3"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-3)"><path d="M7.1 62 32 10 56.9 62"/><path d="M22 49H42"/></g></symbol>
+    <symbol id="m4" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-4"><rect width="64" height="23"/><rect y="29" width="64" height="27"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-4)"><path d="M7.1 62 32 10 56.9 62"/><path d="M15.7 44H48.3"/></g></symbol>
+    <symbol id="m4s" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-5"><rect width="64" height="22"/><rect y="31" width="64" height="25"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="7.5" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-5)"><path d="M7.1 62 32 10 56.9 62"/><path d="M15.2 45H48.8"/></g></symbol>
+    <symbol id="m5" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-6"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-6)"><path d="M7.1 62Q14 28 32 10L56.9 62"/><path d="M11 39Q28 33 45 45" stroke-linecap="butt"/></g></symbol>
+    <symbol id="m6" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-7"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-7)"><path d="M7.1 62 32 10 47.3 42H24"/></g></symbol>
+    <defs><filter id="argon-rough" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+    <symbol id="m7" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-8"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-8)"><path d="M6.9 62 34 10 56.6 62"/><path d="M3 35Q43.6 32 55.8 60" stroke-linecap="butt"/></g></symbol>
+    <symbol id="m8" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-9"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-9)"><path d="M7.1 62 32 10 56.9 62"/><path d="M4.4 60 37 36.5"/></g></symbol>
+    <symbol id="m9" viewBox="0 0 64 64"><defs><mask id="argon-mask-10" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="6" y="6" width="52" height="52" fill="#fff"/><g fill="none" stroke="#000" stroke-width="5" stroke-linejoin="miter" stroke-miterlimit="8"><path d="M9.5 64.4 32 6 54.5 64.4"/><path d="M18.9 40H36"/></g></mask></defs><rect x="6" y="6" width="52" height="52" fill="currentColor" mask="url(#argon-mask-10)"/></symbol>
+    <symbol id="m9s" viewBox="0 0 64 64"><defs><mask id="argon-mask-11" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect x="6" y="6" width="52" height="52" fill="#fff"/><g fill="none" stroke="#000" stroke-width="7" stroke-linejoin="miter" stroke-miterlimit="8"><path d="M9.5 64.4 32 6 54.5 64.4"/><path d="M18.9 40H36"/></g></mask></defs><rect x="6" y="6" width="52" height="52" fill="currentColor" mask="url(#argon-mask-11)"/></symbol>
+    <symbol id="s7" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M7.5 57.5 33.6 10.8 56.2 57"/><path d="M8.3 56.8 33.9 11.6"/><path d="M2.2 35.6Q42.8 31 54.6 57.6"/><path d="M3.4 34.4Q41 30.2 53.6 56"/></g></symbol>
+    <symbol id="s8" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M9.2 57 31.8 10.2 55.6 56.6"/><path d="M10.4 56.2 32.2 11.4"/><path d="M9.8 56.4 37.6 36"/><path d="M11 55.1 36.8 37.1"/></g></symbol>
+    <symbol id="s9" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M6.4 6.2H57.7V57.9H5.8Z"/><path d="M7 6.8 57.3 6.5"/><path d="M12.2 58.6 31.8 6.1 52.4 58.3"/><path d="M19.2 40.2H36.4"/></g></symbol>
+    <symbol id="m10" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-12"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-12)"><path d="M7.1 62 32 10 56.9 62"/><path d="M9 60Q26 57 27 38" stroke-linecap="butt"/></g></symbol>
+    <symbol id="m11" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-13"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-13)"><path d="M5.4 62 45.6 10Q48.5 36 58 62"/><path d="M37.6 31.5 60.5 62"/></g></symbol>
+    <symbol id="m12" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-14"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-14)"><path d="M14.9 35Q20 22 28.6 10L57.5 61"/><path d="M4 18.2Q37 24.7 57.5 61" stroke-linecap="butt"/></g></symbol>
+    <symbol id="m13" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-15"><rect width="64" height="56"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="4" clip-path="url(#argon-clip-15)"><path d="M22 8 6 56 40 27 61.7 62"/></g></symbol>
+    <symbol id="s10" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M9.4 55.6 32.2 10.4 55.4 56.2"/><path d="M10.2 54.8 31.6 11.6"/><path d="M10 56.2Q25.4 55.4 26.6 38.8"/></g></symbol>
+    <symbol id="s11" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M9.6 56.4 45.2 10.4Q48 35 55.8 55.4"/><path d="M10.8 55.2 44.6 11.4"/><path d="M37.4 31.2 55.2 55.8"/><path d="M38.2 32.6 54.2 54"/></g></symbol>
+    <symbol id="s12" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M15.2 34.6Q20.4 21.6 28.4 10.6 42 34 54.4 55.4"/><path d="M4.2 18.6Q36.6 24 54.6 55.8"/><path d="M5.4 17.4Q35.2 22.6 53.4 54.2"/></g></symbol>
+    <symbol id="s13" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#argon-rough)"><path d="M21.6 8.6 6.4 55.4 39.6 27.4 57.2 55.2"/><path d="M20.8 10.2 7.6 53.4"/></g></symbol>
+    <symbol id="m14" viewBox="0 0 64 64"><defs><mask id="argon-mask-16" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M1.8 27.6Q31.6 14.2 58.6 55.4A1.665 1.665 0 0 1 55.81 57.23Q30.11 18.00 1.8 27.6Z" fill="#000" stroke="#000" stroke-width="3.2" stroke-linejoin="round"/></mask></defs><g fill="currentColor"><g mask="url(#argon-mask-16)"><path d="M7.8 58 31.4 3 52.9 46 48 46 32.8 12.4Z"/></g><path d="M1.8 27.6Q31.6 14.2 58.6 55.4A1.665 1.665 0 0 1 55.81 57.23Q30.11 18.00 1.8 27.6Z"/></g></symbol>
+    <symbol id="m14s" viewBox="0 0 64 64"><defs><clipPath id="argon-clip-17"><rect width="64" height="58"/></clipPath><mask id="argon-mask-17" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M1.2 28Q31.6 13.6 59 58.5" fill="none" stroke="#000" stroke-width="12"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linejoin="miter" clip-path="url(#argon-clip-17)"><path d="M6.3 62 31.4 7.5 51 50" mask="url(#argon-mask-17)"/><path d="M1.2 28Q31.6 13.6 59 58.5"/></g></symbol>
+    <symbol id="wm" viewBox="0 8 264 44"><defs><clipPath id="argon-wm-clip"><rect x="0" y="10" width="266" height="40"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="miter" stroke-miterlimit="10"><g clip-path="url(#argon-wm-clip)"><path d="M58.25 11.75H74A9.125 9.125 0 0 1 74 30H60V50"/><path d="M68 30 88.7 53"/><path fill="currentColor" stroke="none" d="M126.5 10H149.5L146.0 13.5H126.5Z"/><path d="M126.5 11.75A18.25 18.25 0 0 0 126.5 48.25H146.75V31H132"/><path d="M230 53V10L262 50V7"/></g><path d="M4 50 21 10 38 50"/><circle cx="190" cy="30" r="18.6"/></g></symbol>
+    <symbol id="rgon" viewBox="56 8 208 44"><defs><clipPath id="argon-rgon-clip"><rect x="0" y="10" width="266" height="40"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linejoin="miter" stroke-miterlimit="10"><g clip-path="url(#argon-rgon-clip)"><path d="M58.25 11.4H74A9.3 9.3 0 0 1 74 30H60V50"/><path d="M68 30 88.7 53"/><path fill="currentColor" stroke="none" d="M126.5 10H149.5L146.7 12.8H126.5Z"/><path d="M126.5 11.4A18.6 18.6 0 0 0 126.5 48.6H146.75V31H132"/><path d="M230 53V10L262 50V7"/></g><circle cx="190" cy="30" r="18.6"/></g></symbol>
+    <symbol id="g15" viewBox="0 0 64 64"><defs></defs><circle cx="32" cy="16.39" r="13.5" fill="currentColor"/><circle cx="16.75" cy="42.8" r="13.5" fill="currentColor"/><circle cx="47.25" cy="42.8" r="13.5" fill="currentColor"/></symbol>
+    <symbol id="g16" viewBox="0 0 64 64"><defs><mask id="argon-g16" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M-0.3 70 32 -6 64.3 70" fill="none" stroke="#000" stroke-width="4.5" stroke-linejoin="miter" stroke-miterlimit="10"/></mask></defs><circle cx="32" cy="33" r="28" fill="currentColor" mask="url(#argon-g16)"/></symbol>
+    <symbol id="g17" viewBox="0 0 64 64"><defs><mask id="argon-g17" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 47 41 59 23 59Z" fill="#000"/></mask></defs><g fill="currentColor" mask="url(#argon-g17)"><path d="M32 5 40.15 21 23.85 21Z"/><path d="M21.3 26 42.7 26 49.32 39 14.68 39Z"/><path d="M12.13 44 51.87 44 59 58 5 58Z"/></g></symbol>
+    <symbol id="g26" viewBox="0 0 64 64"><defs><mask id="argon-g26" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 38 44 58.5 20 58.5Z" fill="#000"/></mask></defs><g fill="currentColor"><rect x="20" y="5" width="24" height="6"/><path d="M26 16 38 16 58 58 6 58Z" mask="url(#argon-g26)"/></g></symbol>
+    <symbol id="g27" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><path d="M28 6 37 6 56 58 46 58Z"/><circle cx="14.36" cy="49.68" r="5.2"/><circle cx="19.82" cy="36.16" r="4.2"/><circle cx="24.86" cy="23.68" r="3.2"/></g></symbol>
+    <symbol id="g28" viewBox="0 0 64 64"><defs><clipPath id="argon-g28"><rect x="0" y="0" width="64" height="58"/></clipPath></defs><path clip-path="url(#argon-g28)" d="M9.5 62 32 7 51.5 55C55 64 18 60 8 50C-2 40 20 29 42 31C54 32 61 37 60 43" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="butt"/></symbol>
+    <symbol id="g29" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><path d="M28.00 3.00 49.50 58.00 40.00 58.00 28.00 27.30 16.00 58.00 6.50 58.00Z"/><circle cx="46.01" cy="27.66" r="4.6"/><circle cx="40.48" cy="16.51" r="3.5"/><circle cx="35.67" cy="6.97" r="2.5"/></g></symbol>
+    <symbol id="g30" viewBox="0 0 64 64"><defs><clipPath id="argon-g30-c00"><circle cx="25.77" cy="37.59" r="10.2"/></clipPath><clipPath id="argon-g30-c01"><circle cx="17.55" cy="25.66" r="10.2"/></clipPath><mask id="argon-g30-0" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><circle clip-path="url(#argon-g30-c00)" cx="40.23" cy="38.75" r="14.5" fill="none" stroke="#000" stroke-width="11.2"/><circle clip-path="url(#argon-g30-c01)" cx="23.77" cy="38.75" r="14.5" fill="none" stroke="#000" stroke-width="11.2"/></mask><clipPath id="argon-g30-c10"><circle cx="46.45" cy="25.66" r="10.2"/></clipPath><clipPath id="argon-g30-c11"><circle cx="32.00" cy="26.81" r="10.2"/></clipPath><mask id="argon-g30-1" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><circle clip-path="url(#argon-g30-c10)" cx="32.00" cy="24.50" r="14.5" fill="none" stroke="#000" stroke-width="11.2"/><circle clip-path="url(#argon-g30-c11)" cx="23.77" cy="38.75" r="14.5" fill="none" stroke="#000" stroke-width="11.2"/></mask><clipPath id="argon-g30-c20"><circle cx="32.00" cy="50.69" r="10.2"/></clipPath><clipPath id="argon-g30-c21"><circle cx="38.23" cy="37.59" r="10.2"/></clipPath><mask id="argon-g30-2" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><circle clip-path="url(#argon-g30-c20)" cx="40.23" cy="38.75" r="14.5" fill="none" stroke="#000" stroke-width="11.2"/><circle clip-path="url(#argon-g30-c21)" cx="32.00" cy="24.50" r="14.5" fill="none" stroke="#000" stroke-width="11.2"/></mask></defs><g fill="none" stroke="currentColor" stroke-width="6"><circle cx="32.00" cy="24.50" r="14.5" mask="url(#argon-g30-0)"/><circle cx="40.23" cy="38.75" r="14.5" mask="url(#argon-g30-1)"/><circle cx="23.77" cy="38.75" r="14.5" mask="url(#argon-g30-2)"/></g></symbol>
+    <symbol id="g31" viewBox="0 0 64 64"><defs><clipPath id="argon-g31-c0"><circle cx="40.91" cy="24.36" r="9.0"/></clipPath><clipPath id="argon-g31-r0"><circle cx="40.91" cy="24.36" r="12.0"/></clipPath><clipPath id="argon-g31-c1"><circle cx="32.0" cy="39.79" r="9.0"/></clipPath><clipPath id="argon-g31-r1"><circle cx="32.0" cy="39.79" r="12.0"/></clipPath><clipPath id="argon-g31-c2"><circle cx="23.09" cy="24.36" r="9.0"/></clipPath><clipPath id="argon-g31-r2"><circle cx="23.09" cy="24.36" r="12.0"/></clipPath><mask id="argon-g31" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><path clip-path="url(#argon-g31-c0)" d="M32.00 20.90L51.20 28.35" stroke="#000" stroke-width="11.2"/><path clip-path="url(#argon-g31-r0)" d="M12.80 28.35 32.00 20.90 51.20 28.35 54.34 42.40" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="10"/><path clip-path="url(#argon-g31-c1)" d="M39.45 33.80L23.40 46.70" stroke="#000" stroke-width="11.2"/><path clip-path="url(#argon-g31-r1)" d="M42.60 13.45 39.45 33.80 23.40 46.70 9.66 42.40" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="10"/><path clip-path="url(#argon-g31-c2)" d="M24.55 33.80L21.40 13.45" stroke="#000" stroke-width="11.2"/><path clip-path="url(#argon-g31-r2)" d="M40.60 46.70 24.55 33.80 21.40 13.45 32.00 3.70" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="10"/></mask></defs><path d="M32.00 20.90 51.20 28.35 54.34 42.40 40.60 46.70 24.55 33.80 21.40 13.45 32.00 3.70 42.60 13.45 39.45 33.80 23.40 46.70 9.66 42.40 12.80 28.35Z" mask="url(#argon-g31)" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter" stroke-miterlimit="10"/></symbol>
+    <symbol id="g32" viewBox="0 0 64 64"><defs><mask id="argon-g32-0" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><path d="M39.00 37.04A18.0 18.0 0 0 0 3.00 37.04Z" fill="#000" stroke="#000" stroke-width="5.2" stroke-linejoin="round"/></mask><mask id="argon-g32-1" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><path d="M25.00 37.04A18.0 18.0 0 0 0 43.00 5.86Z" fill="#000" stroke="#000" stroke-width="5.2" stroke-linejoin="round"/></mask><mask id="argon-g32-2" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><path d="M32.00 24.92A18.0 18.0 0 0 0 50.00 56.09Z" fill="#000" stroke="#000" stroke-width="5.2" stroke-linejoin="round"/></mask></defs><g fill="currentColor"><path d="M32.00 24.92A18.0 18.0 0 0 0 50.00 56.09Z" mask="url(#argon-g32-0)"/><path d="M39.00 37.04A18.0 18.0 0 0 0 3.00 37.04Z" mask="url(#argon-g32-1)"/><path d="M25.00 37.04A18.0 18.0 0 0 0 43.00 5.86Z" mask="url(#argon-g32-2)"/></g></symbol>
+    <symbol id="g18" viewBox="0 0 64 64"><defs><mask id="argon-g18" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 21.5L17 -4.48" stroke="#000" stroke-width="3.2"/><path d="M44.56 43.25L74.56 43.25" stroke="#000" stroke-width="3.2"/><path d="M19.44 43.25L4.44 69.23" stroke="#000" stroke-width="3.2"/></mask></defs><g fill="currentColor" mask="url(#argon-g18)"><path fill-rule="evenodd" d="M32 5.5 58.41 51.25 5.59 51.25ZM32 21.5 44.56 43.25 19.44 43.25Z"/></g></symbol>
+    <symbol id="g19" viewBox="0 0 64 64"><defs><mask id="argon-g19" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 32 54 72 10 72Z" fill="#000"/></mask></defs><g mask="url(#argon-g19)"><circle cx="32" cy="32" r="27.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="18.5" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="9.5" fill="none" stroke="currentColor" stroke-width="5"/></g><circle cx="32" cy="32" r="3.5" fill="currentColor"/></symbol>
+    <symbol id="g20" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><circle cx="32" cy="7" r="4.6"/><circle cx="49.68" cy="14.32" r="4.6"/><circle cx="57" cy="32" r="4.6"/><circle cx="49.68" cy="49.68" r="4.6"/><circle cx="32" cy="57" r="4.6"/><circle cx="14.32" cy="49.68" r="4.6"/><circle cx="7" cy="32" r="4.6"/><circle cx="14.32" cy="14.32" r="4.6"/><circle cx="32" cy="32" r="10"/></g></symbol>
+    <symbol id="g21" viewBox="0 0 64 64"><defs><mask id="argon-g21-ring" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="#000" stroke="#000" stroke-width="6" stroke-linejoin="miter"/></mask></defs><circle cx="32" cy="33" r="21" fill="none" stroke="currentColor" stroke-width="6" mask="url(#argon-g21-ring)"/><path d="M32 3 53.5 58 44 58 32 27.3 20 58 10.5 58Z" fill="currentColor"/></symbol>
+<symbol id="g33" viewBox="0 0 64 64"><g fill="currentColor"><path d="M27.30 5 42.70 5 20.18 58 4.78 58Z" style="fill:var(--mark-blade, currentColor)"/><circle cx="49" cy="48.3" r="10.5" style="fill:var(--mark-dot, currentColor)"/></g></symbol>
+    <symbol id="g33a" viewBox="0 0 64 64"><g fill="currentColor"><path d="M24.5 5 39.5 5 21 58 6 58Z"/><circle cx="49" cy="48" r="10"/></g></symbol>
+    <symbol id="g22" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><path d="M24.5 5 39.5 5 58 58 43 58Z"/><circle cx="15" cy="48" r="10"/></g></symbol>
+    <symbol id="g23" viewBox="0 0 64 64"><defs><clipPath id="argon-g23-base"><rect x="0" y="0" width="64" height="58"/></clipPath><mask id="argon-g23-split" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><rect x="30.4" y="-4" width="3.2" height="72" fill="#000"/></mask></defs><g clip-path="url(#argon-g23-base)"><path d="M9 66 32 5 55 66" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="miter" stroke-miterlimit="10" mask="url(#argon-g23-split)"/></g><circle cx="32" cy="49" r="6.2" fill="currentColor"/></symbol>
+    <symbol id="g24" viewBox="0 0 64 64"><defs></defs><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter" stroke-miterlimit="10"><circle cx="32" cy="32" r="27"/><path d="M11.88 50 32 5 52.12 50"/></g></symbol>
+    <symbol id="g25" viewBox="0 0 64 64"><defs></defs><g fill="currentColor"><path d="M32 5 43.5 29 20.5 29Z"/><path d="M18.5 34 30 58 7 58Z"/><path d="M45.5 34 57 58 34 58Z"/></g></symbol>
+  </svg>
+
+  <header class="top">
+    <a class="top__brand" href="#inicio" aria-label="Argon, início">
+      <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+      <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+    </a>
+    <span class="top__meta mono">Identidade visual · passo 2 concluído · setembro de 2026</span>
+    <div class="top__actions">
+      <label class="picker" for="mark-picker">
+        <span class="mono">Marca em teste</span>
+        <select id="mark-picker" class="js-picker">
+          <option value="g33" selected>33 · Ponto espelhado (escolhido)</option>
+          <option value="g21">21 · Órbita (rodada 3)</option>
+          <option value="g30">30 · Três anéis (rodada 5)</option>
+          <option value="g31">31 · Nó (rodada 5)</option>
+          <option value="g29">29 · Bolhas (rodada 5)</option>
+          <option value="g32">32 · Cata-vento (rodada 5)</option>
+          <option value="g26">26 · Facho (rodada 4)</option>
+          <option value="g27">27 · Dissolve (rodada 4)</option>
+          <option value="g28">28 · Laço (rodada 4)</option>
+          <option value="g24">24 · Linha (rodada 3)</option>
+          <option value="g22">22 · Ponto (rodada 3)</option>
+          <option value="g23">23 · Três peças (rodada 3)</option>
+          <option value="g25">25 · Três vértices (rodada 3)</option>
+          <option value="g16">16 · Núcleo (rodada 2)</option>
+          <option value="g15">15 · Três átomos (rodada 2)</option>
+          <option value="g17">17 · Camadas (rodada 2)</option>
+          <option value="g18">18 · Trevo (rodada 2)</option>
+          <option value="g19">19 · Órbitas (rodada 2)</option>
+          <option value="g20">20 · Octeto (rodada 2)</option>
+          <option value="m14">14 · Conexão (rodada 1)</option>
+          <option value="m1">1 · Três traços, barra ancorada</option>
+          <option value="m2">2 · Três lâminas</option>
+          <option value="m3">3 · Três traços, barra solta</option>
+          <option value="m4">4 · Quatro traços (recomendada na rodada 1)</option>
+          <option value="m5">5 · Ponte com o esboço</option>
+          <option value="m6">6 · Gesto único</option>
+          <option value="m7">7 · Convergência</option>
+          <option value="m8">8 · Raiz</option>
+          <option value="m9">9 · Três partes</option>
+          <option value="m10">10 · Gancho (esboço 1)</option>
+          <option value="m11">11 · Lâmina (esboço 2)</option>
+          <option value="m12">12 · Arco longo (esboço 5)</option>
+          <option value="m13">13 · Gesto (esboço 9)</option>
+        </select>
+      </label>
+      <label class="picker palette-pick" for="palette-picker">
+        <span class="mono">Paleta</span>
+        <select id="palette-picker" class="js-palette">
+          <option value="lilas" selected>Lilás do argônio (escolhida)</option>
+          <option value="ocre">Grafite + ocre</option>
+          <option value="mono">Monocromática</option>
+        </select>
+      </label>
+      <label class="picker palette-pick" for="accent-picker">
+        <span class="mono">Acento</span>
+        <select id="accent-picker" class="js-accent">
+          <option value="dot" selected>no ponto (escolhido)</option>
+          <option value="blade">no traço</option>
+        </select>
+      </label>
+      <button class="theme-btn js-theme" type="button" aria-label="Alternar tema claro e escuro">
+        <span class="js-theme-label">Tema: sistema</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="inicio">
+    <section class="chosen p2" aria-labelledby="p2-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Passo 2 · cor</p>
+        <h1 id="p2-title" class="h1">O ponto é lilás.</h1>
+        <p class="lead">A cor escolhida é o lilás do argônio, a luz que o gás emite quando excitado. A lâmina e o nome ficam em tinta; o ponto, o átomo, é lilás. No site, o lilás aparece também em botões e em fios de destaque, nunca em texto corrido. As alternativas comparadas continuam abaixo, e os seletores do topo ainda mostram cada uma.</p>
+        <dl class="specs">
+          <div><dt class="mono">Paleta</dt><dd>lilás do argônio</dd></div>
+          <div><dt class="mono">Acento</dt><dd>no ponto</dd></div>
+          <div><dt class="mono">Símbolo</dt><dd>33, com ajuste fino</dd></div>
+          <div><dt class="mono">Decisão</dt><dd>sócios, 25/09/2026</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark" role="img" aria-label="Símbolo 33 na paleta escolhida"><use href="#g33"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="bt-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Símbolo com fundo</p>
+        <h2 id="bt-title" class="h2">O símbolo num bloco da cor inversa</h2>
+        <p class="section__lead">O bloco inverte as cores do lugar onde a marca está: em fundo claro, bloco em tinta com a lâmina clara; em fundo escuro, bloco claro com a lâmina em tinta. O ponto continua lilás, no tom certo para o fundo do bloco. O símbolo ocupa 62% do bloco. Serve para ícone de app, favicon, avatar e selos, onde a marca precisa de uma área própria.</p>
+      </div>
+      <div class="bt-cols">
+        <article class="bt-col">
+          <h3 class="h3">Quadrado <span class="pill mono">Newsletter</span></h3>
+          <p>Cantos retos, como os cortes da lâmina e as pontas do ARGON. Mais sóbrio e mais firme; funciona bem em impressos e selos.</p>
+          <div class="bt-panels">
+          <div class="bt-panel bt-panel--light">
+            <span class="bt bt--square" style="font-size:168px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+            <div class="bt-sizes"><span class="bt bt--square" style="font-size:16px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:24px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:32px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:64px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span></div>
+            <div class="bt-lockup"><span class="bt bt--square" style="font-size:44px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <span class="mono bt-label">No fundo claro: bloco em tinta, ponto lilás claro</span>
+          </div>
+          <div class="bt-panel bt-panel--dark">
+            <span class="bt bt--square" style="font-size:168px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+            <div class="bt-sizes"><span class="bt bt--square" style="font-size:16px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:24px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:32px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--square" style="font-size:64px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span></div>
+            <div class="bt-lockup"><span class="bt bt--square" style="font-size:44px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <span class="mono bt-label">No fundo escuro: bloco claro, ponto lilás</span>
+          </div>
+          </div>
+        </article>
+        <article class="bt-col">
+          <h3 class="h3">Arredondado sutil <span class="pill mono">Escolhido</span></h3>
+          <p>Cantos com raio de 12% do lado, o mesmo arredondamento sutil dos botões e cartões. Tira a aresta sem virar ícone de app genérico. É o símbolo com fundo das peças digitais; em ícones de sistema (iOS, Android) o próprio sistema aplica a máscara dele.</p>
+          <div class="bt-panels">
+          <div class="bt-panel bt-panel--light">
+            <span class="bt bt--round" style="font-size:168px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+            <div class="bt-sizes"><span class="bt bt--round" style="font-size:16px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:24px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:32px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:64px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span></div>
+            <div class="bt-lockup"><span class="bt bt--round" style="font-size:44px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <span class="mono bt-label">No fundo claro: bloco em tinta, ponto lilás claro</span>
+          </div>
+          <div class="bt-panel bt-panel--dark">
+            <span class="bt bt--round" style="font-size:168px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+            <div class="bt-sizes"><span class="bt bt--round" style="font-size:16px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:24px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:32px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><span class="bt bt--round" style="font-size:64px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span></div>
+            <div class="bt-lockup"><span class="bt bt--round" style="font-size:44px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <span class="mono bt-label">No fundo escuro: bloco claro, ponto lilás</span>
+          </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="rd-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Arredondamento</p>
+        <h2 id="rd-title" class="h2">Sutil no site, reto na newsletter</h2>
+        <p class="section__lead">Quatro escalas aplicadas aos mesmos componentes: botão principal, botão secundário, campo de e-mail, etiqueta, cartão e o símbolo com fundo. O site e as peças digitais usam o sutil: 4 px em botões e campos, 6 px em cartões, e o símbolo com fundo com raio de 12% do lado. O template da newsletter fica reto, com 0 px em tudo e o símbolo com fundo quadrado: é a peça mais editorial da marca, e cantos retos também são os que todo cliente de e-mail desenha igual. Decisão dos sócios em 25/09/2026.</p>
+      </div>
+      <div class="rd__grid">
+        <article class="rd rd--0">
+          <div class="rd__stage">
+            <span class="rd__btn">Assinar a newsletter</span>
+            <span class="rd__btn rd__btn--ghost">Conhecer a consultoria</span>
+            <span class="rd__in">seu@email.com</span>
+            <span class="rd__tag">Mercado</span>
+            <div class="rd__card"><span class="rd__kicker">Edição 128</span><strong>Crédito para PMEs sobe 3,4%</strong></div>
+            <span class="bt bt--r0" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+          </div>
+          <h3 class="h3">Reto <span class="mono rd__spec">0 px em tudo</span> <span class="pill mono">Newsletter</span></h3>
+          <p>Coerente com os cortes da lâmina e as pontas do ARGON. O mais sóbrio e editorial; pode parecer duro ao lado da Manrope.</p>
+        </article>
+        <article class="rd rd--4">
+          <div class="rd__stage">
+            <span class="rd__btn">Assinar a newsletter</span>
+            <span class="rd__btn rd__btn--ghost">Conhecer a consultoria</span>
+            <span class="rd__in">seu@email.com</span>
+            <span class="rd__tag">Mercado</span>
+            <div class="rd__card"><span class="rd__kicker">Edição 128</span><strong>Crédito para PMEs sobe 3,4%</strong></div>
+            <span class="bt bt--r4" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+          </div>
+          <h3 class="h3">Sutil <span class="mono rd__spec">4 px; cartões 6 px</span> <span class="pill mono">Escolhido</span></h3>
+          <p>Quase reto: tira só a aresta. Sério e contemporâneo, conversa com a lâmina e com a Manrope ao mesmo tempo.</p>
+        </article>
+        <article class="rd rd--8">
+          <div class="rd__stage">
+            <span class="rd__btn">Assinar a newsletter</span>
+            <span class="rd__btn rd__btn--ghost">Conhecer a consultoria</span>
+            <span class="rd__in">seu@email.com</span>
+            <span class="rd__tag">Mercado</span>
+            <div class="rd__card"><span class="rd__kicker">Edição 128</span><strong>Crédito para PMEs sobe 3,4%</strong></div>
+            <span class="bt bt--r8" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+          </div>
+          <h3 class="h3">Médio <span class="mono rd__spec">8 px; cartões 12 px</span></h3>
+          <p>O padrão de produto digital atual. Amigável e bem legível como botão; a marca fica mais "app".</p>
+        </article>
+        <article class="rd rd--pill">
+          <div class="rd__stage">
+            <span class="rd__btn">Assinar a newsletter</span>
+            <span class="rd__btn rd__btn--ghost">Conhecer a consultoria</span>
+            <span class="rd__in">seu@email.com</span>
+            <span class="rd__tag">Mercado</span>
+            <div class="rd__card"><span class="rd__kicker">Edição 128</span><strong>Crédito para PMEs sobe 3,4%</strong></div>
+            <span class="bt bt--rpill" style="font-size:48px"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg></span>
+          </div>
+          <h3 class="h3">Pílula <span class="mono rd__spec">botões e etiquetas em pílula; cartões 16 px</span></h3>
+          <p>Botões totalmente arredondados, como o ponto do símbolo. O mais leve e o mais amigável; o menos "consultoria".</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="ft-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada de fonte</p>
+        <h2 id="ft-title" class="h2">Manrope no texto, Geist Mono nos detalhes</h2>
+        <p class="section__lead">O nome continua desenhado; aqui se escolhe a fonte de títulos, textos e números do site e da newsletter. As quatro combinações usam o mesmo trecho, na paleta lilás. No e-mail, Gmail e Outlook ignoram fontes da web e usam a fonte reserva indicada em cada cartão.</p>
+      </div>
+      <div class="ft__grid">
+        <article class="ft ft--geist">
+          <div class="ft__stage">
+            <div class="lockup lockup--h ft__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <p class="ft__kicker">Consultoria de negócios</p>
+            <p class="ft__h1">Clareza para decidir.</p>
+            <p class="ft__lead">A Argon lê o mercado todos os dias e ajuda pequenas e médias empresas a transformar informação em decisão.</p>
+            <span class="ft__btn">Assinar a newsletter</span>
+            <div class="ft__mail">
+              <p class="ft__kicker">Mercado &amp; Tecnologia · edição 128</p>
+              <p class="ft__h3">Crédito para PMEs sobe 3,4% no trimestre</p>
+              <p class="ft__text">Juros menores e prazos mais longos puxaram R$ 12,6 bi em novas operações no Sul, segundo o Banco Central.</p>
+            </div>
+          </div>
+          <h3 class="h3">Geist + Geist Mono <span class="pill mono">Anterior</span></h3>
+          <p>Grotesca técnica e neutra, já usada no app. Continuidade total; o risco é parecer mais produto de tecnologia do que publicação.</p>
+          <p class="variant__tags mono">No e-mail: Arial / Helvetica</p>
+        </article>
+        <article class="ft ft--plex">
+          <div class="ft__stage">
+            <div class="lockup lockup--h ft__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <p class="ft__kicker">Consultoria de negócios</p>
+            <p class="ft__h1">Clareza para decidir.</p>
+            <p class="ft__lead">A Argon lê o mercado todos os dias e ajuda pequenas e médias empresas a transformar informação em decisão.</p>
+            <span class="ft__btn">Assinar a newsletter</span>
+            <div class="ft__mail">
+              <p class="ft__kicker">Mercado &amp; Tecnologia · edição 128</p>
+              <p class="ft__h3">Crédito para PMEs sobe 3,4% no trimestre</p>
+              <p class="ft__text">Juros menores e prazos mais longos puxaram R$ 12,6 bi em novas operações no Sul, segundo o Banco Central.</p>
+            </div>
+          </div>
+          <h3 class="h3">IBM Plex Sans + IBM Plex Mono</h3>
+          <p>Grotesca com desenho de engenharia: rigor e seriedade. Números muito legíveis. Tem cara de relatório, e é bem conhecida pela IBM.</p>
+          <p class="variant__tags mono">No e-mail: Arial / Helvetica</p>
+        </article>
+        <article class="ft ft--news">
+          <div class="ft__stage">
+            <div class="lockup lockup--h ft__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <p class="ft__kicker">Consultoria de negócios</p>
+            <p class="ft__h1">Clareza para decidir.</p>
+            <p class="ft__lead">A Argon lê o mercado todos os dias e ajuda pequenas e médias empresas a transformar informação em decisão.</p>
+            <span class="ft__btn">Assinar a newsletter</span>
+            <div class="ft__mail">
+              <p class="ft__kicker">Mercado &amp; Tecnologia · edição 128</p>
+              <p class="ft__h3">Crédito para PMEs sobe 3,4% no trimestre</p>
+              <p class="ft__text">Juros menores e prazos mais longos puxaram R$ 12,6 bi em novas operações no Sul, segundo o Banco Central.</p>
+            </div>
+          </div>
+          <h3 class="h3">Newsreader nos títulos + Geist no texto</h3>
+          <p>Títulos em serifa editorial, texto em Geist. A leitura vira jornal de negócios: autoridade para a newsletter e contraste com o ARGON geométrico.</p>
+          <p class="variant__tags mono">No e-mail: Georgia nos títulos, Arial no texto</p>
+        </article>
+        <article class="ft ft--manrope">
+          <div class="ft__stage">
+            <div class="lockup lockup--h ft__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <p class="ft__kicker">Consultoria de negócios</p>
+            <p class="ft__h1">Clareza para decidir.</p>
+            <p class="ft__lead">A Argon lê o mercado todos os dias e ajuda pequenas e médias empresas a transformar informação em decisão.</p>
+            <span class="ft__btn">Assinar a newsletter</span>
+            <div class="ft__mail">
+              <p class="ft__kicker">Mercado &amp; Tecnologia · edição 128</p>
+              <p class="ft__h3">Crédito para PMEs sobe 3,4% no trimestre</p>
+              <p class="ft__text">Juros menores e prazos mais longos puxaram R$ 12,6 bi em novas operações no Sul, segundo o Banco Central.</p>
+            </div>
+          </div>
+          <h3 class="h3">Manrope + Geist Mono <span class="pill mono">Escolhida</span></h3>
+          <p>Geométrica moderna, de O e G redondos como os do ARGON. Conversa com a marca e deixa a Argon mais próxima, sem perder a firmeza nos títulos de matéria, em peso 600. Escolhida pelos sócios em 25/09/2026.</p>
+          <p class="variant__tags mono">No e-mail: Arial / Helvetica</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="p2-pal-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Passo 2 · a comparação</p>
+        <h2 id="p2-pal-title" class="h2">Grafite + ocre ou lilás do argônio</h2>
+        <p class="section__lead">Cada paleta tem um acento para o papel e outro, mais claro, para fundos escuros. As duas linhas comparam o acento no ponto e no traço; o seletor "Acento", no topo, troca todas as aplicações. Os contrastes foram medidos pela WCAG: 3:1 é o mínimo para elementos gráficos e 4,5:1 para texto.</p>
+      </div>
+      <p class="p2__row-label mono">Acento no ponto · escolhido</p>
+      <div class="p2__tiles">
+          <div class="p2__tile p2__tile--ocre p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · claro · acento no ponto</span></div>
+          <div class="p2__tile p2__tile--ocre p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · escuro · acento no ponto</span></div>
+          <div class="p2__tile p2__tile--lilas p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · claro · acento no ponto</span></div>
+          <div class="p2__tile p2__tile--lilas p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · escuro · acento no ponto</span></div>
+      </div>
+      <p class="p2__row-label mono">Acento no traço · registro da comparação</p>
+      <div class="p2__tiles">
+          <div class="p2__tile p2__tile--blade p2__tile--ocre p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · claro · acento no traço</span></div>
+          <div class="p2__tile p2__tile--blade p2__tile--ocre p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Grafite + ocre · escuro · acento no traço</span></div>
+          <div class="p2__tile p2__tile--blade p2__tile--lilas p2__tile--light"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · claro · acento no traço</span></div>
+          <div class="p2__tile p2__tile--blade p2__tile--lilas p2__tile--dark"><div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">Lilás do argônio · escuro · acento no traço</span></div>
+      </div>
+      <div class="p2__pals">
+        <article class="p2__pal">
+          <div class="p2__chips"><span style="background:#1B1D21"></span><span style="background:#F4F4F1"></span><span style="background:#AD7F30"></span><span style="background:#D4A85A"></span></div>
+          <h3 class="h3">Grafite + ocre <span class="pill mono">Alternativa</span></h3>
+          <p class="variant__tags mono">Sóbria e editorial</p>
+          <table class="p2__table"><tbody>
+            <tr><td class="mono">Tinta</td><td>#1B1D21 · rgb 27 29 33</td></tr>
+            <tr><td class="mono">Papel</td><td>#F4F4F1 · rgb 244 244 241</td></tr>
+            <tr><td class="mono">Ocre, no papel</td><td>#AD7F30 · rgb 173 127 48 · 3,25:1 sobre o papel</td></tr>
+            <tr><td class="mono">Ocre, no escuro</td><td>#D4A85A · rgb 212 168 90 · 8,8:1 sobre #0D0E11</td></tr>
+            <tr><td class="mono">Botão</td><td>fundo ocre, texto em tinta · 4,71:1</td></tr>
+          </tbody></table>
+          <p>O ocre da rodada 1 (#B8893B) ficou em 2,85:1 sobre o papel, abaixo do mínimo, e foi escurecido um pouco. Transmite valor e maturidade; fica bem no impresso.</p>
+        </article>
+        <article class="p2__pal">
+          <div class="p2__chips"><span style="background:#121019"></span><span style="background:#F5F4F8"></span><span style="background:#6A4DF4"></span><span style="background:#8B74FF"></span></div>
+          <h3 class="h3">Lilás do argônio <span class="pill mono">Escolhida</span></h3>
+          <p class="variant__tags mono">A cor que o argônio emite</p>
+          <table class="p2__table"><tbody>
+            <tr><td class="mono">Tinta</td><td>#121019 · rgb 18 16 25</td></tr>
+            <tr><td class="mono">Papel</td><td>#F5F4F8 · rgb 245 244 248</td></tr>
+            <tr><td class="mono">Lilás, no papel</td><td>#6A4DF4 · rgb 106 77 244 · 4,82:1 sobre o papel</td></tr>
+            <tr><td class="mono">Lilás, no escuro</td><td>#8B74FF · rgb 139 116 255 · 5,42:1 sobre #121019</td></tr>
+            <tr><td class="mono">Botão</td><td>fundo lilás, texto branco · 5,28:1</td></tr>
+          </tbody></table>
+          <p>Tem história (o brilho do argônio) e já conversa com o roxo do site. Mais tecnológica que a ocre; na tela, chama mais atenção.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="p2-geo-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Passo 2 · ajuste fino</p>
+        <h2 id="p2-geo-title" class="h2">O mesmo símbolo, com três correções óticas</h2>
+        <p class="section__lead">A lâmina ganhou a inclinação exata da perna do Λ do ARGON (17 u a cada 40 u) e manteve a espessura. O ponto passa 0,8 u da linha de base e cresceu 0,5 u de raio: formas redondas parecem menores que as retas do mesmo tamanho. E o ponto virou uma peça separada, para receber a cor.</p>
+      </div>
+      <div class="p2__geo">
+        <figure><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g33a"/></svg></div><figcaption class="mono caption">Antes</figcaption></figure>
+        <figure><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g33"/></svg></div><figcaption class="mono caption">Depois</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="chosen r6" aria-labelledby="r6-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Rodada 6 · símbolo escolhido</p>
+        <h2 id="r6-title" class="h1">Um traço e um ponto.</h2>
+        <p class="lead">O 22, Ponto, espelhado. A lâmina é a perna esquerda do A e o ponto, o átomo, completa a direita: fechamento. Com o espelho, a lâmina tem a inclinação do primeiro traço do Λ do ARGON, e o símbolo se lê da esquerda para a direita, como o nome.</p>
+        <dl class="specs">
+          <div><dt class="mono">Símbolo</dt><dd>33 · Ponto espelhado</dd></div>
+          <div><dt class="mono">Origem</dt><dd>22 · Ponto</dd></div>
+          <div><dt class="mono">Lei</dt><dd>fechamento</dd></div>
+          <div><dt class="mono">Logo</dt><dd>símbolo + ARGON</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark" role="img" aria-label="Símbolo 33, Ponto espelhado"><use href="#g33"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="chosen r5" aria-labelledby="r5-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Rodada 5 · reaproveitando</p>
+        <h2 id="r5-title" class="h1">Três átomos ligados.</h2>
+        <p class="lead">Quatro referências do Dribbble reaproveitadas: a ideia de cada uma ficou, a forma foi redesenhada no grid da Argon, com o peso da Órbita e os cortes retos do ARGON. Assim o símbolo continua reconhecível como nosso.</p>
+        <dl class="specs">
+          <div><dt class="mono">Melhor da rodada</dt><dd>30 · Três anéis</dd></div>
+          <div><dt class="mono">Escolhido depois</dt><dd>33 · Ponto espelhado</dd></div>
+          <div><dt class="mono">Lei</dt><dd>continuidade</dd></div>
+          <div><dt class="mono">Logo</dt><dd>símbolo + ARGON</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark" role="img" aria-label="Símbolo 30, Três anéis"><use href="#g30"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark" aria-hidden="true"><use href="#g30"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="r5-grid-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 5 · antes e depois</p>
+        <h2 id="r5-grid-title" class="h2">Da referência para a Argon</h2>
+        <p class="section__lead">Cada cartão mostra a referência e a nossa versão lado a lado. Tudo no grid de 64 u, com traço de 6 u, o mesmo da Órbita.</p>
+      </div>
+      <div class="variants r5__grid">
+        <article class="variant r5__card variant--pick">
+          <div class="r5__pair">
+            <figure class="r5__ref"><div class="r3__img"><img src="reference-r4-3.png" alt="Referência 3: três traços curvos entrelaçados"></div><figcaption class="mono">Referência 3</figcaption></figure>
+            <figure class="r5__ours"><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g30"/></svg></div><figcaption class="mono">Argon · 30</figcaption></figure>
+          </div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g30"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g30"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g30"/></svg></div>
+          <h3 class="h3"><span class="mono num">30</span> Três anéis <span class="pill mono">Melhor da rodada</span></h3>
+          <p class="variant__tags mono">Continuidade · referência 3</p>
+          <p><strong>Ficou:</strong> três formas curvas entrelaçadas em volta de um centro.</p>
+          <p><strong>Mudou:</strong> os traços viram três anéis fechados, de peso igual, cada um passando por cima de um vizinho e por baixo do outro. São três átomos, ou as três camadas do argônio, ligados. É o mais forte da rodada e se lê bem em 32 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g30">Testar nas aplicações</button>
+        </article>
+        <article class="variant r5__card">
+          <div class="r5__pair">
+            <figure class="r5__ref"><div class="r3__img"><img src="reference-r4-4.png" alt="Referência 4: átomo, letra a e estrela formando um nó de três laços"></div><figcaption class="mono">Referência 4</figcaption></figure>
+            <figure class="r5__ours"><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g31"/></svg></div><figcaption class="mono">Argon · 31</figcaption></figure>
+          </div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g31"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g31"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g31"/></svg></div>
+          <h3 class="h3"><span class="mono num">31</span> Nó</h3>
+          <p class="variant__tags mono">Continuidade · referência 4</p>
+          <p><strong>Ficou:</strong> o nó de três voltas, uma linha só sem começo nem fim.</p>
+          <p><strong>Mudou:</strong> a curva vira reta com cantos em miter, como o ARGON, e a volta de cima termina em ponta, como o A. Mais técnico e mais sério que o nó redondo.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g31">Testar nas aplicações</button>
+        </article>
+        <article class="variant r5__card">
+          <div class="r5__pair">
+            <figure class="r5__ref"><div class="r3__img"><img src="reference-r4-1.png" alt="Referência 1: A sem barra com bolhas saindo"></div><figcaption class="mono">Referência 1</figcaption></figure>
+            <figure class="r5__ours"><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g29"/></svg></div><figcaption class="mono">Argon · 29</figcaption></figure>
+          </div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g29"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g29"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g29"/></svg></div>
+          <h3 class="h3"><span class="mono num">29</span> Bolhas</h3>
+          <p class="variant__tags mono">Proximidade · referência 1</p>
+          <p><strong>Ficou:</strong> o A com bolhas subindo pela direita: o gás.</p>
+          <p><strong>Mudou:</strong> o A é o da Órbita, sólido e simétrico, e as bolhas são três, alinhadas à perna e diminuindo para cima: as três camadas. É o mais direto, e o que mais se parece com a referência.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g29">Testar nas aplicações</button>
+        </article>
+        <article class="variant r5__card">
+          <div class="r5__pair">
+            <figure class="r5__ref"><div class="r3__img"><img src="reference-r4-5.webp" alt="Referência 5: três meios-discos em cata-vento"></div><figcaption class="mono">Referência 5</figcaption></figure>
+            <figure class="r5__ours"><div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g32"/></svg></div><figcaption class="mono">Argon · 32</figcaption></figure>
+          </div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g32"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g32"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g32"/></svg></div>
+          <h3 class="h3"><span class="mono num">32</span> Cata-vento</h3>
+          <p class="variant__tags mono">Figura e fundo · referência 5</p>
+          <p><strong>Ficou:</strong> três meios-discos girando em volta de um triângulo vazio.</p>
+          <p><strong>Mudou:</strong> peças maiores, com folga constante entre elas e o vazio no centro apontando para cima, como o A. Retoma o 18, Trevo. Some um pouco abaixo de 24 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g32">Testar nas aplicações</button>
+        </article>
+      </div>
+      <p class="r4__verdict"><strong>Recomendação:</strong> a escolha agora é entre duas histórias. A 21, Órbita, carrega o A do nome. A 30, Três anéis, carrega o número três e os átomos, a ideia que aparece desde os primeiros esboços. As duas funcionam em tamanho pequeno. Minha sugestão é a Órbita, porque o símbolo e o nome se reforçam; se vocês preferirem contar a história do três, os Três anéis são a melhor versão dela até aqui.</p>
+    </section>
+
+    <section class="chosen r4" aria-labelledby="r4-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Rodada 4 · referências do Dribbble</p>
+        <h2 id="r4-title" class="h1">Cinco conceitos com o nome Argon.</h2>
+        <p class="lead">As cinco referências são conceitos publicados no Dribbble com o nome Argon, sem empresa por trás. Nesta rodada elas serviram de aula de técnica e viraram três caminhos originais. Na rodada 5, quatro delas foram reaproveitadas e redesenhadas.</p>
+        <dl class="specs">
+          <div><dt class="mono">Recomendado</dt><dd>21 · Órbita</dd></div>
+          <div><dt class="mono">Melhor novo</dt><dd>26 · Facho</dd></div>
+          <div><dt class="mono">Origem</dt><dd>Dribbble, sem empresa</dd></div>
+          <div><dt class="mono">Próximo passo</dt><dd>rodada 5</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark" role="img" aria-label="Símbolo 26, Facho"><use href="#g26"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark" aria-hidden="true"><use href="#g26"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="r4-ref-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 4 · referências</p>
+        <h2 id="r4-ref-title" class="h2">O que cada referência faz</h2>
+        <p class="section__lead">Conceitos publicados no Dribbble, sem empresa por trás. Três das cinco (3, 4 e 5) usam três partes em rotação ou trevo: é a ideia mais repetida entre elas e a mais perto do número três da Argon.</p>
+      </div>
+      <div class="r3__refs">
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r4-1.png" alt="Logo ARGON Into my limit: A sem barra com bolhas"></div><figcaption><span class="mono num">1</span> A sem barra com bolhas saindo: o gás. Ideia: A com partículas.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r4-2.png" alt="Logo ARGON com arco verde e luminária"></div><figcaption><span class="mono num">2</span> Arco sólido com lâmpada e facho: o argônio das lâmpadas. Ideia: luz dentro de moldura.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r4-3.png" alt="Logo ARGON com três traços curvos entrelaçados"></div><figcaption><span class="mono num">3</span> Três traços curvos entrelaçados e A sem barra no nome. Ideia: trevo.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r4-4.png" alt="Síntese de átomo, letra a e estrela em nó de três laços"></div><figcaption><span class="mono num">4</span> Átomo + a + estrela = nó de três laços. Ideia: trevo.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r4-5.webp" alt="Identidade argon de supply chain com três meios-discos em cata-vento"></div><figcaption><span class="mono num">5</span> Três meios-discos em cata-vento. Ideia: três peças em rotação.</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="r4-map-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 4 · distância</p>
+        <h2 id="r4-map-title" class="h2">Nossos candidatos ao lado das referências</h2>
+        <p class="section__lead">O quanto cada candidato se parece com alguma referência. O A sem barra no nome aparece em duas delas; é comum e não pesa sozinho.</p>
+      </div>
+      <div class="r4__table">
+        <table class="r4__map">
+          <thead><tr><th class="mono" scope="col"><span class="sr-only">Símbolo</span></th><th class="mono" scope="col">Candidato</th><th class="mono" scope="col">Situação</th><th class="mono" scope="col">Motivo</th></tr></thead>
+          <tbody>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g21"/></svg></td><td><span class="mono num">21</span> Órbita</td><td><span class="pill mono r4__ok">Livre</span></td><td>A dentro de um anel interrompido. Nenhuma das cinco usa anel com letra.</td></tr>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g16"/></svg></td><td><span class="mono num">16</span> Núcleo</td><td><span class="pill mono r4__ok">Livre</span></td><td>Disco cortado por um A. Nenhuma das cinco trabalha com recorte.</td></tr>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g26"/></svg></td><td><span class="mono num">26</span> Facho</td><td><span class="pill mono r4__ok">Livre</span></td><td>Luz, como a 2, mas sem arco, lâmpada ou moldura: o facho é o próprio A.</td></tr>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g28"/></svg></td><td><span class="mono num">28</span> Laço</td><td><span class="pill mono r4__ok">Livre</span></td><td>Uma linha só, aberta, sem as três voltas do trevo. Fica perto do ícone genérico de átomo.</td></tr>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g27"/></svg></td><td><span class="mono num">27</span> Dissolve</td><td><span class="pill mono r4__near">Perto de uma referência</span></td><td>Pontos ao lado de um A lembram as bolhas da 1, mesmo contidos no desenho da perna.</td></tr>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g25"/></svg></td><td><span class="mono num">25</span> Três vértices</td><td><span class="pill mono r4__near">Perto de uma referência</span></td><td>Três partes em volta de um centro vazio, como a 5, além da Triforce.</td></tr>
+            <tr><td><svg class="mark mark--32" aria-hidden="true"><use href="#g18"/></svg></td><td><span class="mono num">18</span> Trevo</td><td><span class="pill mono r4__near">Perto de uma referência</span></td><td>Três peças giradas, como o cata-vento da 5. Retomado no 32.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="r4-grid-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 4 · três caminhos originais</p>
+        <h2 id="r4-grid-title" class="h2">A técnica das referências, sem a forma delas</h2>
+        <p class="section__lead">Mesmo grid de 64 u e formas sólidas. A Órbita, recomendação atual, está no mapa acima para comparar.</p>
+      </div>
+      <div class="variants">
+        <article class="variant variant--pick">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g26"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g26"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g26"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g26"/></svg></div>
+          <h3 class="h3"><span class="mono num">26</span> Facho <span class="pill mono">Melhor novo</span></h3>
+          <p class="variant__tags mono">Luz · figura e fundo · referência 2</p>
+          <p>Uma barra no alto, a luminária, e um facho que se abre em A até a base; o recorte embaixo é o vão do A. O argônio ilumina e a consultoria joga luz na decisão. É o mais próprio dos três e aguenta 16 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g26">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g27"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g27"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g27"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g27"/></svg></div>
+          <h3 class="h3"><span class="mono num">27</span> Dissolve</h3>
+          <p class="variant__tags mono">Continuidade · referência 1</p>
+          <p>A perna esquerda do A se desfaz em três pontos que diminuem de baixo para cima: a matéria virando gás, três camadas. Bonito, mas fica perto das bolhas da referência 1.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g27">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g28"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g28"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g28"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g28"/></svg></div>
+          <h3 class="h3"><span class="mono num">28</span> Laço</h3>
+          <p class="variant__tags mono">Continuidade · referências 3 e 4</p>
+          <p>Uma linha só desenha o A e segue numa órbita que cruza as pernas, sem tirar o lápis. Nó aberto, não trevo. Em 16 px a órbita fecha e vira ícone genérico de átomo.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g28">Testar nas aplicações</button>
+        </article>
+      </div>
+      <p class="r4__verdict"><strong>Recomendação da rodada 4:</strong> manter a 21, Órbita, que segue a mais legível em 16 px. Dos três novos, o 26, Facho, é o que tem leitura mais própria: o Laço também está livre, mas lembra o ícone genérico de átomo. O Facho fica como segunda opção se vocês quiserem puxar a história da luz do argônio.</p>
+    </section>
+
+    <section class="chosen r3" aria-labelledby="r3-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Rodada 3 · referências</p>
+        <h2 id="r3-title" class="h1">Um átomo com um A no núcleo.</h2>
+        <p class="lead">O anel é a órbita, o A é o núcleo. O anel se interrompe onde o A passa, e a mente completa o círculo: figura e fundo, como nas referências que vocês trouxeram. O nome continua ARGON, com o A sem barra.</p>
+        <dl class="specs">
+          <div><dt class="mono">Recomendado</dt><dd>21 · Órbita</dd></div>
+          <div><dt class="mono">Par em linha</dt><dd>24 · Linha</dd></div>
+          <div><dt class="mono">Lei</dt><dd>figura e fundo</dd></div>
+          <div><dt class="mono">Logo</dt><dd>símbolo + ARGON</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark js-mark" role="img" aria-label="Símbolo da Argon"><use href="#g33"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="r3-ref-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 3 · o que as referências ensinam</p>
+        <h2 id="r3-ref-title" class="h2">Cinco técnicas, cinco leis</h2>
+        <p class="section__lead">As referências que vocês enviaram, com a técnica de Gestalt de cada uma. A sexta, três triângulos formando um maior, deu origem ao conceito 25.</p>
+        <p><a class="btn-ghost" href="../argon-gestalt/index.html">Painel de referências Gestalt: 18 estudos</a></p>
+      </div>
+      <div class="r3__refs">
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r3-1.png" alt="Letra a montada com círculo, meio-disco e coluna"></div><figcaption><span class="mono num">1</span> Três primitivas lidas como uma letra: proximidade e fechamento.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r3-2.png" alt="A formado por uma lâmina diagonal e um ponto"></div><figcaption><span class="mono num">2</span> O ponto completa o A: fechamento.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r3-3.png" alt="Logo ARVONN: anel em linha fina e wordmark com A sem barra"></div><figcaption><span class="mono num">3</span> Símbolo e nome com o mesmo traço: semelhança.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r3-4.png" alt="Logo AVIRON: A atravessando um anel e wordmark com A sem barra"></div><figcaption><span class="mono num">4</span> A e anel em figura e fundo.</figcaption></figure>
+          <figure class="r3__ref"><div class="r3__img"><img src="reference-r3-5.png" alt="A grosso entrelaçado num anel interrompido"></div><figcaption><span class="mono num">5</span> Entrelaçamento. Muito parecido com o logo dos Vingadores: aproveitamos só a técnica.</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="r3-grid-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 3 · cinco conceitos</p>
+        <h2 id="r3-grid-title" class="h2">Das referências para a Argon</h2>
+        <p class="section__lead">Cada conceito usa a técnica de uma referência, no grid de 64 u. O Núcleo da rodada 2 fica ao lado para comparar.</p>
+      </div>
+      <div class="variants">
+        <article class="variant variant--pick">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g21"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g21"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g21"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g21"/></svg></div>
+          <h3 class="h3"><span class="mono num">21</span> Órbita</h3>
+          <p class="variant__tags mono">Figura e fundo · referências 4 e 5</p>
+          <p>O átomo em uma forma: o anel é a órbita e o A sólido, na frente, é o núcleo. O anel se interrompe onde o A cruza, e a mente completa o círculo. Simétrico e sem a ponta que lembraria os Vingadores. Forte em 16 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g21">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g24"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g24"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g24"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g24"/></svg></div>
+          <h3 class="h3"><span class="mono num">24</span> Linha</h3>
+          <p class="variant__tags mono">Semelhança · referência 3</p>
+          <p>O mesmo desenho em linha fina, com o traço do ARGON: símbolo e nome parecem feitos pela mesma mão, como na ARVONN. O A divide o círculo em três áreas. É o par da Órbita para usos grandes; some abaixo de 24 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g24">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g22"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g22"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g22"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g22"/></svg></div>
+          <h3 class="h3"><span class="mono num">22</span> Ponto</h3>
+          <p class="variant__tags mono">Fechamento · referência 2</p>
+          <p>Uma lâmina diagonal e um ponto no lugar da perna esquerda. O ponto é o átomo e completa o A. Direto e memorável, mas o ponto solto pode ser lido como pontuação.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g22">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g23"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g23"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g23"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g23"/></svg></div>
+          <h3 class="h3"><span class="mono num">23</span> Três peças</h3>
+          <p class="variant__tags mono">Proximidade · referência 1</p>
+          <p>Duas lâminas separadas no ápice e um átomo no vão entre as pernas: três peças lidas como um A. A folga do ápice some em tamanho pequeno.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g23">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g25"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g25"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g25"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g25"/></svg></div>
+          <h3 class="h3"><span class="mono num">25</span> Três vértices</h3>
+          <p class="variant__tags mono">Proximidade · fechamento · referência 6</p>
+          <p>Três triângulos formam um A maior, e o vazio do centro é o núcleo. É a tradução mais direta de três átomos, mas fica perto da Triforce (Zelda), mesmo com folgas largas.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g25">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g16"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g16"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g16"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g16"/></svg></div>
+          <h3 class="h3"><span class="mono num">16</span> Núcleo</h3>
+          <p class="variant__tags mono">Figura e fundo · rodada 2</p>
+          <p>A recomendação da rodada anterior, para comparar: o A vazado dentro de um disco sólido.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g16">Testar nas aplicações</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="chosen r2" aria-labelledby="r2-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Rodada 2 · Gestalt (histórico)</p>
+        <h1 id="r2-title" class="h1">Três átomos, uma forma.</h1>
+        <p class="lead">O argônio tem três camadas de elétrons, e a última está completa: é por isso que ele é estável. Seis símbolos nascem dessa ideia, cada um apoiado numa lei da Gestalt. O nome continua ARGON, com o A sem barra.</p>
+        <dl class="specs">
+          <div><dt class="mono">Recomendado</dt><dd>16 · Núcleo</dd></div>
+          <div><dt class="mono">Lei</dt><dd>figura e fundo</dd></div>
+          <div><dt class="mono">Partes</dt><dd>3</dd></div>
+          <div><dt class="mono">Logo</dt><dd>símbolo + ARGON</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark r2__mark" role="img" aria-label="Símbolo da Argon"><use href="#g16"/></svg>
+        <div class="lockup lockup--h r2__lockup"><svg class="mark" aria-hidden="true"><use href="#g16"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="r2-grid-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 2 · seis conceitos</p>
+        <h2 id="r2-grid-title" class="h2">Uma lei da Gestalt para cada símbolo</h2>
+        <p class="section__lead">Todos sólidos, no mesmo grid de 64 u e com peso parecido, no estilo das referências que vocês trouxeram: poucas formas, geometria precisa e o significado aparecendo no espaço vazio.</p>
+      </div>
+      <div class="variants">
+        <article class="variant variant--pick">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g16"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g16"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g16"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g16"/></svg></div>
+          <h3 class="h3"><span class="mono num">16</span> Núcleo</h3>
+          <p class="variant__tags mono">Figura e fundo · fechamento</p>
+          <p>Um átomo sólido cortado por um A vazado, com a mesma inclinação do A do ARGON. O corte divide o disco em três partes, e o A só existe no vazio. É o mais forte em tamanho pequeno e o mais próprio.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g16">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g15"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g15"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g15"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g15"/></svg></div>
+          <h3 class="h3"><span class="mono num">15</span> Três átomos</h3>
+          <p class="variant__tags mono">Proximidade · fechamento</p>
+          <p>Três discos iguais, quase se tocando. A proximidade faz a mente ler um só triângulo, e o vazio do centro vira o núcleo. Simples e estável, mas três círculos juntos é uma forma comum.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g15">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g17"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g17"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g17"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g17"/></svg></div>
+          <h3 class="h3"><span class="mono num">17</span> Camadas</h3>
+          <p class="variant__tags mono">Semelhança · fechamento</p>
+          <p>Três faixas iguais formam um triângulo: as três camadas de elétrons. O recorte na base transforma a pirâmide em A. Lembra marcas de pilha e perde as faixas abaixo de 24 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g17">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g18"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g18"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g18"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g18"/></svg></div>
+          <h3 class="h3"><span class="mono num">18</span> Trevo <span class="pill mono">Retomado no 32</span></h3>
+          <p class="variant__tags mono">Pregnância · simetria</p>
+          <p>Três peças idênticas giradas em volta de um núcleo vazio. A simetria dá estabilidade; a leitura de “triângulo impossível” é forte, mas se afasta da sobriedade. A rodada 5 retoma a ideia no 32, Cata-vento.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g18">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g19"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g19"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g19"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g19"/></svg></div>
+          <h3 class="h3"><span class="mono num">19</span> Órbitas</h3>
+          <p class="variant__tags mono">Continuidade</p>
+          <p>Três anéis que a mente completa apesar do corte. É o átomo mais literal e lembra os ícones de Wi‑Fi e de radar, então não recomendo.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g19">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#g20"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#g20"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#g20"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#g20"/></svg></div>
+          <h3 class="h3"><span class="mono num">20</span> Octeto</h3>
+          <p class="variant__tags mono">Fechamento · semelhança</p>
+          <p>Oito elétrons na última camada em volta do núcleo: o octeto completo que faz do argônio um gás nobre. Serve de comparação; lembra um ícone de carregamento.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="g20">Testar nas aplicações</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="chosen" aria-labelledby="chosen-title">
+      <div class="chosen__copy">
+        <p class="eyebrow mono">Direção anterior · rodada 1f</p>
+        <h1 id="chosen-title" class="h1">Um A atravessado por um traço.</h1>
+        <p class="lead">O arco nasce fora da letra, corta a perna esquerda com uma folga e desce até o chão à direita. É o gesto de seis dos seus nove esboços, com o nome em linha fina e o A sem barra.</p>
+        <dl class="specs">
+          <div><dt class="mono">Símbolo</dt><dd>3 formas</dd></div>
+          <div><dt class="mono">Folga</dt><dd>3,2 u</dd></div>
+          <div><dt class="mono">Nome</dt><dd>traço 3,5 u</dd></div>
+          <div><dt class="mono">Tela pequena</dt><dd>&lt; 32 px</dd></div>
+        </dl>
+      </div>
+      <figure class="chosen__hero">
+        <svg class="chosen__mark" role="img" aria-label="Símbolo da Argon"><use href="#m14"/></svg>
+        <svg class="wm chosen__wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="chosen-sys-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Direção escolhida</p>
+        <h2 id="chosen-sys-title" class="h2">Símbolo, nome e as formas de assinar</h2>
+        <p class="section__lead">Da referência que vocês trouxeram ao vetor no grid, e as versões que a marca vai usar no dia a dia.</p>
+      </div>
+      <div class="chosen__refs">
+        <figure class="chosen__ref">
+          <div class="chosen__pair">
+            <img src="reference-symbol.png" alt="Referência: A desenhado a lápis com um traço em arco que corta a perna esquerda" width="722" height="456">
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <div class="chosen__vec"><svg class="chosen__vec-mark" aria-hidden="true"><use href="#m14"/></svg></div>
+          </div>
+          <figcaption class="mono caption">Símbolo · formas preenchidas, folga feita por máscara, transparente sobre qualquer fundo</figcaption>
+        </figure>
+        <figure class="chosen__ref">
+          <div class="chosen__pair">
+            <img src="reference-wordmark.png" alt="Referência: ARGON em caixa alta, traço fino, A sem barra" width="622" height="266">
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <div class="chosen__vec"><svg class="wm chosen__vec-wm" aria-hidden="true"><use href="#wm"/></svg></div>
+          </div>
+          <figcaption class="mono caption">Nome · letras desenhadas no grid, sem fonte</figcaption>
+        </figure>
+      </div>
+      <div class="chosen__grid">
+        <figure class="system__cell system__cell--wide">
+          <div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Horizontal</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="lockup lockup--v"><svg class="mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Vertical</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="lockup lockup--h lockup--wm"><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Só o nome, sem símbolo</figcaption>
+        </figure>
+        <figure class="system__cell system__cell--ink">
+          <div class="lockup lockup--h"><svg class="mark" aria-hidden="true"><use href="#m14"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+          <figcaption class="mono caption">Negativa</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="chosen__sizes">
+            <div><svg class="mark mark--64" aria-hidden="true"><use href="#m14"/></svg><span class="mono">64</span></div>
+            <div><svg class="mark mark--32" aria-hidden="true"><use href="#m14"/></svg><span class="mono">32</span></div>
+            <div><svg class="mark chosen__24" aria-hidden="true"><use href="#m14s"/></svg><span class="mono">24</span></div>
+            <div><svg class="mark mark--16" aria-hidden="true"><use href="#m14s"/></svg><span class="mono">16</span></div>
+          </div>
+          <figcaption class="mono caption">Abaixo de 32 px, traço constante</figcaption>
+        </figure>
+      </div>
+      <ul class="insights chosen__notes">
+        <li><strong>O que torna o traço de vocês.</strong> Um arco sobre o A é comum no mercado. O que separa este é a folga no cruzamento e a perna direita que para antes do chão. Esses detalhes não devem ser simplificados em versões futuras.</li>
+        <li><strong>Tamanho pequeno.</strong> O contraste entre grosso e fino some abaixo de 32 px, então favicon e avatares usam a versão de traço constante.</li>
+        <li><strong>Mensagem.</strong> “Conexão, rede, tecnologia” é uma leitura diferente de “consultoria séria”. Vale confirmar entre vocês qual das duas a Argon quer passar primeiro; o desenho funciona para as duas.</li>
+      </ul>
+    </section>
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__copy">
+        <p class="eyebrow mono">Recomendação da rodada 1 · variação 4</p>
+        <h2 id="hero-title" class="h1">Um A que se completa no olhar de quem vê.</h2>
+        <p class="lead">Quatro traços, espessura única, nenhum ornamento. O vértice se solta do corpo e deixa um respiro: é o ponto de vista de quem enxerga o todo antes de agir. A forma é pública; o significado completo fica com os sócios.</p>
+        <dl class="specs">
+          <div><dt class="mono">Grid</dt><dd>64 × 64 u</dd></div>
+          <div><dt class="mono">Traço (t)</dt><dd>6 u</dd></div>
+          <div><dt class="mono">Respiro</dt><dd>1 t</dd></div>
+          <div><dt class="mono">Ápice</dt><dd>51°</dd></div>
+        </dl>
+      </div>
+      <figure class="construct">
+        <svg class="construct__svg" viewBox="-8 0 90 60" role="img" aria-labelledby="construct-cap">
+          <g class="construct__grid">
+            <path d="M0 0V56M8 0V56M16 0V56M24 0V56M32 0V56M40 0V56M48 0V56M56 0V56M64 0V56"/>
+            <path d="M0 0H64M0 8H64M0 16H64M0 24H64M0 32H64M0 40H64M0 48H64M0 56H64"/>
+          </g>
+          <use href="#m4" class="construct__mark" width="64" height="64"/>
+          <g class="construct__notes">
+            <path d="M40 16.5H62"/><text x="62.5" y="15.5">1 vértice</text>
+            <path d="M16 36H-2"/><text x="-5.5" y="35">2</text>
+            <path d="M50 36H62"/><text x="62.5" y="35">3</text>
+            <path d="M53 44H62"/><text x="62.5" y="45">4 barra</text>
+            <path class="construct__gap" d="M21 23V29M19.5 23H22.5M19.5 29H22.5"/><text x="12.5" y="27" class="construct__small">1 t</text>
+          </g>
+        </svg>
+        <figcaption id="construct-cap" class="mono caption">Construção da variação 4 no grid de 64 u. Os números indicam a ordem dos traços.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section" aria-labelledby="concept-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Estratégia</p>
+        <h2 id="concept-title" class="h2">Por que essa forma</h2>
+      </div>
+      <div class="concept">
+        <article class="concept__item">
+          <h3 class="h3">Clareza para decidir</h3>
+          <p>A Argon separa o que importa do ruído: na newsletter diária, na consultoria e, em breve, na agenda de eventos da região. A marca faz o mesmo: tira tudo o que não é essencial ao A.</p>
+        </article>
+        <article class="concept__item">
+          <h3 class="h3">Gás nobre</h3>
+          <p>Argônio é estável e não reage à toa. É a metáfora de uma consultoria sóbria, e o motivo para o minimalismo. Excitado, ele brilha em lilás: fica guardado como cor de acento para a rodada 2.</p>
+        </article>
+        <article class="concept__item">
+          <h3 class="h3">Fora dos clichês</h3>
+          <p>Sem azul-marinho, sem seta para cima, sem globo, sem triângulo fechado com swoosh. Do setor fica só o rigor tipográfico das consultorias, que é o que transmite seriedade.</p>
+        </article>
+      </div>
+      <p class="note">O método veio do primeiro esboço: poucos traços e um significado privado. A forma é própria, e nenhuma variação usa traços soltos lado a lado. O briefing completo, com os pontos a validar, está em <code>strategy.md</code>.</p>
+    </section>
+
+    <section class="section" aria-labelledby="reading-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 1b · leitura</p>
+        <h2 id="reading-title" class="h2">O que os seus esboços já dizem</h2>
+        <p class="section__lead">São nove desenhos à mão, numerados de cima para baixo. Antes de desenhar mais, vale ver o que se repete neles.</p>
+      </div>
+      <div class="reading">
+        <figure class="reading__fig">
+          <div class="reading__img">
+            <img src="reference.jpg" alt="Nove esboços à mão do A da Argon, com arcos cruzando as pernas, traços soltos e um gesto contínuo" width="1280" height="1105">
+          <span class="pin pin--1" aria-hidden="true">1</span>
+          <span class="pin pin--2" aria-hidden="true">2</span>
+          <span class="pin pin--3" aria-hidden="true">3</span>
+          <span class="pin pin--4" aria-hidden="true">4</span>
+          <span class="pin pin--5" aria-hidden="true">5</span>
+          <span class="pin pin--6" aria-hidden="true">6</span>
+          <span class="pin pin--7" aria-hidden="true">7</span>
+          <span class="pin pin--8" aria-hidden="true">8</span>
+          <span class="pin pin--9" aria-hidden="true">9</span>
+          </div>
+          <figcaption class="mono caption">Os esboços originais, numerados. Os de número 1, 2, 5 e 9 estão passados a limpo mais abaixo.</figcaption>
+        </figure>
+        <div class="reading__notes">
+          <div class="reading__stat">
+            <p class="reading__num">6<span>/9</span></p>
+            <p>Em seis dos nove esboços, a barra não atravessa o A: ela desce ou faz curva até encontrar uma perna no chão. Esse é o seu gesto.</p>
+          </div>
+          <dl class="families">
+            <div>
+              <dt>Encontro no pé <span class="mono">1 · 2 · 3 · 4 · 5 · 6</span></dt>
+              <dd>Nos esboços 3 a 6, um arco nasce fora da letra, cruza a perna esquerda e deságua no pé direito. No 2, um traço interno faz o mesmo caminho; no 1, um gancho volta do pé esquerdo.</dd>
+            </div>
+            <div>
+              <dt>Traços soltos <span class="mono">7 · 8</span></dt>
+              <dd>Pernas e barra separadas. O 7 é o mais próximo do símbolo da banda, com três traços lado a lado, e continua fora.</dd>
+            </div>
+            <div>
+              <dt>Gesto contínuo <span class="mono">9</span></dt>
+              <dd>Desce, sobe e desce sem tirar o lápis, e dois traços nascem do mesmo pé.</dd>
+            </div>
+          </dl>
+          <ul class="insights">
+            <li><strong>O A inclina para a frente.</strong> O ápice fica à direita do centro e a perna direita é mais íngreme: a letra anda.</li>
+            <li><strong>O três está no nome.</strong> O argônio tem três camadas de elétrons (2 · 8 · 8), e a última está completa. É isso que o torna estável, um gás nobre.</li>
+            <li><strong>Cuidado com semelhanças.</strong> O esboço 2 lembra o delta de Star Trek, e uma barra reta que sai da letra como seta lembra o A dos Vingadores. Por isso o arco da variação 7 é curvo, sai pela esquerda e não tem ponta.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="fresh-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 1b · novos esboços</p>
+        <h2 id="fresh-title" class="h2">Três caminhos novos</h2>
+        <p class="section__lead">Dois saem do seu gesto e um é invenção. Cada um aparece primeiro como esboço e depois como vetor, no mesmo grid das outras variações.</p>
+      </div>
+      <div class="fresh">
+        <article class="fresh__item">
+          <div class="fresh__pair">
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s7"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m7"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">7</span> Convergência</h3>
+          <p class="variant__tags mono">Dos esboços 3 a 6 · 3 traços · continuidade</p>
+          <p>O arco nasce fora da letra, cruza a perna esquerda e deságua no pé direito, tangente a ela, como um trilho que encontra outro. O ápice pende um pouco para a direita, como nos desenhos. Leitura: muitos caminhos, uma decisão.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m7">Testar nas aplicações</button>
+        </article>
+        <article class="fresh__item">
+          <div class="fresh__pair">
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s8"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m8"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">8</span> Raiz</h3>
+          <p class="variant__tags mono">Dos esboços 1 e 9 · 3 traços · fechamento</p>
+          <p>A barra nasce no pé esquerdo e sobe por dentro do A, sem tocar a perna direita. O encontro pesa a base, como uma raiz. Leitura: ir à raiz do problema antes de propor qualquer coisa. A diagonal termina reta, sem ponta, para não virar gráfico de crescimento.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m8">Testar nas aplicações</button>
+        </article>
+        <article class="fresh__item">
+          <div class="fresh__pair">
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s9"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m9"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">9</span> Três partes</h3>
+          <p class="variant__tags mono">Invenção · 3 peças · figura e fundo</p>
+          <p>Um bloco sólido cortado pelo A em linha fina. Como a barra não atravessa, o corte divide o bloco em exatamente três peças: esquerda, direita e centro. Leitura: três partes que só fazem sentido juntas, como as três camadas do argônio. É a mais forte em tamanho pequeno e funciona como carimbo.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m9">Testar nas aplicações</button>
+        </article>
+      </div>
+      <p class="note">Da rodada 1b, a 9 é a mais forte como marca e a 7 é a mais fiel ao seu gesto. A direção escolhida agora é a 14, no topo da página.</p>
+    </section>
+
+    <section class="section" aria-labelledby="clean-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Rodada 1c · seus esboços</p>
+        <h2 id="clean-title" class="h2">Seus esboços, passados a limpo</h2>
+        <p class="section__lead">Os desenhos 1, 2, 5 e 9, com a maior fidelidade possível. Cada um aparece como você desenhou, redesenhado como esboço e como vetor no mesmo grid das outras variações.</p>
+      </div>
+      <div class="clean">
+        <article class="clean__item">
+          <div class="clean__trio">
+            <figure class="fresh__stage clean__orig"><div class="crop crop--1"><img src="reference.jpg" alt="" width="1280" height="1105"></div><figcaption class="mono">Original 1</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s10"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m10"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">10</span> Gancho</h3>
+          <p class="variant__tags mono">Do esboço 1 · 2 traços + gancho · fechamento</p>
+          <p>Mantido: o A sem barra e o gancho que volta do pé esquerdo. Ajustado: o gancho ficou mais largo e se afasta da perna, para não virar uma mancha em tamanho pequeno.</p>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m10"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m10"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m10"/></svg></div>
+          <button class="btn-ghost js-try" type="button" data-mark="m10">Testar nas aplicações</button>
+        </article>
+        <article class="clean__item">
+          <div class="clean__trio">
+            <figure class="fresh__stage clean__orig"><div class="crop crop--2"><img src="reference.jpg" alt="" width="1280" height="1105"></div><figcaption class="mono">Original 2</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s11"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m11"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">11</span> Lâmina</h3>
+          <p class="variant__tags mono">Do esboço 2 · 3 traços · continuidade</p>
+          <p>Mantido: o ápice à direita, a perna direita côncava e o traço interno que encontra o pé direito. Ajustado: os dois pés apoiados na mesma base e a forma aberta embaixo, para se afastar do delta de Star Trek.</p>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m11"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m11"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m11"/></svg></div>
+          <button class="btn-ghost js-try" type="button" data-mark="m11">Testar nas aplicações</button>
+        </article>
+        <article class="clean__item">
+          <div class="clean__trio">
+            <figure class="fresh__stage clean__orig"><div class="crop crop--5"><img src="reference.jpg" alt="" width="1280" height="1105"></div><figcaption class="mono">Original 5</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s12"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m12"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">12</span> Arco longo</h3>
+          <p class="variant__tags mono">Do esboço 5 · 3 traços · continuidade</p>
+          <p>Mantido: a perna esquerda curta e o arco que nasce fora da letra e deságua no pé direito. Ajustado: no fim, o arco segue exatamente a direção da perna, e os dois viram um traço só no chão.</p>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m12"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m12"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m12"/></svg></div>
+          <button class="btn-ghost js-try" type="button" data-mark="m12">Testar nas aplicações</button>
+        </article>
+        <article class="clean__item">
+          <div class="clean__trio">
+            <figure class="fresh__stage clean__orig"><div class="crop crop--9"><img src="reference.jpg" alt="" width="1280" height="1105"></div><figcaption class="mono">Original 9</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage fresh__stage--sketch"><svg class="fresh__mark" aria-hidden="true"><use href="#s13"/></svg><figcaption class="mono">Esboço</figcaption></figure>
+            <span class="fresh__arrow mono" aria-hidden="true">→</span>
+            <figure class="fresh__stage"><svg class="fresh__mark" aria-hidden="true"><use href="#m13"/></svg><figcaption class="mono">Vetor</figcaption></figure>
+          </div>
+          <h3 class="h3"><span class="mono num">13</span> Gesto</h3>
+          <p class="variant__tags mono">Do esboço 9 · 1 gesto · continuidade</p>
+          <p>Mantido: o traço contínuo que desce, sobe e desce, com o início mais alto que o ápice. Ajustado: só o grid. Em tamanho pequeno ele se lê mais como N do que como A; vale como assinatura, não como símbolo principal.</p>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m13"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m13"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m13"/></svg></div>
+          <button class="btn-ghost js-try" type="button" data-mark="m13">Testar nas aplicações</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="variants-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Exploração</p>
+        <h2 id="variants-title" class="h2">Nove caminhos, do esboço ao grid</h2>
+        <p class="section__lead">Todas as variações usam o mesmo grid e a mesma espessura, então a comparação é justa. Cada uma mostra a lei da Gestalt que usa e como se comporta em 16, 32 e 64 px.</p>
+      </div>
+      <div class="variants">
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m1"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m1"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m1"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m1"/></svg></div>
+          <h3 class="h3"><span class="mono num">1</span> Três traços, barra ancorada</h3>
+          <p class="variant__tags mono">3 traços · fechamento</p>
+          <p>A barra sai da perna esquerda e para antes da direita. É a versão mais discreta: em tamanho pequeno vira um A comum.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m1">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m2"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m2"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m2"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m2"/></svg></div>
+          <h3 class="h3"><span class="mono num">2</span> Três lâminas</h3>
+          <p class="variant__tags mono">3 vértices · semelhança</p>
+          <p>Cada traço termina numa ponta, herança direta do desenho à mão. Tem personalidade, mas o ápice fino some abaixo de 32 px.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m2">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m3"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m3"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m3"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m3"/></svg></div>
+          <h3 class="h3"><span class="mono num">3</span> Três traços, barra solta</h3>
+          <p class="variant__tags mono">3 traços · fechamento, proximidade</p>
+          <p>Um ângulo e uma barra flutuante. É neutra e a mais legível em tamanho pequeno: segunda opção.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m3">Testar nas aplicações</button>
+        </article>
+        <article class="variant variant--pick">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m4"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m4s"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m4"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m4"/></svg></div>
+          <h3 class="h3"><span class="mono num">4</span> Quatro traços <span class="pill mono">Rodada 1</span></h3>
+          <p class="variant__tags mono">4 traços · fechamento, continuidade</p>
+          <p>Um corte horizontal solta o vértice. É a forma mais própria das seis. Em 16 px usa a versão de tela pequena, com traço mais grosso.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m4">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m5"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m5"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m5"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m5"/></svg></div>
+          <h3 class="h3"><span class="mono num">5</span> Ponte com o esboço</h3>
+          <p class="variant__tags mono">3 traços · continuidade</p>
+          <p>Perna curva e barra em arco que cruza: o esboço original, organizado. É a mais expressiva e a menos sóbria.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m5">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m6"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m6"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m6"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m6"/></svg></div>
+          <h3 class="h3"><span class="mono num">6</span> Gesto único</h3>
+          <p class="variant__tags mono">1 gesto · continuidade</p>
+          <p>O A desenhado sem tirar a caneta. É um exercício: a perna direita curta faz a letra ser lida como P, então não recomendo.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m6">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m7"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m7"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m7"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m7"/></svg></div>
+          <h3 class="h3"><span class="mono num">7</span> Convergência</h3>
+          <p class="variant__tags mono">3 traços · continuidade</p>
+          <p>O arco dos seus esboços, organizado: nasce fora da letra, cruza a perna esquerda e deságua no pé direito.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m7">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m8"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m8"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m8"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m8"/></svg></div>
+          <h3 class="h3"><span class="mono num">8</span> Raiz</h3>
+          <p class="variant__tags mono">3 traços · fechamento</p>
+          <p>A barra nasce no pé esquerdo e sobe por dentro do A, sem tocar a perna direita. A base fica mais pesada.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m8">Testar nas aplicações</button>
+        </article>
+        <article class="variant">
+          <div class="variant__stage"><svg class="mark mark--lg" aria-hidden="true"><use href="#m9"/></svg></div>
+          <div class="variant__sizes"><svg class="mark mark--16" aria-hidden="true"><use href="#m9s"/></svg><svg class="mark mark--32" aria-hidden="true"><use href="#m9"/></svg><svg class="mark mark--64" aria-hidden="true"><use href="#m9"/></svg></div>
+          <h3 class="h3"><span class="mono num">9</span> Três partes</h3>
+          <p class="variant__tags mono">3 peças · figura e fundo</p>
+          <p>Um bloco cortado pelo A em três peças. Em 16 px usa a versão de tela pequena, com corte mais largo.</p>
+          <button class="btn-ghost js-try" type="button" data-mark="m9">Testar nas aplicações</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="system-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Sistema</p>
+        <h2 id="system-title" class="h2">Uma marca, quatro formatos</h2>
+        <p class="section__lead">As versões usam a marca escolhida em “Marca em teste”, no topo da página.</p>
+      </div>
+      <div class="system">
+        <figure class="system__cell system__cell--wide">
+          <div class="lockup lockup--h">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+          </div>
+          <figcaption class="mono caption">Principal · horizontal</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="lockup lockup--v">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+          </div>
+          <figcaption class="mono caption">Vertical</figcaption>
+        </figure>
+        <figure class="system__cell">
+          <div class="tile">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+          </div>
+          <figcaption class="mono caption">Ícone · monograma</figcaption>
+        </figure>
+        <figure class="system__cell system__cell--ink">
+          <div class="lockup lockup--h">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+          </div>
+          <figcaption class="mono caption">Negativa</figcaption>
+        </figure>
+        <figure class="system__cell system__cell--paper">
+          <div class="lockup lockup--h">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+          </div>
+          <figcaption class="mono caption">Positiva</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="type-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Tipografia</p>
+        <h2 id="type-title" class="h2">A voz do nome</h2>
+        <p class="section__lead">Caixa baixa e tracking levemente aberto, para um nome que fala baixo e com firmeza. Três candidatas.</p>
+      </div>
+      <div class="type">
+        <figure class="type__row">
+          <div class="lockup lockup--h type__sample">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg>
+          </div>
+          <figcaption><strong>ARGON desenhado</strong> <span class="pill mono">Escolhida</span><br>Letras construídas no grid: traço fino e constante, caixa alta e espaçamento largo. Com o símbolo, ele assume o lugar do A; sem o símbolo, o A é um Λ sem barra. Não depende de fonte instalada.</figcaption>
+        </figure>
+        <figure class="type__row">
+          <div class="lockup lockup--h type__sample">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <span class="wordmark">argon</span>
+          </div>
+          <figcaption><strong>Geist</strong><br>Grotesca técnica e neutra. Continua como fonte de texto do site; o nome passa a usar o ARGON desenhado.</figcaption>
+        </figure>
+        <figure class="type__row">
+          <div class="lockup lockup--h type__sample">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <span class="wordmark wordmark--outfit">argon</span>
+          </div>
+          <figcaption><strong>Outfit</strong><br>Geométrica, de círculos perfeitos. É mais amigável e combina com o grid da marca, mas é mais leve em seriedade.</figcaption>
+        </figure>
+        <figure class="type__row">
+          <div class="lockup lockup--h type__sample">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            <span class="wordmark wordmark--serif">argon</span>
+          </div>
+          <figcaption><strong>Newsreader</strong><br>Serifa editorial. Aproxima a Argon de um jornal de negócios. Contrasta com o símbolo geométrico, o que pode ser qualidade ou ruído.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="color-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Cor</p>
+        <h2 id="color-title" class="h2">Primeiro a forma, depois a cor</h2>
+        <p class="section__lead">A rodada 1 é monocromática: se a marca funciona em preto sobre papel, funciona em qualquer lugar. As três paletas abaixo são para a rodada 2. <strong>Grafite + ocre e lilás foram aplicadas no passo 2.</strong></p>
+      </div>
+      <div class="inst">
+        <div class="swatch swatch--ink">
+          <span class="swatch__name">Tinta</span>
+          <span class="mono">HEX #111214 · RGB 17 18 20</span>
+          <span class="mono">CMYK 0 0 0 100 · Pantone Black 6 C*</span>
+        </div>
+        <div class="swatch swatch--paper">
+          <span class="swatch__name">Papel</span>
+          <span class="mono">HEX #F5F5F2 · RGB 245 245 242</span>
+          <span class="mono">CMYK 2 1 3 0 · branco do papel*</span>
+        </div>
+      </div>
+      <p class="note mono">* CMYK aproximado e Pantone sugerido. Validar em prova de gráfica.</p>
+      <div class="palettes">
+        <article class="palette">
+          <div class="palette__chips"><span class="chip chip--g1"></span><span class="chip chip--g2"></span><span class="chip chip--g3"></span></div>
+          <h3 class="h3">Grafite + ocre <span class="pill mono">Alternativa</span></h3>
+          <p class="mono">#1B1D21 · #F4F4F1 · #B8893B</p>
+          <p>Sóbria e editorial. O ocre sugere valor e maturidade sem gritar.</p>
+        </article>
+        <article class="palette">
+          <div class="palette__chips"><span class="chip chip--p1"></span><span class="chip chip--p2"></span><span class="chip chip--p3"></span></div>
+          <h3 class="h3">Verde-petróleo</h3>
+          <p class="mono">#0F3B3A · #E9EFEC · #7FA89F</p>
+          <p>Transmite confiança e estabilidade sem o clichê do azul. Sugere crescimento sem desenhar seta.</p>
+        </article>
+        <article class="palette">
+          <div class="palette__chips"><span class="chip chip--l1"></span><span class="chip chip--l2"></span><span class="chip chip--l3"></span></div>
+          <h3 class="h3">Lilás do argônio <span class="pill mono">Escolhida</span></h3>
+          <p class="mono">#121019 · #F5F4F8 · #6A4DF4</p>
+          <p>A luz do próprio elemento, e ponte com o roxo que o site já usa. Só como acento.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="manual-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Manual · rascunho</p>
+        <h2 id="manual-title" class="h2">Regras de uso</h2>
+      </div>
+      <div class="manual">
+        <figure class="manual__cell">
+          <div class="clear">
+            <div class="clear__zone">
+              <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            </div>
+          </div>
+          <figcaption><strong>Área de proteção.</strong> Três espessuras de traço (3 t) em volta do símbolo. Nenhum texto ou elemento entra nessa área.</figcaption>
+        </figure>
+        <figure class="manual__cell">
+          <div class="minsize">
+            <div><svg class="mark mark--16 js-mark-small" aria-hidden="true"><use href="#g33"/></svg><span class="mono">16 px · 5 mm</span></div>
+            <div><div class="lockup lockup--h lockup--min"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div><span class="mono">80 px · 22 mm</span></div>
+          </div>
+          <figcaption><strong>Tamanho mínimo.</strong> Símbolo com 16 px (5 mm impresso); abaixo de 24 px, use a versão de tela pequena. Horizontal com 80 px de largura (22 mm).</figcaption>
+        </figure>
+      </div>
+      <h3 class="h3 manual__sub">Não fazer</h3>
+      <div class="donts">
+        <figure class="dont"><div class="dont__stage"><svg class="mark dont--stretch js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Distorcer</figcaption></figure>
+        <figure class="dont"><div class="dont__stage"><svg class="mark dont--rotate js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Rotacionar</figcaption></figure>
+        <figure class="dont"><div class="dont__stage"><svg class="mark dont--shadow js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Aplicar sombra ou efeito</figcaption></figure>
+        <figure class="dont"><div class="dont__stage"><svg class="mark dont--color js-mark" aria-hidden="true"><use href="#m4"/></svg></div><figcaption>Cor fora da paleta</figcaption></figure>
+        <figure class="dont"><div class="dont__stage dont__stage--low"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg></div><figcaption>Fundo sem contraste</figcaption></figure>
+        <figure class="dont"><div class="dont__stage"><div class="dont--gap"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div></div><figcaption>Alterar a distância entre símbolo e nome</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="mock-title">
+      <div class="section__head">
+        <p class="eyebrow mono">No mundo real</p>
+        <h2 id="mock-title" class="h2">A marca em uso</h2>
+        <p class="section__lead">Aplicações de exemplo, com nomes e textos fictícios. Troque a marca no topo e todas mudam juntas.</p>
+        <p><a class="btn-ghost" href="../argon-site/index.html">Ver o protótipo da home institucional</a></p>
+      </div>
+      <div class="mocks">
+        <figure class="mock mock--cards">
+          <div class="card-front">
+            <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+          </div>
+          <div class="card-back">
+            <div class="lockup lockup--h lockup--xs"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <div class="card-back__who">
+              <strong>Nome Sobrenome</strong>
+              <span>Sócio-fundador</span>
+            </div>
+            <span class="mono card-back__line">consultoria · newsletter · eventos</span>
+          </div>
+          <figcaption class="mono caption">Cartão de visita · 85 × 55 mm · frente e verso</figcaption>
+        </figure>
+
+        <figure class="mock mock--mail">
+          <div class="mail">
+            <div class="mail__bar"><span class="mail__dot"></span><span class="mail__dot"></span><span class="mail__dot"></span><span class="mono">Caixa de entrada</span></div>
+            <div class="mail__head">
+              <div class="lockup lockup--h lockup--sm"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+              <span class="mono">Edição 128 · terça, 22 de setembro</span>
+            </div>
+            <div class="mail__body">
+              <p class="mail__kicker mono">Mercado &amp; Tecnologia</p>
+              <p class="mail__title">O que esperar do ecossistema de inovação nos próximos trimestres?</p>
+              <p class="mail__text">As principais tendências em automação, investimentos de risco e as novas regulações que moldarão as decisões de tecnologia.</p>
+            </div>
+          </div>
+          <figcaption class="mono caption">Cabeçalho da newsletter</figcaption>
+        </figure>
+
+        <figure class="mock mock--social">
+          <div class="social">
+            <div class="avatar avatar--round"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg></div>
+            <div class="social__meta"><strong>Argon</strong><span>Consultoria de negócios · 1.240 seguidores</span></div>
+          </div>
+          <div class="social">
+            <div class="avatar avatar--square"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg></div>
+            <div class="social__meta"><strong>@argon</strong><span>Notícias de negócios, sem ruído.</span></div>
+          </div>
+          <figcaption class="mono caption">Avatares · LinkedIn e Instagram</figcaption>
+        </figure>
+
+        <figure class="mock mock--badge">
+          <div class="badge">
+            <span class="badge__hole"></span>
+            <div class="lockup lockup--h lockup--xs"><svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg><svg class="wm" role="img" aria-label="ARGON"><use href="#wm"/></svg></div>
+            <p class="badge__event mono">Café de negócios · outubro</p>
+            <p class="badge__name">Nome Sobrenome</p>
+            <p class="badge__role">Participante</p>
+          </div>
+          <figcaption class="mono caption">Crachá de evento</figcaption>
+        </figure>
+
+        <figure class="mock mock--tab">
+          <div class="browser">
+            <div class="browser__tabs">
+              <div class="browser__tab">
+                <svg class="mark mark--16 js-mark-small" aria-hidden="true"><use href="#g33"/></svg>
+                <span>Argon · Notícias de negócios, sem ruído</span>
+              </div>
+            </div>
+            <div class="browser__url mono">argon · newsletter</div>
+          </div>
+          <figcaption class="mono caption">Aba do navegador · favicon em 16 px</figcaption>
+        </figure>
+
+        <figure class="mock mock--bag">
+          <div class="bag">
+            <span class="bag__handle"></span>
+            <div class="bag__body">
+              <svg class="mark js-mark" aria-hidden="true"><use href="#g33"/></svg>
+            </div>
+          </div>
+          <figcaption class="mono caption">Ecobag · serigrafia a uma cor</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section section--last" aria-labelledby="next-title">
+      <div class="section__head">
+        <p class="eyebrow mono">Próximos passos</p>
+        <h2 id="next-title" class="h2">O que precisamos decidir</h2>
+      </div>
+      <ol class="steps">
+        <li><strong>Escolher o símbolo da rodada 3.</strong> Minha indicação é o 21 (Órbita), com o 24 (Linha) como versão em traço fino para usos grandes.</li>
+        <li><strong>Confirmar o briefing.</strong> Valores, público, região e a leitura pública do número três.</li>
+        <li><strong>Rodada 2.</strong> Escolher uma das três paletas e fazer o ajuste fino da geometria.</li>
+        <li><strong>Aplicar.</strong> Marca no site, favicon e e-mail da newsletter; cores finais validadas em prova de gráfica.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="foot mono">Argon · identidade visual, rodada 3 · documento interno</footer>
+</body>
+</html>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
+import { subscribe } from "@/actions/subscribe";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 
 type Status = "idle" | "submitting" | "sent";
@@ -49,9 +50,14 @@ export function NewsletterForm() {
     setError(null);
     setStatus("submitting");
 
-    // TODO(REB-74/REB-75): trocar pela chamada real de cadastro, que gera o
-    // token de uso único e dispara o e-mail de confirmação.
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const result = await subscribe({ email, consent });
+
+    if (!result.ok) {
+      // O e-mail digitado continua no campo: o usuário só precisa tentar de novo.
+      setError(t("errors.unexpected"));
+      setStatus("idle");
+      return;
+    }
 
     setSentTo(normalizeEmail(email));
     setStatus("sent");
@@ -84,24 +90,21 @@ export function NewsletterForm() {
             }}
             aria-invalid={invalid || undefined}
             aria-describedby={invalid ? errorId : undefined}
-            className="h-14 w-full rounded-lg border border-border bg-surface px-4 text-base outline-none transition placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/30"
+            className="h-14 w-full rounded-ctl border border-border bg-surface px-4 text-base outline-none transition placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/30"
           />
         </div>
 
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="h-14 shrink-0 rounded-lg bg-accent px-8 text-base font-semibold text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-14 shrink-0 rounded-ctl bg-accent px-8 text-base font-medium text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "submitting" ? t("submitting") : t("submit")}
         </button>
       </div>
 
       {/* Honeypot: invisível para pessoas, atraente para bots. */}
-      <div
-        aria-hidden="true"
-        className="absolute left-[-9999px] h-0 w-0 overflow-hidden"
-      >
+      <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
         <label htmlFor="empresa-site">{t("honeypotLabel")}</label>
         <input
           id="empresa-site"
@@ -115,11 +118,7 @@ export function NewsletterForm() {
       </div>
 
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-sm font-medium text-danger"
-        >
+        <p id={errorId} role="alert" className="text-sm font-medium text-danger">
           {error}
         </p>
       )}
@@ -141,10 +140,7 @@ export function NewsletterForm() {
         <label htmlFor={consentId}>
           {t.rich("consent", {
             link: (chunks) => (
-              <Link
-                href="/privacy"
-                className="font-medium text-foreground underline underline-offset-2"
-              >
+              <Link href="/privacy" className="font-medium text-foreground underline underline-offset-2">
                 {chunks}
               </Link>
             ),
@@ -170,13 +166,13 @@ function ConfirmationNotice({ email }: { email: string }) {
       ref={noticeRef}
       role="status"
       tabIndex={-1}
-      className="flex flex-col items-start gap-4 rounded-xl border border-accent/50 bg-accent/10 p-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:p-8"
+      className="flex flex-col items-start gap-4 rounded-card border border-accent/50 bg-accent/10 p-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:p-8"
     >
       <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
         <MailIcon />
       </span>
 
-      <h2 className="text-2xl font-bold tracking-tight text-balance">{t("title")}</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-balance">{t("title")}</h2>
 
       <p className="text-base text-pretty">
         {t.rich("body", {
@@ -194,13 +190,7 @@ function ConfirmationNotice({ email }: { email: string }) {
 function MailIcon() {
   return (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-      <g
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+      <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.4" />
         <path d="m3.4 7.4 7.3 5.1a2.3 2.3 0 0 0 2.6 0l7.3-5.1" />
       </g>

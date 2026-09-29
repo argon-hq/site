@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — m14-conexao</title>
+  <defs><mask id="argon-mask-16" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M1.8 27.6Q31.6 14.2 58.6 55.4A1.665 1.665 0 0 1 55.81 57.23Q30.11 18.00 1.8 27.6Z" fill="#000" stroke="#000" stroke-width="3.2" stroke-linejoin="round"/></mask></defs>
+  <g fill="currentColor"><g mask="url(#argon-mask-16)"><path d="M7.8 58 31.4 3 52.9 46 48 46 32.8 12.4Z"/></g><path d="M1.8 27.6Q31.6 14.2 58.6 55.4A1.665 1.665 0 0 1 55.81 57.23Q30.11 18.00 1.8 27.6Z"/></g>
+</svg>

@@ -5,6 +5,7 @@ import { BackButton } from "@/components/back-button";
 import { BrandMark } from "@/components/brand-mark";
 import { EditionPreview } from "@/components/edition-preview";
 import { NewsletterForm } from "@/components/newsletter-form";
+import { PageHeading } from "@/components/ui/page-heading";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("newsletter");
@@ -27,21 +28,18 @@ export default function NewsletterPage() {
         <BackButton />
       </div>
 
-      <section className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
+      <main id="main-content" className="flex flex-col px-6 py-12 sm:px-10 lg:px-16 lg:py-14">
         <div className="flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 lg:gap-12">
           <BrandMark />
 
           <div className="flex flex-col gap-3">
-            <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              {t("heading")}
-            </h1>
+            <PageHeading>{t("heading")}</PageHeading>
             <p className="max-w-xl text-lg text-muted text-pretty">{t("subheading")}</p>
           </div>
 
           <NewsletterForm />
         </div>
-
-      </section>
+      </main>
 
       {/* Provisório: mostra a mesma amostra de edição da tela de confirmação,
           até existir arte própria para este painel. */}

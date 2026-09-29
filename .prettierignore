@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+.turbo
+apps/api/src/generated
+apps/api/studio
+apps/api/out
+pnpm-lock.yaml
+deploy/aws
+**/__snapshots__

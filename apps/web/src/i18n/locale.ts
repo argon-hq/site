@@ -17,5 +17,8 @@ export async function setUserLocale(locale: Locale): Promise<void> {
     path: "/",
     maxAge: ONE_YEAR_IN_SECONDS,
     sameSite: "lax",
+    // Only the server reads it; local dev already serves https.
+    httpOnly: true,
+    secure: true,
   });
 }

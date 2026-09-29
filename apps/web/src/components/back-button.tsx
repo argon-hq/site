@@ -29,7 +29,7 @@ export function BackButton() {
     <button
       type="button"
       onClick={handleClick}
-      className="flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm font-medium text-muted transition hover:border-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="flex items-center gap-2 rounded-ctl border border-border bg-background px-2.5 py-1.5 text-sm font-medium text-muted transition hover:border-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <ArrowLeft />
       <span>{t("back")}</span>

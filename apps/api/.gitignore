@@ -1,0 +1,6 @@
+dist
+.mastra
+out
+.env
+*.tsbuildinfo
+src/generated

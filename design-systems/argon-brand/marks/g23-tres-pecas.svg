@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" color="#111214">
+  <title>Argon — g23-tres-pecas</title>
+  <defs><clipPath id="argon-g23-base"><rect x="0" y="0" width="64" height="58"/></clipPath><mask id="argon-g23-split" maskUnits="userSpaceOnUse" x="-4" y="-4" width="72" height="72"><rect x="-4" y="-4" width="72" height="72" fill="#fff"/><rect x="30.4" y="-4" width="3.2" height="72" fill="#000"/></mask></defs>
+  <g clip-path="url(#argon-g23-base)"><path d="M9 66 32 5 55 66" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="miter" stroke-miterlimit="10" mask="url(#argon-g23-split)"/></g><circle cx="32" cy="49" r="6.2" fill="currentColor"/>
+</svg>
