@@ -8,6 +8,15 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `paths.ts` names the two folders that are data and not code — the skills and the Studio's overrides. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
   The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
   `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+- `src/ingest/`: the reading of the news by code (ARG-123), the first step of the ingestion that will
+  replace `collect`. Nothing here is wired to the edition yet. `fetch-feed.ts` reads one address — RSS
+  2.0 or 0.91, Atom, or a news sitemap — through the guarded fetch `read_page` also uses
+  (`src/net/fetch.ts`: only the source's domain, never a private address, every redirect checked), in
+  the charset the response declares in its header or its prolog (Folha's feed is ISO-8859-1).
+  `parse.ts` turns it into items — link, title, date as written, categories, and the feed's text with
+  its kind (`full`, `summary`, `none`); `dates.ts` reads RFC 822 and ISO dates, a date without offset
+  as São Paulo time; `url.ts` unwraps a redirector (Folha's `…/*https://…`) and canonicalizes. The
+  sources of the survey of 29/09/2026, with their addresses and section rules, are in `catalog.ts`.
 - `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
   `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
   São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
@@ -119,6 +128,23 @@ pnpm dev               # http://localhost:3001
 pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
 pnpm test
 pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
+```
+
+## Ingestion
+
+Manual commands for the reading, against the real sources; nothing is stored and no model is called.
+
+```bash
+pnpm ingest:sources                 # the sources of the catalogue, with their addresses
+pnpm ingest:feed <url>              # one address: every item, its date and whether it is in the window
+pnpm ingest:page <url>              # one page: what the extraction gets out of it
+```
+
+```text
+rss, iso-8859-1, 116275 bytes, 100 items, source: folha.uol.com.br
+publishedAt       window  text     categories  title                                               url
+2026-09-30T14:43  in      summary              Tribunal dos EUA analisará tarifas de Trump ligadas…  https://www1.folha.uol.com.br/mercado/2026/09/…
+2026-09-30T14:00  in      summary              Oura Ring, fabricante de anéis inteligentes, adia IPO  https://c-level.folha.uol.com.br/negocios/2026/09/…
 ```
 
 ## Studio

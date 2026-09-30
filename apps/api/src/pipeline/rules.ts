@@ -26,24 +26,13 @@ export const RECENT_DAYS = 3; // how far back the agent sees what was already co
 // How much a run may search, how long its text may be and how many turns it gets are not rules:
 // they are what an environment is willing to pay. They live in `profile.ts`.
 
-const TRACKING_PARAMS = /^(utm_|fbclid|gclid|ref$)/;
-
 export function isAllowedDomain(url: string): boolean {
   const host = new URL(url).hostname.toLowerCase();
   return ALLOWED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
 }
 
-// Same article, same key: lowercase host without `www.`, no hash, no tracking parameters, the
-// remaining query in a stable order and no trailing slash.
-export function canonicalize(url: string): string {
-  const u = new URL(url);
-  u.hash = "";
-  u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
-  for (const key of [...u.searchParams.keys()]) if (TRACKING_PARAMS.test(key)) u.searchParams.delete(key);
-  u.searchParams.sort();
-  u.pathname = u.pathname.replace(/\/+$/, "") || "/";
-  return u.toString();
-}
+// Same article, same key: one canonical form for the collection and the ingestion.
+export { canonicalize } from "../ingest/url";
 
 // 24 hours; 48 on Mondays (São Paulo time) to cover the weekend.
 export function windowHours(date: Date): number {
