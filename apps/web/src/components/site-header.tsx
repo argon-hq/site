@@ -27,7 +27,7 @@ export async function SiteHeader() {
           <Link href="/newsletter" className={NAV_LINK}>
             {t("nav.newsletter")}
           </Link>
-          <Link href="/#eventos" className={`hidden sm:inline ${NAV_LINK}`}>
+          <Link href="/events" className={`hidden sm:inline ${NAV_LINK}`}>
             {t("nav.events")}
           </Link>
           <div className="flex items-center gap-2">
