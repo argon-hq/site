@@ -1,13 +1,13 @@
 import type { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
-import type { BuildReport, CollectReport, StepRun, WriteReport } from "../../pipeline/pipeline.service";
+import type { BuildReport, IngestReport, StepRun, WriteReport } from "../../pipeline/pipeline.service";
 
 // What the workflow needs from the application to run one edition. The port lives here, on the
 // Mastra side, and the pipeline service implements it: the Mastra instance is built at import time,
 // before Nest exists, so a step cannot be injected. It reads the service from the run context, the
 // same deal the tools already have in `tools/context.ts`.
 export type EditionSteps = {
-  collect(run: StepRun): Effect.Effect<CollectReport, { reason: string }>;
+  ingest(run: StepRun): Effect.Effect<IngestReport, { reason: string }>;
   write(run: StepRun): Effect.Effect<WriteReport, { reason: string }>;
   build(run: StepRun): Effect.Effect<BuildReport, { reason: string }>;
 };

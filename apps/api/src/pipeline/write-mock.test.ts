@@ -1,21 +1,21 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { editionHeaderSchema, writtenItemSchema } from "../mastra/schemas/edition";
-import { fixtureNews } from "./fixtures/news";
 import type { Candidate } from "./write";
 import { mockHeader, mockItem } from "./write-mock";
 
-const article = (over: Partial<Candidate> = {}): Candidate => {
-  const news = fixtureNews(new Date("2026-09-23T08:30:00Z"))[0]!;
-  return {
-    id: "a1",
-    canonicalUrl: news.candidate.url,
-    sourceName: news.candidate.sourceName,
-    originalTitle: news.page.originalTitle,
-    extractedText: news.page.extractedText,
-    ...over,
-  };
-};
+const article = (over: Partial<Candidate> = {}): Candidate => ({
+  id: "a1",
+  canonicalUrl: "https://www.diario-ficticio.test/empresas/2026/09/23/credito-pequenas-empresas",
+  sourceName: "Diário Fictício",
+  originalTitle: "Crédito para pequenas empresas cresce 12% no trimestre",
+  extractedText:
+    "O crédito concedido a pequenas e médias empresas cresceu 12% no trimestre, segundo levantamento divulgado " +
+    "nesta terça-feira. A alta foi puxada por linhas com garantia de recebíveis, que responderam por quase " +
+    "metade das novas concessões. Texto de exemplo da Argon, usado para testar a esteira; os dados são fictícios.",
+  codeScore: 9,
+  ...over,
+});
 
 describe("the mocked writing", () => {
   it("answers what the schema of a written item demands", async () => {

@@ -44,10 +44,10 @@ describe("runEffect", () => {
   });
 
   it("keeps a defect's cause out of the response", async () => {
-    const error = await thrown(runEffect("collect", Effect.die(new Error("secret internals /srv/app/x.ts:12"))));
+    const error = await thrown(runEffect("ingest", Effect.die(new Error("secret internals /srv/app/x.ts:12"))));
     expect(error.getStatus()).toBe(500);
     expect(JSON.stringify(error.getResponse())).not.toContain("secret internals");
-    expect(error.getResponse()).toEqual({ step: "collect", reason: "internal error" });
+    expect(error.getResponse()).toEqual({ step: "ingest", reason: "internal error" });
   });
 
   it("passes a conflict through as 409", async () => {

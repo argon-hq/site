@@ -85,7 +85,7 @@ describe("PipelineService.run", () => {
   it("opens the gate again after a failed run, and alerts once for the step that failed", async () => {
     const { mastra, start } = workflow({
       status: "failed",
-      steps: { collect: { status: "success" }, write: { status: "failed", error: new Error("no news") } },
+      steps: { ingest: { status: "success" }, write: { status: "failed", error: new Error("no news") } },
     });
     const { pipeline, alert } = service({ mastra });
 
