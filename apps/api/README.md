@@ -81,10 +81,14 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   Unsubscribing lives here too: `GET /subscriber/unsubscribe?token=…` only says who the token belongs to, so the page can
   confirm first — a GET that cancelled would unsubscribe people on its own, since e-mail clients follow every link they find.
   `POST /subscriber/unsubscribe { token }` cancels, and `POST /subscriber/unsubscribe/one-click?token=…` is the
-  public RFC 8058 endpoint the `List-Unsubscribe` header announces. The permanent unsubscribe token is derived from the
-  subscriber id and `UNSUBSCRIBE_TOKEN_SECRET` (`token.ts`); the confirmation records only its hash. The service speaks
-  Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures — and the controller runs it
-  through `runEffect`, so a provider that is down answers 503 and a database that is down answers 500.
+  public RFC 8058 endpoint the `List-Unsubscribe` header announces. A request made to the data protection officer goes
+  through `POST /subscriber/cancel { email }`, which an operator calls with the secret. Every cancellation records why
+  in `cancellation_reason`: `user` for the page and the one-click, `manual` for the officer's request; `complaint` and
+  `bounce` wait for the delivery webhook. Signing up again clears it along with the date. The permanent unsubscribe
+  token is derived from the subscriber id and `UNSUBSCRIBE_TOKEN_SECRET` (`token.ts`); the confirmation records only
+  its hash. The service speaks Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures —
+  and the controller runs it through `runEffect`, so a provider that is down answers 503 and a database that is down
+  answers 500.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
   `signup-throttle.guard.ts` rate-limits `POST /subscriber` and the public one-click unsubscribe by the visitor's address
   (`consentIp` in the body, the socket address for the public route): ten a minute, in memory.
@@ -221,6 +225,11 @@ curl -X POST http://localhost:3001/subscriber/confirm -H "x-internal-secret: $IN
 
 ```bash
 curl -X POST http://localhost:3001/subscriber/unsubscribe -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"token":"<unsubscribe token>"}'
+```
+
+```bash
+# a request made to the data protection officer: cancels with the reason `manual`, 404 when the address is not on the list
+curl -X POST http://localhost:3001/subscriber/cancel -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"email":"someone@example.com"}'
 ```
 
 ```bash

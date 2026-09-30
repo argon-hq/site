@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Data, Effect } from "effect";
 import type { Failure } from "../effect/failure";
+import type { CancellationReason } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ConfirmationMail, type ConfirmationMailFailed } from "./confirmation-mail";
@@ -36,10 +37,16 @@ export type ConfirmResult =
   | { status: "expired"; email: string }
   | { status: "invalid" };
 
+// What cancelling leaves behind, whichever way it came in. Cancelling twice is not an error.
+type Cancelled = { status: "cancelled"; email: string } | { status: "already_cancelled"; email: string };
+
 // What the subscriber sees on the unsubscribe page. `invalid` covers a token that is wrong,
 // truncated by the e-mail client or from a subscriber that no longer exists.
-export type UnsubscribeResult =
-  { status: "cancelled"; email: string } | { status: "already_cancelled"; email: string } | { status: "invalid" };
+export type UnsubscribeResult = Cancelled | { status: "invalid" };
+
+// What the operator hears back after a request made to the data protection officer. There is no token to be
+// wrong here, only an address that may not be on the list at all.
+export type ManualCancelResult = Cancelled | { status: "not_found" };
 
 // The database did not answer. Nothing the caller can do about it: a 500, like every other.
 export class SubscriberDbFailed extends Data.TaggedError("SubscriberDbFailed")<Failure> {}
@@ -117,8 +124,9 @@ export class SubscriberService {
             status: "pending",
             tokenHash: token.hash,
             tokenExpiresAt: token.expiresAt,
-            // Signing up again reopens a cancelled subscription.
+            // Signing up again reopens a cancelled subscription, and the reason it ended goes with it.
             cancelledAt: null,
+            cancellationReason: null,
             confirmationSends: { increment: 1 },
             lastConfirmationSentAt: now,
             ...consent,
@@ -236,7 +244,8 @@ export class SubscriberService {
     );
   }
 
-  // Cancelling twice is not an error: the second click just confirms the subscription is off.
+  // Cancelling twice is not an error: the second click just confirms the subscription is off. The page and
+  // the one-click both land here, and both are the subscriber's own decision: the reason is `user`.
   unsubscribe(token: string): Effect.Effect<UnsubscribeResult, SubscriberDbFailed> {
     return Effect.gen(this, function* () {
       const subscriber = yield* this.resolveUnsubscribeToken(token);
@@ -246,8 +255,35 @@ export class SubscriberService {
         return { status: "invalid" } as const;
       }
 
-      // Cancelled, bounced or blocked: already off the list, so nothing is rewritten. A spam
-      // complaint in particular must not be turned back into an ordinary cancellation.
+      return yield* this.cancel(subscriber, "user");
+    });
+  }
+
+  // A request made to the data protection officer: the one way out that does not start from a link the
+  // subscriber holds, so the address is what finds the row.
+  cancelByEmail(email: string): Effect.Effect<ManualCancelResult, SubscriberDbFailed> {
+    return Effect.gen(this, function* () {
+      const subscriber = yield* this.db("find subscriber", () =>
+        this.prisma.subscriber.findUnique({ where: { email: normalizeEmail(email) } }),
+      );
+
+      if (!subscriber) {
+        this.logger.warn({ msg: "manual cancellation for an address not on the list" });
+        return { status: "not_found" } as const;
+      }
+
+      return yield* this.cancel(subscriber, "manual");
+    });
+  }
+
+  // Every entry cancels the same way: status, date and reason in one write. Cancelled, bounced or blocked:
+  // already off the list, so nothing is rewritten. A spam complaint in particular must not be turned back into
+  // an ordinary cancellation.
+  private cancel(
+    subscriber: { id: string; email: string; status: string },
+    reason: CancellationReason,
+  ): Effect.Effect<Cancelled, SubscriberDbFailed> {
+    return Effect.gen(this, function* () {
       if (subscriber.status !== "confirmed" && subscriber.status !== "pending") {
         return { status: "already_cancelled", email: subscriber.email } as const;
       }
@@ -255,11 +291,11 @@ export class SubscriberService {
       yield* this.db("cancel subscriber", () =>
         this.prisma.subscriber.update({
           where: { id: subscriber.id },
-          data: { status: "cancelled", cancelledAt: new Date() },
+          data: { status: "cancelled", cancelledAt: new Date(), cancellationReason: reason },
         }),
       );
 
-      this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id });
+      this.logger.log({ msg: "unsubscribed", subscriberId: subscriber.id, reason });
       return { status: "cancelled", email: subscriber.email } as const;
     });
   }

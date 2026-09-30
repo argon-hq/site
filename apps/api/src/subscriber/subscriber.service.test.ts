@@ -16,6 +16,7 @@ type Write = {
   tokenHash?: string;
   tokenExpiresAt?: Date;
   cancelledAt?: Date | null;
+  cancellationReason?: string | null;
   consentIp?: string | null;
   consentUserAgent?: string | null;
   policyVersion?: string | null;
@@ -117,6 +118,8 @@ describe("SubscriberService", () => {
     const { update } = upsertArgs(cancelled.prisma);
     expect(update.status).toBe("pending");
     expect(update.cancelledAt).toBeNull();
+    // The reason belongs to the cancellation that just ended, not to the subscription that reopens.
+    expect(update.cancellationReason).toBeNull();
   });
 
   it("keeps the consent already recorded when the new sign-up carries none", async () => {
@@ -238,6 +241,7 @@ type UpdateArgs = {
   data: {
     status?: string;
     cancelledAt?: Date;
+    cancellationReason?: string;
     confirmedAt?: Date;
     unsubscribeTokenHash?: string | null;
     tokenHash?: string | null;
@@ -378,6 +382,8 @@ describe("SubscriberService.unsubscribe", () => {
     const update = prisma.subscriber.update.mock.calls[0]?.[0];
     expect(update?.data.status).toBe("cancelled");
     expect(update?.data.cancelledAt).toEqual(expect.any(Date));
+    // The page and the one-click both come here, and both are the subscriber's own decision.
+    expect(update?.data.cancellationReason).toBe("user");
   });
 
   it("answers `invalid` for a token nobody holds, without writing", async () => {
@@ -421,6 +427,70 @@ describe("SubscriberService.unsubscribe", () => {
 
     const forged = unsubscribeTokenFor("another-secret-of-thirty-two-chars", "abc");
     expect(await Effect.runPromise(subscribers.unsubscribe(forged))).toEqual({ status: "invalid" });
+    expect(prisma.subscriber.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("SubscriberService.cancelByEmail", () => {
+  // The request made to the data protection officer names an address, not a token.
+  function manualService(row: Cancelled | null) {
+    const prisma = {
+      subscriber: {
+        findUnique: vi.fn(async (args: { where: { email: string } }) =>
+          row && args.where.email === row.email ? row : null,
+        ),
+        update: vi.fn(async (args: UpdateArgs) => ({ id: args.where.id })),
+      },
+    };
+    const settings = { get: vi.fn(async () => "") };
+    const confirmation = { send: vi.fn((): Effect.Effect<void, ConfirmationMailFailed> => Effect.void) };
+    return {
+      prisma,
+      subscribers: new SubscriberService(
+        prisma as unknown as PrismaService,
+        settings as unknown as SettingsService,
+        confirmation as unknown as ConfirmationMail,
+        origins,
+        SECRET,
+      ),
+    };
+  }
+
+  it("cancels on the officer's request and records the reason as manual", async () => {
+    const { prisma, subscribers } = manualService({ id: "abc", email: "joao@example.com", status: "confirmed" });
+
+    // However the request spelled it, the address is the one sign-up stored.
+    const result = await Effect.runPromise(subscribers.cancelByEmail("  Joao@Example.COM "));
+
+    expect(result).toEqual({ status: "cancelled", email: "joao@example.com" });
+    expect(prisma.subscriber.findUnique.mock.calls[0]?.[0].where.email).toBe("joao@example.com");
+    const update = prisma.subscriber.update.mock.calls[0]?.[0];
+    expect(update?.data).toEqual({ status: "cancelled", cancelledAt: expect.any(Date), cancellationReason: "manual" });
+  });
+
+  it("cancels a sign-up that was never confirmed as well", async () => {
+    const { prisma, subscribers } = manualService({ id: "abc", email: "joao@example.com", status: "pending" });
+
+    expect((await Effect.runPromise(subscribers.cancelByEmail("joao@example.com"))).status).toBe("cancelled");
+    expect(prisma.subscriber.update.mock.calls[0]?.[0].data.cancellationReason).toBe("manual");
+  });
+
+  it("leaves an address already off the list as it is", async () => {
+    for (const status of ["cancelled", "blocked", "bounced"]) {
+      const { prisma, subscribers } = manualService({ id: "abc", email: "joao@example.com", status });
+
+      expect(await Effect.runPromise(subscribers.cancelByEmail("joao@example.com"))).toEqual({
+        status: "already_cancelled",
+        email: "joao@example.com",
+      });
+      expect(prisma.subscriber.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it("says when the address is not on the list, without writing", async () => {
+    const { prisma, subscribers } = manualService(null);
+
+    expect(await Effect.runPromise(subscribers.cancelByEmail("ninguem@example.com"))).toEqual({ status: "not_found" });
     expect(prisma.subscriber.update).not.toHaveBeenCalled();
   });
 });
