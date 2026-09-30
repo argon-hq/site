@@ -8,6 +8,29 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `paths.ts` names the two folders that are data and not code — the skills and the Studio's overrides. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
   The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
   `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+- `src/ingest/`: the news, listed by code (ARG-123). No model and no page read: `POST /pipeline/ingest` reads every
+  address of every active source — RSS, Atom or news sitemap — in parallel, in the charset each declares
+  (`net/fetch.ts`, the same guarded fetch `read_page` uses), and `ingest.ts` takes each item through the chain: unwrap a
+  redirector (`url.ts`), canonicalize, the window (24 h, 48 h on Mondays; a date without offset is São Paulo time, an item
+  without a date is dropped and counted), the section rules of its source and the title noise (`score.ts`), then a code
+  score with a reason per point (`triage.ts`: lexicon, weights, cutoff 3, cap 200 — versioned here and recalibrated with
+  the commands below). The same fact in several outlets becomes one group by a MinHash of the title (`signature.ts`,
+  `group.ts`), represented by the most trusted source, the others kept as members, a point per extra outlet; a group
+  like something published or stored in the last 3 days is a late copy and is dropped. What passes is a **ficha** in
+  `article`, with no edition: link, source, title, date, origin, the feed's text and its kind (`full`, `summary`,
+  `none`), members, code score and signals. Every listed link goes to `seen_url` as the sha256 of its canonical form.
+  The sources live in the `source` and `source_feed` tables, per environment, written only through
+  `GET|POST /sources`, `PATCH /sources/:domain` and `POST|DELETE /sources/:domain/feeds` (Zod: https, a name and not
+  an IP, every address on the source's domain; before and after in the log). Their active domains are the allowlist of
+  `read_page` (`allowlist.ts`), loaded at boot and refreshed by each live ingestion, so a source turned off leaves it on
+  the next run. A source whose every address fails three runs in a row mails the owners once, and stays active; a good
+  read resets it. One failing address never stops the run; all of them failing fails the step. The log has two layers,
+  both with the run id: per address and per run always, and per item and group when the `ingest_debug` setting is on.
+  A mocked run (`mode.ts`) reads the invented sources of `fixtures/` through a network that answers only them — feeds,
+  a sitemap, pages, a Latin-1 feed behind a redirector, a malformed feed, a source down — and writes real fichas.
+  For now the ingestion runs beside the collection, on its own route and commands: the fichas it stores
+  carry a code score and no selection score, so the writing step, which still reads what `collect` stored,
+  leaves them alone. Moving the workflow onto the ingestion is the next change.
 - `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
   `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
   São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
@@ -108,7 +131,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
   something other than what the profile assumed, and `PATCH /settings { key, value }` is how it is written (`GET
   /settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
-- `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (links the collector already evaluated). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
+- `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (hashes of the links the collection and the ingestion already met) and `source`/`source_feed` (where the news comes from). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
 
 ## Run
 
@@ -119,6 +142,54 @@ pnpm dev               # http://localhost:3001
 pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
 pnpm test
 pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
+```
+
+## Ingestion
+
+Manual commands, to look at the sources and calibrate the triage. They wire the database and the
+network by hand, without Nest; `--mock` reads the fixture, and `--mock --dry-run` needs no database.
+
+```bash
+pnpm ingest:sources                 # sources and addresses of DATABASE_URL, with their health
+pnpm ingest:feed <url>              # one address: every item, its date, window, score or discard reason
+pnpm ingest:page <url>              # one page: what the extraction gets out of it
+pnpm ingest:run                     # the ingestion, live, writing fichas and seen links
+pnpm ingest:run --dry-run           # the same, writing nothing
+pnpm ingest:run --ignore-seen       # judge again what earlier runs listed (recalibration)
+pnpm ingest:run --mock --dry-run --date 2026-09-30T08:30:00Z
+pnpm ingest:run --source valor.globo.com --json --report out/ingest.json
+```
+
+```text
+run 7d0c… (dry run) — 2026-09-30T08:30:00.000Z, window from 2026-09-29T08:30:00.000Z
+5 sources, 23 listed, 20 in the window, 15 candidates, 13 groups
+0 fichas stored, 0 already there, 3 below the cutoff, 0 over the cap, 1 late copies
+failed sources: fonte-fora-do-ar.test
+== addresses
+source                  ok    status  listed  inWindow  candidates  dropped                      error
+diario-ficticio.test    ok    200     8       7         5           discarded:2 out_of_window:1
+diario-ficticio.test    FAIL  200     0       0         0                                        FeedMalformed: invalid xml…
+fonte-fora-do-ar.test   FAIL  503     0       0         0                                        FetchFailed: HTTP 503
+== groups (fichas first)
+outcome       score  source              also               title
+ficha         9      Diário Fictício                        Crédito para pequenas empresas cresce 12% no trimestre
+ficha         8      Diário Fictício     Portal Exemplo     Governo amplia limite do MEI para R$ 150 mil a partir de janeiro
+below_cutoff  -1     Portal Exemplo                         Ibovespa fecha em alta de 0,8% puxado por bancos
+republished   5      Revista Modelo PME                     Receita libera consulta ao lote residual do Imposto de Renda
+== items
+decision       reason                      score  source                  title
+discarded      section path:/live/                portal-exemplo.test     Ao vivo: acompanhe o mercado nesta manhã
+out_of_window                                     portal-exemplo.test     Varejista fictícia anuncia demissões e fecha 40 lojas
+no_date        missing                            revista-modelo.test     Linha de crédito para MEI sem data informada
+```
+
+Live, on 29/09/2026: 1,742 items from the six active sources, 141 fichas, in about 3 s and no tokens.
+
+```bash
+curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"live"}'
+curl http://localhost:3001/sources -H "x-internal-secret: $INTERNAL_API_SECRET"
+curl -X PATCH http://localhost:3001/sources/exame.com -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"active":false}'
+curl -X PATCH http://localhost:3001/settings -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"key":"ingest_debug","value":true}'
 ```
 
 ## Studio
