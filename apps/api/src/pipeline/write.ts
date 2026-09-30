@@ -6,7 +6,7 @@ import type { PrismaClient } from "../generated/prisma/client";
 import type { TextKind } from "../generated/prisma/enums";
 import { twoAttempts } from "../mastra/attempts";
 import type { ExtractedArticle } from "../mastra/schemas/article";
-import { BODY_MAX, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
+import { BODY_TARGET, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
 
 // One article the step may write: a ficha of the ingestion, not yet in another edition, with the
 // text it will be written from.
@@ -165,7 +165,7 @@ export function itemPrompt(article: Candidate): string {
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
     "Escreva o item desta notícia, e só dela.",
     `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
-    `Corpo: até ${BODY_MAX} caracteres, contando espaços.`,
+    `Corpo: até ${BODY_TARGET} caracteres, contando espaços.`,
     `Fonte: ${article.sourceName}`,
     `Título original: ${article.originalTitle}`,
     "--- notícia ---",

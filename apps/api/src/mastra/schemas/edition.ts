@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-export const BODY_MAX = 190;
+// The body the model is asked for, and the most the code accepts: twelve characters of slack, so a
+// paragraph a word over the target is not thrown away with its two attempts. The e-mail, the
+// validation and the database all hold the hard limit.
+export const BODY_TARGET = 260;
+export const BODY_MAX = BODY_TARGET + 12;
 export const SUBJECT_MAX = 78;
 
 // Same values as the article_category enum in the database, with the label used in the e-mail.

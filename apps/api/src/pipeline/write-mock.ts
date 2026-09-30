@@ -1,6 +1,13 @@
 import { Effect } from "effect";
-import { BODY_MAX, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
-import type { Candidate, Generate } from "./write";
+import { fixtureWrittenLength } from "../ingest/fixtures";
+import {
+  BODY_TARGET,
+  SUBJECT_MAX,
+  writtenItemSchema,
+  type EditionHeader,
+  type WrittenItem,
+} from "../mastra/schemas/edition";
+import { ItemFailed, type Candidate, type Generate } from "./write";
 
 // The writing step without a model. It answers in the same shape a generation does, so everything
 // after it — the schema, the two attempts, the transaction that saves the edition — runs unchanged.
@@ -23,17 +30,34 @@ function trimTo(text: string, max: number): string {
 // not doing.
 const MOCK_CATEGORY = "business" as const;
 
+// A paragraph of exactly `length` characters, for the fixture stories that ask for one: the body
+// limit is exercised below the target, inside the slack and over the ceiling.
+function sized(text: string, length: number): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return `${clean
+    .slice(0, length - 1)
+    .trimEnd()
+    .padEnd(length - 1, ".")}.`;
+}
+
+// The answer goes through the same schema a real generation meets, so a paragraph over the ceiling
+// is rejected twice and the article leaves the edition, as it would with the model.
 export const mockItem =
   (article: Candidate): Generate<WrittenItem> =>
-  () =>
-    Effect.succeed({
-      object: {
-        category: MOCK_CATEGORY,
-        headline: trimTo(article.originalTitle, 120),
-        body: trimTo(article.extractedText, BODY_MAX),
-      },
-      usage: undefined,
-    });
+  () => {
+    const length = fixtureWrittenLength(article.canonicalUrl);
+    const answer = {
+      category: MOCK_CATEGORY,
+      headline: trimTo(article.originalTitle, 120),
+      body: length ? sized(article.extractedText, length) : trimTo(article.extractedText, BODY_TARGET),
+    };
+    const parsed = writtenItemSchema.safeParse(answer);
+    return parsed.success
+      ? Effect.succeed({ object: parsed.data, usage: undefined })
+      : Effect.fail(
+          new ItemFailed({ reason: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }),
+        );
+  };
 
 export const mockHeader =
   (items: WrittenItem[], day: string): Generate<EditionHeader> =>

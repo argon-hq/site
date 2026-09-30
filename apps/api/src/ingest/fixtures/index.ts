@@ -271,6 +271,12 @@ export function fixtureDeps(now: Date): FetchDeps {
   };
 }
 
+// How long the mocked writing makes the paragraph of the story at this link, if the fixture says.
+export function fixtureWrittenLength(url: string): number | undefined {
+  const story = STORIES.find((s) => s.writtenLength && url.endsWith(`/${s.path.split("/").pop()}`));
+  return story?.writtenLength;
+}
+
 // What the newsletter already published, as the ingestion sees it: the late copy is judged against it.
 export function fixturePublished(): Known[] {
   return PUBLISHED.map((p) => ({ url: p.path, signature: titleSignature(p.title) }));

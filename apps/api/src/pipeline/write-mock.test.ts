@@ -1,12 +1,12 @@
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
-import { editionHeaderSchema, writtenItemSchema } from "../mastra/schemas/edition";
+import { BODY_MAX, BODY_TARGET, editionHeaderSchema, writtenItemSchema } from "../mastra/schemas/edition";
 import type { Candidate } from "./write";
 import { mockHeader, mockItem } from "./write-mock";
 
 const article = (over: Partial<Candidate> = {}): Candidate => ({
   id: "a1",
-  canonicalUrl: "https://www.diario-ficticio.test/empresas/2026/09/23/credito-pequenas-empresas",
+  canonicalUrl: "https://www.diario-ficticio.test/empresas/2026/09/23/noticia-sem-tamanho-pedido",
   sourceName: "Diário Fictício",
   originalTitle: "Crédito para pequenas empresas cresce 12% no trimestre",
   extractedText:
@@ -28,9 +28,29 @@ describe("the mocked writing", () => {
   it("cuts a long article to the body limit without breaking a word", async () => {
     const written = await Effect.runPromise(mockItem(article())("ignored"));
 
-    expect(written.object.body.length).toBeLessThanOrEqual(190);
+    expect(written.object.body.length).toBeLessThanOrEqual(BODY_TARGET);
     expect(written.object.body).not.toMatch(/\s$/);
     expect(article().extractedText.startsWith(written.object.body.slice(0, 40))).toBe(true);
+  });
+
+  it("writes the fixture's paragraphs below the target, inside the slack, and rejects one over the ceiling", async () => {
+    const at = (slug: string) => article({ canonicalUrl: `https://x.test/empresas/2026/09/30/${slug}` });
+    const long = "Texto longo o bastante para qualquer tamanho de parágrafo pedido pela fixture. ".repeat(10);
+
+    const under = await Effect.runPromise(mockItem({ ...at("startup-recebe-aporte"), extractedText: long })("x"));
+    expect(under.object.body).toHaveLength(240);
+
+    const slack = await Effect.runPromise(
+      mockItem({ ...at("governo-amplia-limite-do-mei"), extractedText: long })("x"),
+    );
+    expect(slack.object.body.length).toBeGreaterThan(BODY_TARGET);
+    expect(slack.object.body.length).toBeLessThanOrEqual(BODY_MAX);
+
+    const over = await Effect.runPromiseExit(
+      mockItem({ ...at("credito-pequenas-empresas"), extractedText: long })("x"),
+    );
+    expect(Exit.isFailure(over)).toBe(true);
+    expect(JSON.stringify(over)).toContain("body");
   });
 
   it("keeps a headline inside the limit even when the title is long", async () => {

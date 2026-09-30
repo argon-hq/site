@@ -2,7 +2,7 @@ import type { LoggerService } from "@nestjs/common";
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
-import { BODY_MAX, SUBJECT_MAX, type WrittenItem } from "../mastra/schemas/edition";
+import { BODY_TARGET, SUBJECT_MAX, type WrittenItem } from "../mastra/schemas/edition";
 import {
   belowMinimum,
   headerPrompt,
@@ -61,12 +61,12 @@ describe("writeItem", () => {
   });
 
   it("gives the second attempt the reason the first was rejected", async () => {
-    const { generate, prompts } = generator("body: 214 caracteres, máximo 190", item);
+    const { generate, prompts } = generator("body: 290 caracteres, máximo 272", item);
     const result = await Effect.runPromise(writeItem(candidate, generate, silent));
 
     expect(result.outcome).toBe("written");
     expect(prompts).toHaveLength(2);
-    expect(prompts[1]).toContain("214 caracteres");
+    expect(prompts[1]).toContain("290 caracteres");
   });
 
   it("drops the article after two attempts instead of failing the step", async () => {
@@ -82,7 +82,7 @@ describe("prompts", () => {
   it("carries the limits from the code and names the skill", () => {
     const prompt = itemPrompt(candidate);
     expect(prompt).toContain('skill "write"');
-    expect(prompt).toContain(String(BODY_MAX));
+    expect(prompt).toContain(String(BODY_TARGET));
     expect(prompt).toContain("economy");
     expect(prompt).toContain(candidate.extractedText);
   });
