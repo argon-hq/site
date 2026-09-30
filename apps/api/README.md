@@ -7,7 +7,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step), `editor/agents/<id>.json`, `prompts/`, `schemas/`, `tools/`, `workflows/`. `MastraModule` is imported last and mounted under `/mastra`.
   `paths.ts` names the two folders that are data and not code — the skills and the Studio's overrides. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
   The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
-  `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+  `workflows/edition.ts` is the generation as one run — `ingest` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
 - `src/ingest/`: the news, listed by code (ARG-123). No model and no page read: `POST /pipeline/ingest` reads every
   address of every active source — RSS, Atom or news sitemap — in parallel, in the charset each declares
   (`net/fetch.ts`, the same guarded fetch `read_page` uses), and `ingest.ts` takes each item through the chain: unwrap a
@@ -28,12 +28,12 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   both with the run id: per address and per run always, and per item and group when the `ingest_debug` setting is on.
   A mocked run (`mode.ts`) reads the invented sources of `fixtures/` through a network that answers only them — feeds,
   a sitemap, pages, a Latin-1 feed behind a redirector, a malformed feed, a source down — and writes real fichas.
-  For now the ingestion runs beside the collection, on its own route and commands: the fichas it stores
-  carry a code score and no selection score, so the writing step, which still reads what `collect` stored,
-  leaves them alone. Moving the workflow onto the ingestion is the next change.
-- `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
-  `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
-  São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
+- `src/pipeline/`: the steps. Errors, retries and outcomes use Effect; a structured answer gets two attempts
+  (`src/mastra/attempts.ts`).
+  `POST /pipeline/write` then turns the fichas into the edition: `write.ts` opens the day's edition (one row per
+  São Paulo calendar day) and, until the model's triage (ARG-124), takes the fichas of the window by code score, twice
+  as many as the edition holds; a ficha whose feed did not carry the whole article is read from its page, with the feed's
+  lead as the fallback when the page is closed, and a ficha with no text at all is left out. The Editor loads the
   `write` skill once per article — two attempts each, the second carrying the validation error. An article rejected
   twice leaves the edition and the others go on; the header (title and subject) is a generation of its own over what
   was approved. Saving is one transaction that detaches whatever an earlier run left attached, so the step can run
@@ -50,7 +50,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   sentinel for each subscriber's token; it is an absolute https URL, so nothing in the validation is relaxed for it.
   `POST /pipeline/run` is the whole generation, as one run of the `edition` workflow: the same three steps, in order, each
   retried on its own, with the day of the edition as the only input (`run.ts`). The steps keep reading the real clock,
-  because the collection window is relative to it, and a run for another day stops before touching anything. A run below
+  because the ingestion window is relative to it, and a run for another day stops before touching anything. A run below
   the minimum ends after the writing: there is no edition to build. The clock lives in Nest and not in
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
@@ -86,16 +86,16 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.
   `profile.ts` is what an environment is willing to pay: `ARGON_ENV` (`local | lab | dev | prod`) picks one row of a
-  table in code — the model, how far the agent may search, how long the text may be, and the defaults for the cutoff and
-  the article bounds. Production runs the agent on Sonnet; dev runs it on Haiku, searching and reading less and accepting
-  a weaker edition; lab and a development machine run **over a fixture**, with no model and no search at all. The dials
+  table in code — the model, how long the text may be, and the defaults for the cutoff and the article bounds.
+  Production runs the agent on Sonnet; dev runs it on Haiku, reading less and accepting a weaker edition; lab and a
+  development machine run **over a fixture**, with no model and no network at all. The dials
   are not rules: what an edition may contain stays in `rules.ts` and is the same everywhere. `POST /pipeline/run
   {"mode":"live"}` pays for a real run in lab or locally without a deploy, and production refuses `mock` whoever asks.
-  A mocked run swaps only where the news comes from (`collect-source.ts`) and who writes it (`write-mock.ts`); the
-  allowlist, the window, the cutoff, the duplicate check, the schemas and the transaction are the same code either way,
-  so what it proves is the pipeline. The fixture's links (`fixtures/news.ts`) carry the day's date so each run collects
-  fresh news instead of finding only duplicates — they are not real pages, so the lab edition's links do not open, and
-  the text says in every article that it is invented.
+  A mocked run swaps only where the news comes from (`src/ingest/mode.ts`) and who writes it (`write-mock.ts`); the
+  parser, the window, the triage, the groups, the schemas and the transaction are the same code either way, so what it
+  proves is the pipeline. The fixture's links (`src/ingest/fixtures/`) carry the day's date so each run ingests fresh
+  news instead of finding only seen links — they are on `.test` domains, so the lab edition's links do not open, and the
+  text says in every article that it is invented.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason. `failureReason(cause)` is what both boundaries, the route and the workflow step, use to say what went wrong.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -125,13 +125,13 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, images https and under the allowed base, stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext(settings, { assetsOrigin, unsubscribeUrl })` builds the rest from the identity settings (`sender`, `privacy_policy_url`, `social`), with the unsubscribe URL per subscriber. `assets.ts` derives the base of the images (the public bucket under the environment's prefix, or the site on a local machine, or `PUBLIC_ASSETS_ORIGIN`), and `EmailAssets` checks at boot that they are really served. Fixed strings live in `copy.ts`, the brand tokens (argon lilac, Manrope with Geist Mono, square corners) in `theme.ts`. Images in `web/public/email`: the header symbol and ARGON, the footer logo, and the social icons (`pnpm email:icons`, Font Awesome Free, CC BY 4.0). A social network shows in the footer only when `social` in the settings has its URL.
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by the turbo task `generate` (`prisma generate`), which build, dev, lint, test and check-types depend on — the typed lint needs it too. Turbo runs it once per invocation, before the tasks that need it, and replays it from cache while `schema.prisma` and `prisma.config.ts` are unchanged: one writer, where a `pre*` hook on every script had parallel tasks writing the same folder at once. A script called straight in the package (`pnpm -C apps/api test`, the Dockerfile's build) skips turbo, so run `pnpm -C apps/api generate` first; `prisma migrate dev` regenerates on its own.
 - Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
-- `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
+- `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for an ingestion and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; what shapes
   the edition — `score_cutoff`, `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
   something other than what the profile assumed, and `PATCH /settings { key, value }` is how it is written (`GET
   /settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
-- `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (hashes of the links the collection and the ingestion already met) and `source`/`source_feed` (where the news comes from). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
+- `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (hashes of the links an ingestion already listed) and `source`/`source_feed` (where the news comes from). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
 
 ## Run
 
@@ -275,10 +275,15 @@ compatible with the code already running: expand first (a new column, a new tabl
 (drop the old one), in separate deploys.
 
 Retention runs inside the API, behind `SCHEDULER_ENABLED`, at 4h every day (`src/pipeline/retention.ts`):
-the text of an article is cleared after 30 days, a seen link is forgotten after 30, and a cancelled
-subscriber is purged after 90, and a sign-up nobody confirmed is discarded 3 days after its link
-expired — in batches of a thousand, so a table that grew for months is trimmed without holding a
-lock. Bounced and blocked addresses stay, so they are never written to again.
+most of what the ingestion keeps is gone before it runs. When an edition closes — `sent` or `skipped` —
+the fichas nobody chose are deleted, and sending also clears the text the articles were written from
+(`closeEdition`, `skipEdition`). The nightly pass is the net under that and the clock for the rest: a
+ficha left by a day that never closed and any leftover text go after 3 days, a title signature is
+emptied after 3 (it only has to catch a late copy), a seen link is forgotten after 3 (the 48 h window
+plus a day), a cancelled subscriber is purged after 90, and a sign-up nobody confirmed is discarded 3 days
+after its link expired — in batches of a thousand, without holding
+a lock. Headline, body and link of what was published stay, for the archive. Bounced and blocked
+addresses stay, so they are never written to again.
 
 Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database is the Postgres container on the instance (`deploy/README.md`). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
