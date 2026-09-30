@@ -23,6 +23,9 @@ const unsubscribeBody = z.object({ token: unsubscribeToken });
 // Same shape as the unsubscribe token: 32 bytes in base64url.
 const confirmBody = z.object({ token: unsubscribeToken });
 
+// Normalized as on sign-up, so the address matches however the request spelled it.
+const cancelBody = z.object({ email: z.string().trim().toLowerCase().pipe(z.email().max(254)) });
+
 @Controller("subscriber")
 export class SubscriberController {
   constructor(private readonly subscribers: SubscriberService) {}
@@ -69,6 +72,17 @@ export class SubscriberController {
   @Header("Referrer-Policy", "no-referrer")
   unsubscribe(@Body(ZodBody(unsubscribeBody)) body: z.infer<typeof unsubscribeBody>) {
     return runEffect("unsubscribe", this.subscribers.unsubscribe(body.token));
+  }
+
+  // POST /subscriber/cancel { email } → cancels on a request made to the data protection officer, recorded
+  // with the reason `manual`. Internal secret required: an operator calls it, never the site. An address that
+  // is not on the list answers 404.
+  @Post("cancel")
+  @HttpCode(200)
+  async cancel(@Body(ZodBody(cancelBody)) body: z.infer<typeof cancelBody>) {
+    const result = await runEffect("cancel", this.subscribers.cancelByEmail(body.email));
+    if (result.status === "not_found") throw new NotFoundException(result);
+    return result;
   }
 
   // One-click unsubscribe (RFC 8058): the URI announced in `List-Unsubscribe`, posted by the

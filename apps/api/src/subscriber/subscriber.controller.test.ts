@@ -21,6 +21,7 @@ function controller() {
   const subscribers = {
     unsubscribe: vi.fn(() => Effect.succeed({ status: "cancelled", email: "ana@example.com" } as const)),
     findByUnsubscribeToken: vi.fn(() => Effect.succeed({ email: "ana@example.com", status: "confirmed" })),
+    cancelByEmail: vi.fn(() => Effect.succeed({ status: "cancelled", email: "ana@example.com" } as const)),
   };
   return { subscribers, route: new SubscriberController(subscribers as unknown as SubscriberService) };
 }
@@ -95,5 +96,30 @@ describe("the page lookup", () => {
 
   it("cancels only through the POST", () => {
     expect(meta(METHOD_METADATA, "unsubscribe")).toBe(RequestMethod.POST);
+  });
+});
+
+describe("manual cancellation (request to the data protection officer)", () => {
+  it("is a POST that keeps the internal secret: an operator calls it, never the site", () => {
+    expect(meta(METHOD_METADATA, "cancel")).toBe(RequestMethod.POST);
+    expect(meta(PATH_METADATA, "cancel")).toBe("cancel");
+    expect(meta(IS_PUBLIC, "cancel")).toBeUndefined();
+  });
+
+  it("returns what happened to the address", async () => {
+    const { route, subscribers } = controller();
+
+    await expect(route.cancel({ email: "ana@example.com" })).resolves.toEqual({
+      status: "cancelled",
+      email: "ana@example.com",
+    });
+    expect(subscribers.cancelByEmail).toHaveBeenCalledWith("ana@example.com");
+  });
+
+  it("answers 404 for an address that is not on the list", async () => {
+    const { route, subscribers } = controller();
+    subscribers.cancelByEmail.mockReturnValueOnce(Effect.succeed({ status: "not_found" } as never));
+
+    await expect(route.cancel({ email: "ninguem@example.com" })).rejects.toBeInstanceOf(NotFoundException);
   });
 });
