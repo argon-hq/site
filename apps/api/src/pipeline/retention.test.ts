@@ -7,6 +7,7 @@ import {
   RetentionScheduler,
   SEEN_URL_RETENTION_DAYS,
   TEXT_RETENTION_DAYS,
+  UNCONFIRMED_GRACE_DAYS,
 } from "./retention";
 
 const now = new Date("2026-09-24T07:00:00Z");
@@ -23,18 +24,20 @@ function scheduler(answers: number[]) {
 }
 
 describe("RetentionScheduler", () => {
-  it("clears old article text, deletes old seen links and purges long-cancelled subscribers, each past its window", async () => {
-    const { service, calls } = scheduler([3, 2, 1]);
+  it("clears old article text, deletes old seen links, purges long-cancelled subscribers and discards dead sign-ups, each past its window", async () => {
+    const { service, calls } = scheduler([3, 2, 1, 4]);
 
     const report = await Effect.runPromise(service.run(now));
 
-    expect(report).toEqual({ textsCleared: 3, seenUrlsDeleted: 2, subscribersPurged: 1 });
+    expect(report).toEqual({ textsCleared: 3, seenUrlsDeleted: 2, subscribersPurged: 1, unconfirmedDiscarded: 4 });
     expect(calls[0]?.sql).toMatch(/UPDATE "article" SET "extracted_text" = NULL/);
     expect(calls[0]?.values).toEqual([daysAgo(TEXT_RETENTION_DAYS), RETENTION_BATCH]);
     expect(calls[1]?.sql).toMatch(/DELETE FROM "seen_url"/);
     expect(calls[1]?.values).toEqual([daysAgo(SEEN_URL_RETENTION_DAYS), RETENTION_BATCH]);
     expect(calls[2]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'cancelled'/);
     expect(calls[2]?.values).toEqual([daysAgo(CANCELLED_RETENTION_DAYS), RETENTION_BATCH]);
+    expect(calls[3]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'pending'[\s\S]*"token_expires_at" </);
+    expect(calls[3]?.values).toEqual([daysAgo(UNCONFIRMED_GRACE_DAYS), RETENTION_BATCH]);
   });
 
   it("keeps going in batches until a statement comes back short", async () => {

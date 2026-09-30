@@ -205,8 +205,9 @@ compatible with the code already running: expand first (a new column, a new tabl
 
 Retention runs inside the API, behind `SCHEDULER_ENABLED`, at 4h every day (`src/pipeline/retention.ts`):
 the text of an article is cleared after 30 days, a seen link is forgotten after 30, and a cancelled
-subscriber is purged after 90 — in batches of a thousand, so a table that grew for months is trimmed
-without holding a lock. Bounced and blocked addresses stay, so they are never written to again.
+subscriber is purged after 90, and a sign-up nobody confirmed is discarded 3 days after its link
+expired — in batches of a thousand, so a table that grew for months is trimmed without holding a
+lock. Bounced and blocked addresses stay, so they are never written to again.
 
 Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database is the Postgres container on the instance (`deploy/README.md`). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
