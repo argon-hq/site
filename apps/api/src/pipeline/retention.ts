@@ -16,7 +16,7 @@ export const CANCELLED_RETENTION_DAYS = 90;
 // A sign-up nobody confirmed is discarded once its link has been dead for this long. The wait is not
 // a courtesy: a click on an expired link answers "expired, sign up again" only while the row is still
 // there — without it the same click says "invalid".
-export const UNCONFIRMED_GRACE_DAYS = 7;
+export const UNCONFIRMED_GRACE_DAYS = 3;
 
 // One pass a day, in the quiet hour between the backup and the generation. Every day: the tables
 // grow on Sunday too.
@@ -78,7 +78,7 @@ export class RetentionScheduler {
             LIMIT ${limit}
           )`),
       );
-      // Still `pending` a week after the link died: the address never confirmed, so the consent was never
+      // Still `pending` three days after the link died: the address never confirmed, so the consent was never
       // completed and nothing is owed to it. The delivery rows a reopened subscription may hold go with it.
       const unconfirmedDiscarded = yield* this.drain("discard unconfirmed sign-ups", (limit) =>
         this.prisma.$executeRaw(Prisma.sql`
