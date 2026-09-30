@@ -53,4 +53,18 @@ test.describe("unsubscribe", () => {
       "/",
     );
   });
+
+  test("says the service is down, not that the link is invalid, when the API does not answer", async ({ page }) => {
+    // The web server points API_URL at a closed port: a well-formed token reaches the lookup, which fails.
+    const token = "a".repeat(43);
+    await page.goto(`/newsletter/unsubscribe?token=${token}`);
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      messages.unsubscribe.unavailable.heading,
+    );
+    await expect(page.getByRole("link", { name: messages.unsubscribe.unavailable.cta })).toHaveAttribute(
+      "href",
+      `/newsletter/unsubscribe?token=${token}`,
+    );
+  });
 });
