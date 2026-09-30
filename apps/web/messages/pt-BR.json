@@ -152,12 +152,18 @@
       "body": "O link de cancelamento está incompleto ou é de uma inscrição que não existe mais. Se você ainda recebe a newsletter, use o link do rodapé da edição mais recente.",
       "cta": "Ir para a home"
     },
+    "unavailable": {
+      "heading": "Não conseguimos abrir o cancelamento agora",
+      "body": "O seu link continua valendo. Tente de novo em alguns minutos.",
+      "cta": "Tentar de novo"
+    },
     "done": {
       "badge": "Inscrição cancelada",
       "heading": "Pronto, você não recebe mais.",
       "body": "Tiramos <strong>{email}</strong> da lista. Nenhuma edição nova será enviada.",
       "alreadyBody": "<strong>{email}</strong> já estava fora da lista. Nenhuma edição nova será enviada.",
       "mistake": "Foi engano?",
+      "closed": "Este endereço não recebe mais e-mails da Argon. Para voltar a receber a newsletter, <link>assine com outro e-mail</link>.",
       "consent": "Li e aceito a <link>política de privacidade</link> e quero voltar a receber a newsletter.",
       "consentError": "Marque o aceite da política de privacidade para reativar.",
       "reactivate": "Reativar inscrição",

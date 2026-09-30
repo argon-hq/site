@@ -152,12 +152,18 @@
       "body": "The unsubscribe link is incomplete, or it belongs to a subscription that no longer exists. If you still receive the newsletter, use the link in the footer of the latest issue.",
       "cta": "Go to the home page"
     },
+    "unavailable": {
+      "heading": "We couldn't open this page right now",
+      "body": "Your link still works. Please try again in a few minutes.",
+      "cta": "Try again"
+    },
     "done": {
       "badge": "Subscription cancelled",
       "heading": "Done — you won't hear from us again.",
       "body": "We removed <strong>{email}</strong> from the list. Nothing new will be sent.",
       "alreadyBody": "<strong>{email}</strong> was already off the list. Nothing new will be sent.",
       "mistake": "Did you click by mistake?",
+      "closed": "This address no longer receives e-mails from Argon. To get the newsletter again, <link>subscribe with another address</link>.",
       "consent": "I have read and accept the <link>privacy policy</link>, and I want to receive the newsletter again.",
       "consentError": "Accept the privacy policy to resubscribe.",
       "reactivate": "Resubscribe",

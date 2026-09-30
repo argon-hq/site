@@ -9,9 +9,14 @@ import { PageHeading } from "@/components/ui/page-heading";
 
 type Stage = "confirm" | "cancelling" | "cancelled" | "already" | "reactivating" | "reactivated";
 
-export function UnsubscribePanel({ token, email, cancelled }: { token: string; email: string; cancelled: boolean }) {
+/** `status` é o da inscrição quando a página abriu, como a API informou. */
+export function UnsubscribePanel({ token, email, status }: { token: string; email: string; status: string }) {
   const t = useTranslations("unsubscribe");
-  const [stage, setStage] = useState<Stage>(cancelled ? "already" : "confirm");
+  const onList = status === "confirmed" || status === "pending";
+  const [stage, setStage] = useState<Stage>(onList ? "confirm" : "already");
+  // Bounce e bloqueio não se desfazem por formulário: o cadastro ignora esses endereços, e oferecer
+  // "reativar" seria prometer um e-mail de confirmação que nunca sai.
+  const canReactivate = onList || status === "cancelled";
   const [error, setError] = useState<string | null>(null);
 
   async function handleUnsubscribe() {
@@ -38,6 +43,7 @@ export function UnsubscribePanel({ token, email, cancelled }: { token: string; e
       <Cancelled
         email={email}
         already={stage === "already"}
+        canReactivate={canReactivate}
         reactivating={stage === "reactivating"}
         onReactivate={setStage}
       />
@@ -89,11 +95,13 @@ export function UnsubscribePanel({ token, email, cancelled }: { token: string; e
 function Cancelled({
   email,
   already,
+  canReactivate,
   reactivating,
   onReactivate,
 }: {
   email: string;
   already: boolean;
+  canReactivate: boolean;
   reactivating: boolean;
   onReactivate: (stage: Stage) => void;
 }) {
@@ -139,46 +147,58 @@ function Cancelled({
         </p>
       </div>
 
-      <div className="flex max-w-xl flex-col gap-4 rounded-card border border-border p-6">
-        <p className="text-base font-semibold">{t("mistake")}</p>
+      {!canReactivate ? (
+        <p className="max-w-xl text-muted text-pretty">
+          {t.rich("closed", {
+            link: (chunks) => (
+              <Link href="/newsletter" className="font-medium text-foreground underline underline-offset-2">
+                {chunks}
+              </Link>
+            ),
+          })}
+        </p>
+      ) : (
+        <div className="flex max-w-xl flex-col gap-4 rounded-card border border-border p-6">
+          <p className="text-base font-semibold">{t("mistake")}</p>
 
-        <div className="flex items-start gap-3 text-sm text-muted">
-          <input
-            id={consentId}
-            type="checkbox"
-            checked={consent}
-            onChange={(event) => {
-              setConsent(event.target.checked);
-              if (error) setError(null);
-            }}
-            className="mt-0.5 size-4 shrink-0 accent-accent"
-          />
-          <label htmlFor={consentId}>
-            {t.rich("consent", {
-              link: (chunks) => (
-                <Link href="/privacy" className="font-medium text-foreground underline underline-offset-2">
-                  {chunks}
-                </Link>
-              ),
-            })}
-          </label>
+          <div className="flex items-start gap-3 text-sm text-muted">
+            <input
+              id={consentId}
+              type="checkbox"
+              checked={consent}
+              onChange={(event) => {
+                setConsent(event.target.checked);
+                if (error) setError(null);
+              }}
+              className="mt-0.5 size-4 shrink-0 accent-accent"
+            />
+            <label htmlFor={consentId}>
+              {t.rich("consent", {
+                link: (chunks) => (
+                  <Link href="/privacy" className="font-medium text-foreground underline underline-offset-2">
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleReactivate}
+            disabled={reactivating}
+            className="w-fit rounded-ctl bg-accent px-6 py-3 text-base font-medium text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {reactivating ? t("reactivating") : t("reactivate")}
+          </button>
+
+          {error && (
+            <p role="alert" className="text-sm font-medium text-danger">
+              {error}
+            </p>
+          )}
         </div>
-
-        <button
-          type="button"
-          onClick={handleReactivate}
-          disabled={reactivating}
-          className="w-fit rounded-ctl bg-accent px-6 py-3 text-base font-medium text-accent-foreground transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {reactivating ? t("reactivating") : t("reactivate")}
-        </button>
-
-        {error && (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
