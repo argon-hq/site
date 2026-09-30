@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import type { Agent } from "@mastra/core/agent";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
@@ -8,6 +9,10 @@ import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { EditionContext } from "../mastra/workflows/context";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
+import { setAllowedDomains } from "../ingest/allowlist";
+import { fetchFeed } from "../ingest/fetch-feed";
+import { ingest, type IngestReport } from "../ingest/ingest";
+import { ingestWorld } from "../ingest/mode";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
@@ -42,6 +47,7 @@ import {
 // Every step failure carries a reason and, when the caller is the one to act, the HTTP status that
 // says so (see src/effect/failure.ts).
 export class CollectFailed extends Data.TaggedError("CollectFailed")<Failure> {}
+export class IngestStepFailed extends Data.TaggedError("IngestStepFailed")<Failure> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<Failure> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<Failure> {}
 // A failed run says which step failed, so the single alert it sends is addressed.
@@ -59,6 +65,8 @@ export type CollectReport = {
   usage: unknown;
   durationMs: number;
 };
+
+export type { IngestReport } from "../ingest/ingest";
 
 export type WriteReport = {
   date: string;
@@ -91,7 +99,7 @@ export type RunReport = EditionRun & { runId: string; durationMs: number };
 
 // What a step is told before it starts: which clock to read and whether this run pays for judgement
 // or works over the fixture. Both have a default, so a step can still be called bare in a test.
-export type StepRun = { mode?: Mode; now?: Date };
+export type StepRun = { mode?: Mode; now?: Date; runId?: string };
 
 // The send may name the edition it is for. Without a date it is today's, as the 7h clock means it;
 // with one it is a resume — an edition a run left `sending` and the calendar has moved past.
@@ -214,6 +222,41 @@ export class PipelineService {
       // once per attempt. The run alerts once when the workflow gives up, and the per-step route
       // alerts for its own step.
       Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason }))),
+    );
+  }
+
+  // Ingestion step: no model and no page read. The active sources' feeds and news sitemaps are
+  // listed, filtered, scored, grouped and cut by code, and what passes is stored as fichas. For now
+  // it runs on its own route, beside the collection; the next step moves the workflow onto it. A mocked run reads the fixture's
+  // invented sources through a network that answers only them; everything else is the same code.
+  ingest(run: StepRun = {}): Effect.Effect<IngestReport, IngestStepFailed> {
+    const { mode, now } = startOf(run);
+    const runId = run.runId ?? randomUUID();
+    const body = Effect.gen(this, function* () {
+      const settings = yield* Effect.tryPromise({
+        try: () => this.settings.load(),
+        catch: (error) => new IngestStepFailed({ reason: `settings: ${String(error)}` }),
+      });
+      const world = ingestWorld(mode, this.prisma, now);
+      return yield* ingest(
+        { runId, now, since: windowStart(now), debug: settings.ingest_debug },
+        {
+          ...world,
+          fetchFeed,
+          logger: this.logger,
+          // A source failing three runs in a row is news for the owners even when the run goes on.
+          alert: (reason) => this.alert.send("ingest", reason),
+          // A live run is where the allowlist of `read_page` follows the table; a mocked one reads
+          // invented sources and leaves it alone.
+          onSources: mode === "live" ? (sources) => setAllowedDomains(sources.map((s) => s.domain)) : undefined,
+        },
+      ).pipe(Effect.mapError((error) => new IngestStepFailed({ reason: error.reason })));
+    });
+    return this.locked(runDate(now), "ingest", body, (failure) => new IngestStepFailed(failure)).pipe(
+      // The alert is not here: with a retry per step, alerting inside the step would mail the owners
+      // once per attempt. The run alerts once when the workflow gives up, and the per-step route
+      // alerts for its own step.
+      Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "ingest failed", runId, reason: e.reason }))),
     );
   }
 

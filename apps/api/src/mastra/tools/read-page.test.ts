@@ -1,5 +1,6 @@
 import { Effect, Exit } from "effect";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setAllowedDomains } from "../../ingest/allowlist";
 import { fetchArticle, isPublicAddress, MAX_HTML_BYTES, type FetchDeps } from "./read-page";
 
 const ARTICLE = `<!doctype html><html><head><title>Copom mantém a Selic</title>
@@ -64,6 +65,9 @@ describe("isPublicAddress", () => {
 });
 
 describe("fetchArticle", () => {
+  // The allowlist is the sources table's; here, one source.
+  beforeEach(() => setAllowedDomains(["valor.globo.com"]));
+
   it("reads a page from a source", async () => {
     const { deps: d } = deps({ "https://valor.globo.com/financas/noticia/copom.ghtml": { body: ARTICLE } });
     const page = await Effect.runPromise(fetchArticle("https://valor.globo.com/financas/noticia/copom.ghtml", d));

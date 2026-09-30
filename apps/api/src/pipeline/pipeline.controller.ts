@@ -1,5 +1,7 @@
 import { Body, Controller, HttpCode, Post } from "@nestjs/common";
+import { Effect } from "effect";
 import { z } from "zod";
+import { summaryOf } from "../ingest/ingest";
 import { runEffect } from "../effect/nest";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { OwnerAlert } from "./owner-alert";
@@ -39,6 +41,15 @@ export class PipelineController {
   @HttpCode(200)
   collect(@Body(ZodBody(stepBody)) body: StepBody) {
     return runEffect("collect", this.alert.onFailure("collect", this.pipeline.collect(body)));
+  }
+
+  // POST /pipeline/ingest { mode? } → reads the sources' feeds and stores today's fichas now. The
+  // answer carries the counts, per address; item by item is the debug log's, or `pnpm ingest:run`'s.
+  // Internal secret required.
+  @Post("ingest")
+  @HttpCode(200)
+  ingest(@Body(ZodBody(stepBody)) body: StepBody) {
+    return runEffect("ingest", this.alert.onFailure("ingest", this.pipeline.ingest(body).pipe(Effect.map(summaryOf))));
   }
 
   // POST /pipeline/write { mode? } → writes today's edition from what the collection stored. Internal secret required.

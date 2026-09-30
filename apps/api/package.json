@@ -20,6 +20,10 @@
     "email:preview": "tsx src/email/preview.ts",
     "email:send": "tsx scripts/send-preview.ts",
     "email:icons": "tsx scripts/build-email-icons.ts",
+    "ingest:sources": "tsx scripts/ingest.ts sources",
+    "ingest:feed": "tsx scripts/ingest.ts feed",
+    "ingest:page": "tsx scripts/ingest.ts page",
+    "ingest:run": "tsx scripts/ingest.ts run",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
@@ -39,6 +43,7 @@
     "@react-email/render": "^2.1.0",
     "dotenv": "^18.0.3",
     "effect": "^3.22.2",
+    "fast-xml-parser": "^5.11.1",
     "linkedom": "^0.18.13",
     "nodemailer": "^10.0.10",
     "pg": "^8.23.0",

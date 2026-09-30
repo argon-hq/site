@@ -5,6 +5,7 @@ import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
 import { fetchArticle, type FetchFailed, type PageUnreadable, type UrlNotAllowed } from "../mastra/tools/read-page";
 import type { Candidate } from "./collect.schema";
+import { urlHash } from "../ingest/url";
 import { canonicalize, isAllowedDomain } from "./rules";
 
 export type Outcome =
@@ -29,9 +30,16 @@ export class DbFailed extends Data.TaggedError("DbFailed")<{ url: string; reason
 
 const db = <A>(url: string, run: () => Promise<A>) => dbEffect((reason) => new DbFailed({ url, reason }))(run);
 
-// Every evaluated link is remembered, kept or not, so the next run skips it.
+// Every evaluated link is remembered, kept or not, so the next run skips it: by the hash of its
+// canonical form, as the ingestion keeps it.
 const markSeen = (prisma: PrismaClient, url: string) =>
-  db(url, () => prisma.seenUrl.upsert({ where: { url }, create: { url }, update: { seenAt: new Date() } }));
+  db(url, () =>
+    prisma.seenUrl.upsert({
+      where: { urlHash: urlHash(url) },
+      create: { urlHash: urlHash(url) },
+      update: { seenAt: new Date() },
+    }),
+  );
 
 const findArticle = (prisma: PrismaClient, url: string) =>
   db(url, () => prisma.article.findUnique({ where: { canonicalUrl: url }, select: { id: true } }));

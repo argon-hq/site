@@ -1,6 +1,7 @@
 import type { LoggerService } from "@nestjs/common";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
+import { urlHash } from "../ingest/url";
 import type { PrismaClient } from "../generated/prisma/client";
 import { PageUnreadable } from "../mastra/tools/read-page";
 import { dedupeCandidates, persistCandidate, type PersistContext, type ReadPage } from "./persist";
@@ -57,6 +58,12 @@ describe("persistCandidate", () => {
       publishedAt: "2026-09-18T10:00:00.000Z",
     });
     expect(c.mocks.seenUrl.upsert).toHaveBeenCalledOnce();
+    // The link is remembered by the hash of its canonical form, as the ingestion keeps it.
+    expect(c.mocks.seenUrl.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { urlHash: urlHash("https://valor.globo.com/empresas/noticia/2026/09/18/x.ghtml") },
+      }),
+    );
     expect(c.mocks.article.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ originalTitle: "Título da página", score: 4 }) }),
     );

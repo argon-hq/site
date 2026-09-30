@@ -64,8 +64,8 @@ export class RetentionScheduler {
       const seenUrlsDeleted = yield* this.drain("delete seen urls", (limit) =>
         this.prisma.$executeRaw(Prisma.sql`
           DELETE FROM "seen_url"
-          WHERE "url" IN (
-            SELECT "url" FROM "seen_url" WHERE "seen_at" < ${daysBefore(now, SEEN_URL_RETENTION_DAYS)} LIMIT ${limit}
+          WHERE "url_hash" IN (
+            SELECT "url_hash" FROM "seen_url" WHERE "seen_at" < ${daysBefore(now, SEEN_URL_RETENTION_DAYS)} LIMIT ${limit}
           )`),
       );
       // Only `cancelled`: a bounced or blocked address is kept so it is never written to again.

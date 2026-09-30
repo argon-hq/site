@@ -32,7 +32,7 @@ describe("RetentionScheduler", () => {
     expect(report).toEqual({ textsCleared: 3, seenUrlsDeleted: 2, subscribersPurged: 1, unconfirmedDiscarded: 4 });
     expect(calls[0]?.sql).toMatch(/UPDATE "article" SET "extracted_text" = NULL/);
     expect(calls[0]?.values).toEqual([daysAgo(TEXT_RETENTION_DAYS), RETENTION_BATCH]);
-    expect(calls[1]?.sql).toMatch(/DELETE FROM "seen_url"/);
+    expect(calls[1]?.sql).toMatch(/DELETE FROM "seen_url"[\s\S]*"url_hash"/);
     expect(calls[1]?.values).toEqual([daysAgo(SEEN_URL_RETENTION_DAYS), RETENTION_BATCH]);
     expect(calls[2]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'cancelled'/);
     expect(calls[2]?.values).toEqual([daysAgo(CANCELLED_RETENTION_DAYS), RETENTION_BATCH]);
