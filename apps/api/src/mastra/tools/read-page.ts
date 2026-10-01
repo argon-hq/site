@@ -4,14 +4,13 @@ import { Data, Effect, Schedule } from "effect";
 import { parseHTML } from "linkedom";
 import { z } from "zod";
 import {
-  charsetOf,
-  decode,
-  fetchGuarded,
+  fetchBody,
   FetchFailed,
   liveDeps,
-  readBytes,
   type Allowed,
+  type BodyTooLarge,
   type FetchDeps,
+  type UnexpectedType,
   type UrlNotAllowed,
 } from "../../net/fetch";
 import { PROFILE } from "../../pipeline/profile";
@@ -21,36 +20,34 @@ import { extractedArticleSchema, type ExtractedArticle } from "../schemas/articl
 export { FetchFailed, isPublicAddress, UrlNotAllowed, type FetchDeps } from "../../net/fetch";
 
 // Hard rules live here, not in the prompt.
-const TIMEOUT = "10 seconds";
 export const MAX_HTML_BYTES = 2_000_000;
+const HTML = /^(text\/html|application\/xhtml\+xml)/i;
 
 export class PageUnreadable extends Data.TaggedError("PageUnreadable")<{ url: string; reason: string }> {}
 
-// One attempt: guard, fetch, parse, extract. Network errors are retried by the caller; refused
-// addresses and unreadable pages are not.
+// One attempt: fetch the page under its deadline, then parse and extract. Network errors are
+// retried by the caller; refused addresses and unreadable pages are not. A page over the limit is
+// cut, not refused: the article is at the top and the rest is footer.
 const fetchOnce = (
   url: string,
   deps: FetchDeps,
   allowed: Allowed,
 ): Effect.Effect<ExtractedArticle, FetchFailed | PageUnreadable | UrlNotAllowed> =>
   Effect.gen(function* () {
-    const controller = new AbortController();
-    const { response, url: finalUrl } = yield* fetchGuarded(url, {
+    const body = yield* fetchBody(url, {
       allowed,
       deps,
       accept: "text/html",
-      signal: controller.signal,
-    }).pipe(Effect.onInterrupt(() => Effect.sync(() => controller.abort())));
-    if (!response.ok)
-      return yield* new FetchFailed({ url: finalUrl, reason: `HTTP ${response.status}`, status: response.status });
-
-    const type = response.headers.get("content-type") ?? "";
-    if (type && !/^(text\/html|application\/xhtml\+xml)/i.test(type)) {
-      return yield* new PageUnreadable({ url: finalUrl, reason: `not html: ${type}` });
-    }
-
-    const bytes = yield* readBytes(response, finalUrl, MAX_HTML_BYTES);
-    const html = decode(bytes, charsetOf(type, bytes));
+      types: HTML,
+      maxBytes: MAX_HTML_BYTES,
+      overflow: "cut",
+      timeout: "10 seconds",
+    }).pipe(
+      Effect.catchTag("UnexpectedType", (e: UnexpectedType) => new PageUnreadable({ url: e.url, reason: e.reason })),
+      Effect.catchTag("BodyTooLarge", (e: BodyTooLarge) => new PageUnreadable({ url: e.url, reason: e.reason })),
+    );
+    const finalUrl = body.url;
+    const html = body.text;
     const { document } = parseHTML(html);
     const canonical =
       document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.getAttribute("href") ?? finalUrl;
@@ -71,11 +68,10 @@ const fetchOnce = (
     };
   });
 
-// Timeout per attempt, two retries with backoff on network errors only. Only the sources' domains
-// may be read, unless the caller names its own allowlist.
+// Two retries with backoff on network errors only. Only the sources' domains may be read, unless
+// the caller names its own allowlist.
 export const fetchArticle = (url: string, deps: FetchDeps = liveDeps, allowed: Allowed = isAllowedDomain) =>
   fetchOnce(url, deps, allowed).pipe(
-    Effect.timeoutFail({ duration: TIMEOUT, onTimeout: () => new FetchFailed({ url, reason: "timeout" }) }),
     Effect.retry({
       schedule: Schedule.exponential("500 millis"),
       times: 2,

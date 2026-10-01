@@ -23,8 +23,8 @@ function deps(answers: Record<string, Answer>, addresses: Record<string, string>
     });
   });
   const fakeDeps: FetchDeps = {
-    fetch: fetchMock as unknown as typeof fetch,
-    lookup: async (hostname) => [{ address: addresses[hostname] ?? "200.1.2.3" }],
+    fetch: fetchMock as unknown as FetchDeps["fetch"],
+    resolve: async (hostname: string) => [{ address: addresses[hostname] ?? "200.1.2.3", family: 4 }],
   };
   return { deps: fakeDeps, calls };
 }
@@ -51,13 +51,26 @@ describe("isPublicAddress", () => {
       "fe80::1",
       "fd00::1",
       "::ffff:169.254.169.254",
+      // The metadata service in the hex spelling of an IPv4-mapped address, and inside NAT64 and 6to4.
+      "::ffff:a9fe:a9fe",
+      "64:ff9b::a9fe:a9fe",
+      "2002:a9fe:a9fe::1",
+      // The rest of the link-local block, documentation, benchmarking, multicast and reserved.
+      "febf::1",
+      "2001:db8::1",
+      "192.0.2.10",
+      "203.0.113.10",
+      "198.18.0.1",
+      "224.0.0.1",
+      "255.255.255.255",
+      "not an ip",
     ]) {
       expect(isPublicAddress(ip), ip).toBe(false);
     }
   });
 
   it("accepts public addresses", () => {
-    for (const ip of ["200.1.2.3", "8.8.8.8", "172.32.0.1", "2001:db8::1", "::ffff:8.8.8.8"]) {
+    for (const ip of ["200.1.2.3", "8.8.8.8", "172.32.0.1", "2804:14c::1", "::ffff:8.8.8.8", "::ffff:808:808"]) {
       expect(isPublicAddress(ip), ip).toBe(true);
     }
   });
@@ -118,6 +131,15 @@ describe("fetchArticle", () => {
     const error = await failure(fetchArticle("https://valor.globo.com/out", d));
     expect(error?._tag).toBe("UrlNotAllowed");
     expect(calls).toEqual(["https://valor.globo.com/out"]);
+  });
+
+  it("refuses a redirect from https down to http, even inside the sources", async () => {
+    const { deps: d, calls } = deps({
+      "https://valor.globo.com/down": { status: 301, headers: { location: "http://valor.globo.com/financas/x" } },
+    });
+    const error = await failure(fetchArticle("https://valor.globo.com/down", d));
+    expect(error).toMatchObject({ _tag: "UrlNotAllowed", reason: "redirect from https to http" });
+    expect(calls).toEqual(["https://valor.globo.com/down"]);
   });
 
   it("gives up after too many redirects", async () => {

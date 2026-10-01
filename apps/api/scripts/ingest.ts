@@ -114,8 +114,12 @@ async function feed(url: string, flags: Flags) {
 }
 
 async function page(url: string, flags: Flags) {
+  // The source's domain and its subdomains, as in a run: a canonical link has no `www.`, and the
+  // site may well redirect to it.
   const host = new URL(url).hostname;
-  const read = await Effect.runPromise(Effect.either(fetchArticle(url, liveDeps, (u) => new URL(u).hostname === host)));
+  const domain = CATALOG.find((s) => hostInDomain(host, s.domain))?.domain ?? host.replace(/^www\./, "");
+  const allowed = (u: string) => URL.canParse(u) && hostInDomain(new URL(u).hostname, domain);
+  const read = await Effect.runPromise(Effect.either(fetchArticle(url, liveDeps, allowed)));
   if (read._tag === "Left") {
     console.error(`${read.left._tag}: ${read.left.reason}`);
     process.exitCode = 1;
