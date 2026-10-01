@@ -2,7 +2,7 @@ import { z } from "zod";
 import { PROFILE } from "../pipeline/profile";
 
 // Single source of truth for setting names, types and defaults.
-// A key with a default needs no row in the table; keys without one are seeded by migration and adjusted per environment.
+// A key with a default needs no row in the table; keys without one are seeded by migration.
 // The three that shape the edition take their default from the environment's profile, so lab and a
 // development machine accept a weaker edition than production without anyone setting a row first. A
 // row still wins: it is how an environment says something other than what the profile assumed.
@@ -16,17 +16,19 @@ export const settingsSchema = z.object({
   owner_emails: z.array(z.email()).default([]), // alerted when the pipeline fails
   policy_version: z.string().default(""), // recorded with each consent
 
-  // Business identity: no sensible default in code
-  sender: z.object({ name: z.string().min(1), address: z.email(), postalAddress: z.string().min(1) }),
-  privacy_policy_url: z.url(),
-  // The base of the e-mail images is not here: it comes from the environment (src/email/assets.ts),
-  // the public bucket under this environment's prefix, so no row can pin every environment to one.
-  social: z.object({
-    site: z.url(),
-    linkedin: z.url().optional(),
-    instagram: z.url().optional(),
-    youtube: z.url().optional(),
-  }),
+  // Business identity: what is the same in every environment. Whatever names a host is not here, so
+  // no seeded row can carry one environment's domain into another: the sender's address is MAIL_FROM,
+  // and the site, the privacy policy and the image base derive from the environment's origins
+  // (src/subscriber/urls.ts, src/email/assets.ts).
+  sender: z.object({ name: z.string().min(1), postalAddress: z.string().min(1) }),
+  // The Argon profiles. A network left out points at the site (see socialLinks).
+  social: z
+    .object({
+      linkedin: z.url().optional(),
+      instagram: z.url().optional(),
+      youtube: z.url().optional(),
+    })
+    .default({}),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

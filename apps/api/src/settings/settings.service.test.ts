@@ -4,9 +4,7 @@ import type { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "./settings.service";
 
 const identity: Array<{ key: string; value: unknown }> = [
-  { key: "sender", value: { name: "Argon", address: "news@example.com", postalAddress: "Rua 1, Cidade" } },
-  { key: "privacy_policy_url", value: "https://example.com/privacy" },
-  { key: "social", value: { site: "https://example.com" } },
+  { key: "sender", value: { name: "Argon", postalAddress: "Rua 1, Cidade" } },
 ];
 
 function service(rows: Array<{ key: string; value: unknown }>) {
@@ -27,6 +25,7 @@ describe("SettingsService", () => {
     expect(s.sending_paused).toBe(false);
     expect(s.owner_emails).toEqual([]);
     expect(s.sender.name).toBe("Argon");
+    expect(s.social).toEqual({});
   });
 
   it("takes what shapes the edition from the environment's profile when there is no row", async () => {
