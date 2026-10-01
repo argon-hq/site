@@ -1,5 +1,7 @@
 import type { Config } from "../config";
 import { assetsOrigin } from "../email/assets";
+import type { SocialLinks } from "../email/types";
+import type { Settings } from "../settings/settings.schema";
 // Every address the subscriber reaches from an e-mail, each carrying one of their tokens. The
 // e-mail builders receive them ready (they build no URL); the format is decided here.
 
@@ -19,6 +21,23 @@ export function originsFrom(
 // Where the confirmation e-mail points: a one-time token that expires, and a page that confirms.
 export function confirmUrl({ web }: Origins, token: string): string {
   return `${web}/newsletter/confirm?token=${encodeURIComponent(token)}`;
+}
+
+// The site's pages the footer of every e-mail points at, on this environment's own host. They used to
+// be settings, seeded with dev's domain, so a fresh prod database linked its readers to dev.
+export function privacyPolicyUrl({ web }: Origins): string {
+  return `${web}/privacy`;
+}
+
+// The networks come from the settings; one not set yet points at the site, so the footer keeps its
+// row of icons until the Argon profiles exist.
+export function socialLinks({ web }: Origins, networks: Settings["social"]): SocialLinks {
+  return {
+    site: web,
+    linkedin: networks.linkedin ?? web,
+    instagram: networks.instagram ?? web,
+    youtube: networks.youtube ?? web,
+  };
 }
 
 // The page: what the link in the footer of every edition points at. It confirms before cancelling,

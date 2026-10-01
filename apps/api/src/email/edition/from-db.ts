@@ -3,30 +3,31 @@ import type { Article, Edition } from "../../generated/prisma/client";
 import { EditionNotReadyError } from "../errors";
 import { CATEGORIES } from "../../mastra/schemas/edition";
 import type { Settings } from "../../settings/settings.schema";
+import { privacyPolicyUrl, socialLinks, type Origins } from "../../subscriber/urls";
 import { assetBaseUrl } from "../assets";
-import type { EditionInput, EditionItem } from "../types";
+import type { EditionInput, EditionItem, Sender } from "../types";
 
 // Rows the adapter reads. Structural on purpose: tests build them without a database.
 export type EditionRow = Pick<Edition, "date" | "title" | "subject">;
 export type ArticleRow = Pick<Article, "canonicalUrl" | "headline" | "body" | "category" | "score" | "publishedAt">;
 
-// What the rows do not carry. Sender, policy, assets and social links come from the settings;
-// `unsubscribeUrl` is per subscriber, so the caller builds one context per recipient.
+// What the rows do not carry. The sender (MailService.sender) and the networks come from the
+// settings, every URL from the environment's origins; `unsubscribeUrl` is per subscriber, so the
+// caller builds one context per recipient.
 export type EditionContext = Omit<EditionInput, "date" | "title" | "subject" | "items">;
 
-export type IdentitySettings = Pick<Settings, "sender" | "privacy_policy_url" | "social">;
+export type Identity = { sender: Sender; social: Settings["social"] };
 
-// The settings are loaded once per run and the origin of the images comes from the environment;
-// only the unsubscribe URL changes between recipients.
+// The identity is resolved once per run; only the unsubscribe URL changes between recipients.
 export function editionContext(
-  settings: IdentitySettings,
-  { assetsOrigin, unsubscribeUrl }: { assetsOrigin: string; unsubscribeUrl: string },
+  identity: Identity,
+  { origins, unsubscribeUrl }: { origins: Origins; unsubscribeUrl: string },
 ): EditionContext {
   return {
-    sender: settings.sender,
-    social: settings.social,
-    privacyPolicyUrl: settings.privacy_policy_url,
-    assetBaseUrl: assetBaseUrl(assetsOrigin),
+    sender: identity.sender,
+    social: socialLinks(origins, identity.social),
+    privacyPolicyUrl: privacyPolicyUrl(origins),
+    assetBaseUrl: assetBaseUrl(origins.assets),
     unsubscribeUrl,
   };
 }

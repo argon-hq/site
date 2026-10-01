@@ -18,4 +18,16 @@ describe("loadConfig", () => {
       /ANTHROPIC_API_KEY, INTERNAL_API_SECRET, UNSUBSCRIBE_TOKEN_SECRET/,
     );
   });
+
+  it("needs no sender address on a development machine", () => {
+    expect(loadConfig(valid).MAIL_FROM).toBe("newsletter@argon.localhost");
+  });
+
+  it("requires the sender address in a container, where a wrong domain would reach real inboxes", () => {
+    const container = { ...valid, NODE_ENV: "production", ARGON_ENV: "prod" };
+    expect(() => loadConfig(container)).toThrow(/MAIL_FROM/);
+    expect(loadConfig({ ...container, MAIL_FROM: "newsletter@argon.eduardofockink.com" }).MAIL_FROM).toBe(
+      "newsletter@argon.eduardofockink.com",
+    );
+  });
 });

@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import type { Sender } from "../email/types";
 import { SettingsService } from "../settings/settings.service";
 import {
+  MAIL_FROM,
   MAIL_TRANSPORT,
   type BatchDelivery,
   type BatchOptions,
@@ -19,13 +21,21 @@ export class MailService {
   constructor(
     @Inject(MAIL_TRANSPORT) private readonly transport: MailTransport,
     private readonly settings: SettingsService,
+    @Inject(MAIL_FROM) private readonly address: string,
   ) {}
+
+  // Who signs every e-mail: the business's name and postal address from the settings, the address
+  // from the environment, since each one sends from the domain verified for it. The templates show
+  // it in the footer, so the builders ask here instead of putting it together themselves.
+  async sender(): Promise<Sender> {
+    const { name, postalAddress } = await this.settings.get("sender");
+    return { name, address: this.address, postalAddress };
+  }
 
   // The only way out of the API. Which provider actually delivers is the module's decision, so
   // nothing that composes an e-mail has to know whether this is Resend or a local Mailpit.
   async send(message: Message): Promise<SentMessage> {
-    // Who sends is a business setting, not configuration: one place to change the address.
-    const from = message.from ?? (await this.settings.get("sender"));
+    const from = message.from ?? (await this.sender());
 
     const sent = await this.transport.send({ ...message, from });
     // No address in the log: the provider id is enough to find the message, and the address is
@@ -41,7 +51,7 @@ export class MailService {
     if (messages.length === 0) return { results: [] };
 
     // Once for the whole batch: every message of an edition comes from the same address.
-    const from = await this.settings.get("sender");
+    const from = await this.sender();
     const filled = messages.map((message) => ({ ...message, from: message.from ?? from }));
 
     const sent = this.transport.sendBatch

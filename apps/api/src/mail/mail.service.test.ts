@@ -5,7 +5,9 @@ import { formatAddress, type MailTransport, type Message } from "./mail.types";
 import { align, ResendTransport } from "./transports/resend.transport";
 import { SmtpTransport } from "./transports/smtp.transport";
 
-const sender = { name: "Argon", address: "news@argon.com", postalAddress: "Rua 1, Cidade" };
+const identity = { name: "Argon", postalAddress: "Rua 1, Cidade" };
+const address = "news@argon.com";
+const sender = { name: "Argon", address, postalAddress: "Rua 1, Cidade" };
 
 const message: Message = {
   to: "assinante@example.com",
@@ -15,8 +17,8 @@ const message: Message = {
 };
 
 function service(transport: MailTransport) {
-  const settings = { get: vi.fn(async () => sender) };
-  return new MailService(transport, settings as unknown as SettingsService);
+  const settings = { get: vi.fn(async () => identity) };
+  return new MailService(transport, settings as unknown as SettingsService, address);
 }
 
 describe("MailService", () => {
@@ -27,7 +29,7 @@ describe("MailService", () => {
     expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ to: message.to, from: sender }));
   });
 
-  it("takes the sender from the settings, and lets the caller override it", async () => {
+  it("signs with the settings' name and the environment's address, and lets the caller override it", async () => {
     const transport: MailTransport = { name: "fake", send: vi.fn(async () => ({ id: null })) };
     const mail = service(transport);
 
@@ -92,13 +94,13 @@ describe("MailService.sendBatch", () => {
         ],
       })),
     };
-    const settings = { get: vi.fn(async () => sender) };
-    const mail = new MailService(transport, settings as unknown as SettingsService);
+    const settings = { get: vi.fn(async () => identity) };
+    const mail = new MailService(transport, settings as unknown as SettingsService, address);
 
     await mail.sendBatch(two);
 
     expect(settings.get).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(transport.sendBatch!).mock.calls[0]?.[0].every((m) => m.from === sender)).toBe(true);
+    expect(vi.mocked(transport.sendBatch!).mock.calls[0]?.[0].every((m) => m.from.address === address)).toBe(true);
   });
 
   it("sends one at a time when the transport has no batch endpoint", async () => {
@@ -147,7 +149,7 @@ describe("MailService.sendBatch", () => {
   it("answers an empty batch without touching the transport or the settings", async () => {
     const transport: MailTransport = { name: "fake", send: vi.fn(), sendBatch: vi.fn() };
     const settings = { get: vi.fn() };
-    const mail = new MailService(transport, settings as unknown as SettingsService);
+    const mail = new MailService(transport, settings as unknown as SettingsService, address);
 
     expect(await mail.sendBatch([])).toEqual({ results: [] });
     expect(settings.get).not.toHaveBeenCalled();

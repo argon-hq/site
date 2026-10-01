@@ -9,6 +9,7 @@ import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../m
 import type { EditionContext } from "../mastra/workflows/context";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
+import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
@@ -122,6 +123,7 @@ export class PipelineService {
     @Inject(ORIGINS) private readonly origins: Origins,
     private readonly lock: EditionLock,
     private readonly delivery: DeliveryService,
+    private readonly mail: MailService,
   ) {}
 
   // Every step runs holding the day's lock (see EditionLock): a busy edition is a failure of the
@@ -364,10 +366,14 @@ export class PipelineService {
 
       // One edition for everyone, so the stored HTML carries the unsubscribe placeholder; the
       // sending step swaps it for each subscriber's token.
-      const context = editionContext(settings, {
-        assetsOrigin: this.origins.assets,
-        unsubscribeUrl: unsubscribePlaceholderUrl(this.origins),
+      const sender = yield* Effect.tryPromise({
+        try: () => this.mail.sender(),
+        catch: (error) => new BuildFailed({ reason: `settings: ${String(error)}` }),
       });
+      const context = editionContext(
+        { sender, social: settings.social },
+        { origins: this.origins, unsubscribeUrl: unsubscribePlaceholderUrl(this.origins) },
+      );
       const built = yield* toEditionInput(written.edition, written.articles, context).pipe(
         Effect.flatMap((input) =>
           buildEdition(input).pipe(Effect.flatMap((edition) => validateEdition(input, edition))),

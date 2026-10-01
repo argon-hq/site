@@ -7,9 +7,9 @@
 # managed here; delete it by hand.
 
 locals {
-  # The eight variables every environment expects (../README.md, "Variáveis").
+  # The nine variables every environment expects (../README.md, "Variáveis").
   common_secure = ["ANTHROPIC_API_KEY", "DATABASE_URL", "INTERNAL_API_SECRET", "RESEND_API_KEY"]
-  common_plain  = ["API_ORIGIN", "API_URL", "MAIL_TRANSPORT", "WEB_ORIGIN"]
+  common_plain  = ["API_ORIGIN", "API_URL", "MAIL_FROM", "MAIL_TRANSPORT", "WEB_ORIGIN"]
 
   # Optional ones, per environment, present where they were set. Every environment in
   # local.environments (logs.tf) must have an entry, even an empty one.

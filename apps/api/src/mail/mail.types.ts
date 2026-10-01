@@ -8,7 +8,7 @@ export type Message = {
   html: string;
   text: string;
   headers?: Record<string, string>;
-  // Filled from the `sender` setting when the caller does not pass one.
+  // Filled by MailService.sender() when the caller does not pass one.
   from?: Sender;
 };
 
@@ -45,6 +45,9 @@ export interface MailTransport {
 
 // Injection token: the module binds Resend or SMTP to it, and a test binds a fake.
 export const MAIL_TRANSPORT = "MAIL_TRANSPORT";
+
+// Injection token: the environment's sender address (MAIL_FROM).
+export const MAIL_FROM = "MAIL_FROM";
 
 // `Name <address>`, the only format every provider accepts.
 export function formatAddress(sender: Sender): string {
