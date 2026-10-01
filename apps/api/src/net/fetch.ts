@@ -1,11 +1,13 @@
 import { Data, Effect } from "effect";
 import { lookup as dnsLookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 
 // The one way the API reads the web: a feed at ingestion, a page for the agent. Both go through the
 // same checks — only the sources, only http(s), never an address inside the machine's own network —
-// on the address asked for and on every redirect it is sent through. A feed or a page can point
-// anywhere; this is what keeps "anywhere" from being the instance metadata.
+// on the address asked for, on every redirect it is sent through, and again on the address the
+// socket actually connects to. A feed or a page can point anywhere; this is what keeps "anywhere"
+// from being the instance metadata.
 
 export const USER_AGENT = "ArgonNewsletterBot/0.1 (+https://argon.com.br)";
 // How many redirects an address may take before it is given up on. Each hop is checked like the first.
@@ -21,9 +23,41 @@ export type FetchDeps = {
   lookup: (hostname: string) => Promise<{ address: string }[]>;
 };
 
+type Resolve = (hostname: string) => Promise<{ address: string; family: number }[]>;
+
+// The check that counts happens when the socket opens. `guardUrl` resolves the name once to refuse
+// early, but the fetch resolves it again to connect, and between the two a name can be pointed at
+// the inside (DNS rebinding). Here the connection itself asks the resolver, refuses if any address
+// is not public, and connects to the address it checked — there is no second answer to trust.
+export function guardedLookup(resolve: Resolve): LookupFunction {
+  return (hostname, options, callback) => {
+    resolve(hostname).then(
+      (addresses) => {
+        const blocked = addresses.find((entry) => !isPublicAddress(entry.address));
+        if (addresses.length === 0 || blocked) {
+          const reason = blocked ? `${hostname} resolves to a private address` : `${hostname} has no address`;
+          callback(Object.assign(new Error(reason), { code: "EADDRNOTAVAIL" }), "", 0);
+          return;
+        }
+        if (options.all) callback(null, addresses);
+        else callback(null, (addresses[0] as { address: string }).address, (addresses[0] as { family: number }).family);
+      },
+      (error: NodeJS.ErrnoException) => callback(error, "", 0),
+    );
+  };
+}
+
+const resolveAll: Resolve = (hostname) => dnsLookup(hostname, { all: true });
+
+// One agent for the process: every live request connects through the guarded lookup.
+const guardedAgent = new Agent({ connect: { lookup: guardedLookup(resolveAll) } });
+
 export const liveDeps: FetchDeps = {
-  fetch: (input, init) => fetch(input, init),
-  lookup: (hostname) => dnsLookup(hostname, { all: true }),
+  // undici's own fetch, with its own agent: Node's global fetch carries another copy of undici, and
+  // the two are not meant to be mixed.
+  fetch: ((input: Parameters<typeof undiciFetch>[0], init?: Parameters<typeof undiciFetch>[1]) =>
+    undiciFetch(input, { ...init, dispatcher: guardedAgent })) as unknown as typeof fetch,
+  lookup: resolveAll,
 };
 
 // Loopback, link-local (the cloud metadata service lives there), private ranges, and the IPv6
