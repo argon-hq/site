@@ -94,7 +94,9 @@ describe("ingest over the fixture", () => {
     expect(decisionOf(report, "borda-fora", WEDNESDAY)).toBe("out_of_window");
     expect(decisionOf(report, "fim-de-semana", WEDNESDAY)).toBe("out_of_window");
     expect(decisionOf(report, "sem-data", WEDNESDAY)).toBe("no_date");
+    expect(decisionOf(report, "futuro", WEDNESDAY)).toBe("future");
     expect(report.feeds.find((f) => f.source === "revista-modelo.test")?.dropped.no_date).toBe(1);
+    expect(report.feeds.find((f) => f.source === "portal-exemplo.test")?.dropped.future).toBe(1);
   });
 
   it("opens 48 h on a Monday", async () => {

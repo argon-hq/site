@@ -166,13 +166,14 @@ pnpm ingest:run --source valor.globo.com --json --report out/ingest.json
 
 ```text
 run 7d0c… (dry run) — 2026-09-30T08:30:00.000Z, window from 2026-09-29T08:30:00.000Z
-5 sources, 23 listed, 20 in the window, 15 candidates, 13 groups
+5 sources, 24 listed, 20 in the window, 15 candidates, 13 groups
 0 fichas stored, 0 already there, 3 below the cutoff, 0 over the cap, 1 late copies
 failed sources: fonte-fora-do-ar.test
 == addresses
 source                  ok    status  listed  inWindow  candidates  dropped                      error
 diario-ficticio.test    ok    200     8       7         5           discarded:2 out_of_window:1
-diario-ficticio.test    FAIL  200     0       0         0                                        FeedMalformed: invalid xml…
+diario-ficticio.test    FAIL          0       0         0                                        FeedMalformed: invalid xml…
+portal-exemplo.test     ok    200     8       6         4           discarded:2 out_of_window:1 future:1
 fonte-fora-do-ar.test   FAIL  503     0       0         0                                        FetchFailed: HTTP 503
 == groups (fichas first)
 outcome       score  source              also               title

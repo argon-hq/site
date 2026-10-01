@@ -239,6 +239,14 @@ export const STORIES: readonly Story[] = [
     expect: "outside on a weekday, a ficha on a Monday",
   },
   {
+    key: "futuro",
+    source: "portal",
+    path: "/negocios/fabrica-nova-anunciada",
+    title: "Fabricante fictícia de máquinas anuncia fábrica nova no interior",
+    hoursAgo: -5,
+    expect: "five hours ahead of the clock: a feed with the wrong zone, dropped and counted as future",
+  },
+  {
     key: "sem-data",
     source: "revista",
     path: "/pme/sem-data",

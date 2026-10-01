@@ -30,7 +30,7 @@ import type { ActiveSource } from "../src/ingest/source";
 import { prismaIngestStore, type IngestStore } from "../src/ingest/store";
 import { canonicalize, hostInDomain, unwrapRedirect } from "../src/ingest/url";
 import { fetchArticle } from "../src/mastra/tools/read-page";
-import { liveDeps, type Allowed } from "../src/net/fetch";
+import { liveDeps, type Allowed, type FetchDeps } from "../src/net/fetch";
 import { windowStart } from "../src/pipeline/rules";
 import { PrismaService } from "../src/prisma/prisma.service";
 
@@ -193,7 +193,7 @@ function page(url: string, flags: Flags) {
 async function runIngestion(flags: Flags) {
   const now = flags.date ? new Date(flags.date) : new Date();
   const prisma = flags.mock && flags.dryRun ? null : database();
-  const world: { store: IngestStore; fetchDeps: typeof liveDeps } = prisma
+  const world: { store: IngestStore; fetchDeps: FetchDeps } = prisma
     ? ingestWorld(flags.mock ? "mock" : "live", prisma, now)
     : { store: new MemoryStore(fixtureSources(), fixturePublished()), fetchDeps: fixtureDeps(now) };
   const silent = { log() {}, warn() {}, error() {} };
