@@ -23,6 +23,7 @@
     "ingest:sources": "tsx scripts/ingest.ts sources",
     "ingest:feed": "tsx scripts/ingest.ts feed",
     "ingest:page": "tsx scripts/ingest.ts page",
+    "ingest:run": "tsx scripts/ingest.ts run",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {

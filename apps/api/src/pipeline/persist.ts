@@ -3,7 +3,7 @@ import { Data, Effect, Match } from "effect";
 import { dbEffect } from "../effect/db";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
-import { canonicalize } from "../ingest/url";
+import { canonicalize, urlHash } from "../ingest/url";
 import { fetchArticle, type PageUnreadable } from "../mastra/tools/read-page";
 import type { FetchFailed, UrlNotAllowed } from "../net/fetch";
 import type { Candidate } from "./collect.schema";
@@ -31,9 +31,13 @@ export class DbFailed extends Data.TaggedError("DbFailed")<{ url: string; reason
 
 const db = <A>(url: string, run: () => Promise<A>) => dbEffect((reason) => new DbFailed({ url, reason }))(run);
 
-// Every evaluated link is remembered, kept or not, so the next run skips it.
-const markSeen = (prisma: PrismaClient, url: string) =>
-  db(url, () => prisma.seenUrl.upsert({ where: { url }, create: { url }, update: { seenAt: new Date() } }));
+// Every evaluated link is remembered, kept or not, by the hash of its canonical form.
+const markSeen = (prisma: PrismaClient, url: string) => {
+  const hash = urlHash(url);
+  return db(url, () =>
+    prisma.seenUrl.upsert({ where: { urlHash: hash }, create: { urlHash: hash }, update: { seenAt: new Date() } }),
+  );
+};
 
 const findArticle = (prisma: PrismaClient, url: string) =>
   db(url, () => prisma.article.findUnique({ where: { canonicalUrl: url }, select: { id: true } }));

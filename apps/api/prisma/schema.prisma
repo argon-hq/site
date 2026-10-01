@@ -33,6 +33,25 @@ enum ArticleCategory {
   @@map("article_category")
 }
 
+// Where an address lists news: an RSS or Atom feed, a news sitemap, or a web search restricted to
+// the source's domain (only if a source ends up with neither of the other two).
+enum FeedKind {
+  feed
+  news_sitemap
+  search
+
+  @@map("feed_kind")
+}
+
+// How much of the article the feed carried: the whole text, a lead, or nothing but the title.
+enum TextKind {
+  full
+  summary
+  none
+
+  @@map("text_kind")
+}
+
 enum EditionStatus {
   generating
   ready
@@ -86,23 +105,30 @@ model Subscriber {
 }
 
 model Article {
-  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  editionId     String?                      @map("edition_id") @db.Uuid // null until selected
-  canonicalUrl  String                       @unique @map("canonical_url") // identity and link
-  sourceName    String                       @map("source_name") // source from the ingestor prompt
-  originalTitle String                       @map("original_title")
-  extractedText String?                      @map("extracted_text") // cleared after 30 days by RetentionScheduler
-  publishedAt   DateTime?                    @map("published_at") @db.Timestamptz
-  category      ArticleCategory?
-  embedding     Unsupported("vector(1536)")? // dedup by similarity
-  score         Decimal?                     @db.Decimal(5, 2) // set on selection, frozen once sent
-  scoreDetails  Json?                        @map("score_details")
-  headline      String?
-  body          String? // up to 190 characters (check constraint)
-  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id             String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  editionId      String?                      @map("edition_id") @db.Uuid // null until selected
+  canonicalUrl   String                       @unique @map("canonical_url") // identity and link
+  sourceId       String?                      @map("source_id") @db.Uuid // null for articles from before ARG-123
+  sourceName     String                       @map("source_name")
+  originalTitle  String                       @map("original_title")
+  extractedText  String?                      @map("extracted_text") // feed or page text; cleared once sent
+  textKind       TextKind?                    @map("text_kind") // what the feed carried
+  origin         FeedKind? // the kind of address that listed it
+  publishedAt    DateTime?                    @map("published_at") @db.Timestamptz
+  codeScore      Int?                         @map("code_score") // the ingestion's triage; signals in score_details
+  groupMembers   Json                         @default("[]") @map("group_members") // same fact elsewhere, by relevance
+  titleSignature Int[]                        @default([]) @map("title_signature") // MinHash; emptied after 3 days
+  category       ArticleCategory?
+  embedding      Unsupported("vector(1536)")? // dedup by similarity
+  score          Decimal?                     @db.Decimal(5, 2) // set on selection, frozen once sent
+  scoreDetails   Json?                        @map("score_details")
+  headline       String?
+  body           String? // up to 190 characters (check constraint)
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   edition Edition? @relation(fields: [editionId], references: [id])
+  source  Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   @@index([publishedAt(sort: Desc)])
   @@index([editionId, score(sort: Desc)])
@@ -161,12 +187,50 @@ model Setting {
   @@map("setting")
 }
 
-// Links already evaluated by the collector, saved or not, so a later run does not visit them again.
-// Rows older than the retention window are deleted by RetentionScheduler.
+// Every link an ingestion listed, stored or not, so a later run does not process it again: the
+// sha256 of its canonical form, never the link. Deleted after 3 days by RetentionScheduler.
 model SeenUrl {
-  url    String   @id
-  seenAt DateTime @default(now()) @map("seen_at") @db.Timestamptz
+  urlHash String   @id @map("url_hash") @db.Char(64)
+  seenAt  DateTime @default(now()) @map("seen_at") @db.Timestamptz
 
   @@index([seenAt])
   @@map("seen_url")
+}
+
+// Where the news comes from. Each environment has its own rows; a source can be tried in dev
+// before prod. The domain is the allowlist of `read_page` and of what an ingestion stores; the
+// section rules are the per-source part of the triage (src/ingest/source.ts). Written only through
+// the internal routes of SourcesController, which log the before and the after.
+model Source {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  domain              String    @unique
+  name                String
+  covers              String
+  trust               Int       @default(0) @db.SmallInt // 0 or 1: picks the group's representative, and a point
+  active              Boolean   @default(true)
+  sectionRules        Json      @default("[]") @map("section_rules")
+  lastOkAt            DateTime? @map("last_ok_at") @db.Timestamptz
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  alertedAt           DateTime? @map("alerted_at") @db.Timestamptz // set when the owners heard of the failures
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  feeds    SourceFeed[]
+  articles Article[]
+
+  @@map("source")
+}
+
+model SourceFeed {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceId  String   @map("source_id") @db.Uuid
+  kind      FeedKind
+  url       String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, url])
+  @@map("source_feed")
 }
