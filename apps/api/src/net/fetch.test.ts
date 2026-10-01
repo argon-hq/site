@@ -237,6 +237,31 @@ describe("fetchBody", () => {
     expect(result._tag === "Left" && result.left.reason).toMatch(/invalid location/);
   });
 
+  it("carries the cause of a resolver or a network failure in the reason", async () => {
+    const noName: FetchDeps = { ...answer(""), resolve: () => Promise.reject(new Error("getaddrinfo ENOTFOUND")) };
+    expect(await run(noName)).toMatchObject({
+      _tag: "Left",
+      left: { _tag: "UrlNotAllowed", reason: "dns: getaddrinfo ENOTFOUND" },
+    });
+
+    const cause = Object.assign(new Error("connect ECONNRESET"), { code: "ECONNRESET" });
+    const reset: FetchDeps = { ...answer(""), fetch: () => Promise.reject(new TypeError("fetch failed", { cause })) };
+    expect(await run(reset)).toMatchObject({
+      _tag: "Left",
+      left: { _tag: "FetchFailed", reason: "fetch failed: connect ECONNRESET" },
+    });
+  });
+
+  it("fails a body whose stream breaks half-way", async () => {
+    const broken = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new Error("socket hang up"));
+      },
+    });
+    const deps: FetchDeps = { ...answer(""), fetch: async () => new Response(broken, { status: 200 }) };
+    expect(await run(deps)).toMatchObject({ _tag: "Left", left: { _tag: "FetchFailed", reason: "socket hang up" } });
+  });
+
   it("aborts the request at the deadline", async () => {
     let aborted = false;
     const slow: FetchDeps = {

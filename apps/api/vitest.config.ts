@@ -7,7 +7,14 @@ export default defineConfig({
     // `pnpm test:coverage` enforces, not a target: what they catch is a module that lost its tests.
     coverage: {
       provider: "v8",
-      include: ["src/pipeline/**/*.ts", "src/mail/**/*.ts", "src/subscriber/**/*.ts"],
+      include: [
+        "src/pipeline/**/*.ts",
+        "src/mail/**/*.ts",
+        "src/subscriber/**/*.ts",
+        "src/ingest/**/*.ts",
+        "src/net/**/*.ts",
+        "src/mastra/tools/read-page.ts",
+      ],
       exclude: [
         "**/*.test.ts",
         "src/pipeline/fixtures/**",
