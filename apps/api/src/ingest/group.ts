@@ -1,7 +1,8 @@
-import type { FeedKind } from "./source";
+import { Array as Arr, Either, Order } from "effect";
 import type { TextKind } from "./parse";
 import type { Signal } from "./score";
 import { similarity } from "./signature";
+import type { FeedKind } from "./source";
 import { CROSS_COVERAGE, CUTOFF, MAX_FICHAS, SAME_FACT } from "./triage";
 
 // One item that survived the filters and got its own score, held in memory for the run.
@@ -33,11 +34,16 @@ export type Group = {
   signatures: number[][]; // every member's, for the check against what is already known
 };
 
+// A fact the newsletter already carried, or already holds as a ficha: a link and its title's signature.
+export type Known = { url: string; signature: number[] };
+
+export type Republished = { group: Group; match: string };
+
 export type Ranked = {
   kept: Group[];
   belowCutoff: Group[];
   overCap: Group[];
-  republished: { group: Group; match: string }[];
+  republished: Republished[];
 };
 
 const TEXT_RANK: Record<TextKind, number> = { full: 2, summary: 1, none: 0 };
@@ -46,9 +52,9 @@ const TEXT_RANK: Record<TextKind, number> = { full: 2, summary: 1, none: 0 };
 // item: the one with more text wins.
 export function dedupeByUrl(candidates: readonly Candidate[]): Candidate[] {
   const byUrl = new Map<string, Candidate>();
-  for (const c of candidates) {
-    const held = byUrl.get(c.url);
-    if (!held || TEXT_RANK[c.textKind] > TEXT_RANK[held.textKind]) byUrl.set(c.url, c);
+  for (const candidate of candidates) {
+    const held = byUrl.get(candidate.url);
+    if (!held || TEXT_RANK[candidate.textKind] > TEXT_RANK[held.textKind]) byUrl.set(candidate.url, candidate);
   }
   return [...byUrl.values()];
 }
@@ -58,47 +64,51 @@ export function dedupeByUrl(candidates: readonly Candidate[]): Candidate[] {
 // is one fact told three ways.
 export function groupSameFact(candidates: readonly Candidate[]): Group[] {
   const parent = candidates.map((_, i) => i);
-  const find = (i: number): number => {
-    while (parent[i] !== i) {
-      parent[i] = parent[parent[i] as number] as number;
-      i = parent[i] as number;
+  const root = (i: number): number => {
+    let current = i;
+    for (let up = parent[current]; up !== undefined && up !== current; up = parent[current]) {
+      parent[current] = parent[up] ?? up; // halve the path on the way up
+      current = up;
     }
-    return i;
+    return current;
   };
-  for (let i = 0; i < candidates.length; i++) {
-    for (let j = i + 1; j < candidates.length; j++) {
-      const a = candidates[i] as Candidate;
-      const b = candidates[j] as Candidate;
-      if (similarity(a.signature, b.signature) >= SAME_FACT) parent[find(j)] = find(i);
-    }
-  }
+  candidates.forEach((a, i) => {
+    candidates.slice(i + 1).forEach((b, offset) => {
+      if (similarity(a.signature, b.signature) >= SAME_FACT) parent[root(i + 1 + offset)] = root(i);
+    });
+  });
 
   const clusters = new Map<number, Candidate[]>();
-  candidates.forEach((c, i) => {
-    const root = find(i);
-    clusters.set(root, [...(clusters.get(root) ?? []), c]);
+  candidates.forEach((candidate, i) => {
+    const key = root(i);
+    const cluster = clusters.get(key);
+    if (cluster) cluster.push(candidate);
+    else clusters.set(key, [candidate]);
   });
   return [...clusters.values()].map(toGroup);
 }
 
+const higherScore = Order.mapInput(Order.reverse(Order.number), (c: Candidate) => c.score);
+const higherTrust = Order.mapInput(Order.reverse(Order.number), (c: Candidate) => c.trust);
+const earlier = Order.mapInput(Order.Date, (c: Candidate) => c.publishedAt);
+const byRelevance = Order.combineAll([higherScore, higherTrust, earlier]);
+const byTrust = Order.combineAll([higherTrust, higherScore, earlier]);
+
 // The most trusted outlet represents the fact; among equals, the better title, then the earlier
 // one. The group's score is its best title plus a point per extra outlet.
-function toGroup(cluster: Candidate[]): Group {
-  const byRelevance = [...cluster].sort(
-    (a, b) => b.score - a.score || b.trust - a.trust || a.publishedAt.getTime() - b.publishedAt.getTime(),
-  );
-  const representative = [...cluster].sort(
-    (a, b) => b.trust - a.trust || b.score - a.score || a.publishedAt.getTime() - b.publishedAt.getTime(),
-  )[0] as Candidate;
-  const best = byRelevance[0] as Candidate;
+function toGroup(cluster: readonly Candidate[]): Group {
+  const ranked = Arr.sort(cluster, byRelevance);
+  const best = ranked[0] ?? cluster[0];
+  const representative = Arr.sort(cluster, byTrust)[0] ?? best;
+  if (!best || !representative) throw new Error("a cluster has at least one candidate");
   const sources = new Set(cluster.map((c) => c.sourceId)).size;
   const cross = Math.min(CROSS_COVERAGE.max, (sources - 1) * CROSS_COVERAGE.perSource);
   const signals = cross > 0 ? [...best.signals, { signal: CROSS_COVERAGE.signal, points: cross }] : best.signals;
   return {
     representative,
-    members: byRelevance
+    members: ranked
       .filter((c) => c !== representative)
-      .map((c) => ({ url: c.url, sourceName: c.sourceName, title: c.title, textKind: c.textKind })),
+      .map(({ url, sourceName, title, textKind }) => ({ url, sourceName, title, textKind })),
     sources,
     score: best.score + cross,
     signals,
@@ -108,29 +118,28 @@ function toGroup(cluster: Candidate[]): Group {
 
 // A group whose fact was already published, or is already a ficha, within the last days is a late
 // copy: the outlet that runs the news a day later does not bring it back.
-export function findRepublished(group: Group, known: readonly { url: string; signature: number[] }[]): string | null {
-  for (const k of known) if (group.signatures.some((s) => similarity(s, k.signature) >= SAME_FACT)) return k.url;
-  return null;
+export function findRepublished(group: Group, known: readonly Known[]): string | null {
+  const match = known.find((k) => group.signatures.some((s) => similarity(s, k.signature) >= SAME_FACT));
+  return match?.url ?? null;
 }
 
+const bestFirst = Order.combineAll([
+  Order.mapInput(Order.reverse(Order.number), (g: Group) => g.score),
+  Order.mapInput(Order.reverse(Order.Date), (g: Group) => g.representative.publishedAt),
+]);
+
 // Cut, order and cap. The order is global, over every source: score, then the most recent.
-export function rank(groups: readonly Group[], known: readonly { url: string; signature: number[] }[]): Ranked {
-  const republished: Ranked["republished"] = [];
-  const fresh: Group[] = [];
-  for (const group of groups) {
+export function rank(groups: readonly Group[], known: readonly Known[]): Ranked {
+  const [fresh, republished] = Arr.partitionMap(groups, (group) => {
     const match = findRepublished(group, known);
-    if (match) republished.push({ group, match });
-    else fresh.push(group);
-  }
-  const passing = fresh
-    .filter((g) => g.score >= CUTOFF)
-    .sort(
-      (a, b) => b.score - a.score || b.representative.publishedAt.getTime() - a.representative.publishedAt.getTime(),
-    );
+    return match ? Either.right({ group, match } satisfies Republished) : Either.left(group);
+  });
+  const [belowCutoff, passing] = Arr.partition(fresh, (group) => group.score >= CUTOFF);
+  const ordered = Arr.sort(passing, bestFirst);
   return {
-    kept: passing.slice(0, MAX_FICHAS),
-    overCap: passing.slice(MAX_FICHAS),
-    belowCutoff: fresh.filter((g) => g.score < CUTOFF),
+    kept: ordered.slice(0, MAX_FICHAS),
+    overCap: ordered.slice(MAX_FICHAS),
+    belowCutoff,
     republished,
   };
 }

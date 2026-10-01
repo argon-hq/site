@@ -10,16 +10,18 @@ import { FIXTURE_NOTE, PUBLISHED, STORIES, type FixtureSourceKey, type Story } f
 // these. The ingestion that runs over it is the real one — same parser, filters, score, groups and
 // store — with no network and no model.
 
-type FixtureSource = ActiveSource & { key: FixtureSourceKey };
+// A fixture source is an active source plus the host its article links live on: with `www.` or
+// without, as real outlets differ.
+type FixtureSource = ActiveSource & { host: string };
 
 const rules = (...list: [SectionRule["match"], string, SectionRule["tier"]][]): SectionRule[] =>
   list.map(([match, pattern, tier]) => ({ match, pattern, tier }));
 
-const SOURCES: FixtureSource[] = [
-  {
-    key: "diario",
+const SOURCES: Record<FixtureSourceKey, FixtureSource> = {
+  diario: {
     id: "fixture-diario",
     domain: "diario-ficticio.test",
+    host: "www.diario-ficticio.test",
     name: "Diário Fictício",
     trust: 1,
     sectionRules: rules(
@@ -35,10 +37,10 @@ const SOURCES: FixtureSource[] = [
       { id: "fixture-diario-broken", kind: "feed", url: "https://www.diario-ficticio.test/rss/quebrado.xml" },
     ],
   },
-  {
-    key: "portal",
+  portal: {
     id: "fixture-portal",
     domain: "portal-exemplo.test",
+    host: "www.portal-exemplo.test",
     name: "Portal Exemplo",
     trust: 0,
     sectionRules: rules(
@@ -52,79 +54,86 @@ const SOURCES: FixtureSource[] = [
       { id: "fixture-portal-sitemap", kind: "news_sitemap", url: "https://www.portal-exemplo.test/news-sitemap.xml" },
     ],
   },
-  {
-    key: "revista",
+  revista: {
     id: "fixture-revista",
     domain: "revista-modelo.test",
+    host: "revista-modelo.test",
     name: "Revista Modelo PME",
     trust: 0,
     sectionRules: rules(["category", "Esportes", "discard"], ["path", "/pme/", "core"]),
     feeds: [{ id: "fixture-revista-atom", kind: "feed", url: "https://revista-modelo.test/feed.atom" }],
   },
-  {
-    key: "agencia",
+  agencia: {
     id: "fixture-agencia",
     domain: "agencia-inventada.test",
+    host: "www.agencia-inventada.test",
     name: "Agência Inventada",
     trust: 1,
     sectionRules: rules(["path", "/economia/", "adjacent"]),
     feeds: [{ id: "fixture-agencia-rss", kind: "feed", url: "https://feeds.agencia-inventada.test/economia.xml" }],
   },
-  {
-    key: "offline",
+  offline: {
     id: "fixture-offline",
     domain: "fonte-fora-do-ar.test",
+    host: "fonte-fora-do-ar.test",
     name: "Fonte Fora do Ar",
     trust: 0,
     sectionRules: [],
     feeds: [{ id: "fixture-offline-rss", kind: "feed", url: "https://fonte-fora-do-ar.test/feed/" }],
   },
-];
+};
 
 export const fixtureSources = (): ActiveSource[] =>
-  SOURCES.map((source) => ({
-    id: source.id,
-    domain: source.domain,
-    name: source.name,
-    trust: source.trust,
-    sectionRules: source.sectionRules,
-    feeds: source.feeds,
+  Object.values(SOURCES).map(({ id, domain, name, trust, sectionRules, feeds }) => ({
+    id,
+    domain,
+    name,
+    trust,
+    sectionRules,
+    feeds,
   }));
 
 // The mocked world's allowlist: only the fixture's domains.
-export const fixtureAllowed = (url: URL): boolean => SOURCES.some((s) => hostInDomain(url.hostname, s.domain));
+export const fixtureAllowed = (url: URL): boolean =>
+  Object.values(SOURCES).some((source) => hostInDomain(url.hostname, source.domain));
 
 const HOUR = 60 * 60 * 1000;
-const byKey = (key: FixtureSourceKey) => SOURCES.find((s) => s.key === key) as FixtureSource;
+const SAO_PAULO_OFFSET_HOURS = 3;
 
 // The day goes into the path after the section, so section rules still match and every day has
 // its own links.
 export function storyUrl(story: Story, now: Date): string {
   const day = now.toISOString().slice(0, 10).replaceAll("-", "/");
   const [, section, ...rest] = story.path.split("/");
-  const host = story.source === "revista" ? byKey("revista").domain : `www.${byKey(story.source).domain}`;
-  return `https://${host}/${section}/${day}/${rest.join("/")}`;
+  return `https://${SOURCES[story.source].host}/${section}/${day}/${rest.join("/")}`;
 }
 
-// São Paulo wall clock, the fixed offset the feeds of Brazilian outlets write.
-function spParts(date: Date) {
-  const local = new Date(date.getTime() - 3 * HOUR);
-  return { iso: local.toISOString().slice(0, 19), local };
+// When the story was published, on the run's clock; null when the feed carries no date.
+function publishedAt(story: Story, now: Date): Date | null {
+  return story.hoursAgo === null ? null : new Date(now.getTime() - story.hoursAgo * HOUR);
 }
+
+// The instant shifted to São Paulo's wall clock, read through the UTC getters: the fixed offset the
+// feeds of Brazilian outlets write.
+const saoPauloClock = (date: Date) => new Date(date.getTime() - SAO_PAULO_OFFSET_HOURS * HOUR);
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const pad = (n: number) => String(n).padStart(2, "0");
 
 function rfc822(date: Date): string {
-  const { local } = spParts(date);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${WEEKDAYS[local.getUTCDay()]}, ${pad(local.getUTCDate())} ${MONTHS[local.getUTCMonth()]} ${local.getUTCFullYear()} ${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())} -0300`;
+  const local = saoPauloClock(date);
+  const day = `${WEEKDAYS[local.getUTCDay()]}, ${pad(local.getUTCDate())} ${MONTHS[local.getUTCMonth()]} ${local.getUTCFullYear()}`;
+  const time = `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`;
+  return `${day} ${time} -0300`;
 }
 
+// The date as the story's feed writes it: RFC 822 with offset by default, ISO without offset (São
+// Paulo's clock), or ISO with offset.
 function dateOf(story: Story, now: Date): string | null {
-  if (story.hoursAgo === null) return null;
-  const at = new Date(now.getTime() - story.hoursAgo * HOUR);
-  if (story.dateStyle === "iso_local") return spParts(at).iso;
+  const at = publishedAt(story, now);
+  if (!at) return null;
+  if (story.dateStyle === "iso_local") return saoPauloClock(at).toISOString().slice(0, 19);
   if (story.dateStyle === "iso") return at.toISOString();
   return rfc822(at);
 }
@@ -153,12 +162,13 @@ ${items.join("\n")}
 </channel></rss>`;
 }
 
+// A news sitemap writes ISO with offset, whatever the story's style says.
 function portalSitemap(now: Date): string {
   const urls = storiesOf("portal").map((s) => {
-    const date = dateOf(s, now);
+    const date = publishedAt(s, now)?.toISOString();
     return `<url><loc>${storyUrl(s, now)}</loc><news:news>
   <news:publication><news:name>Portal Exemplo</news:name><news:language>pt</news:language></news:publication>
-  ${date ? `<news:publication_date>${new Date(now.getTime() - (s.hoursAgo ?? 0) * HOUR).toISOString()}</news:publication_date>` : ""}
+  ${date ? `<news:publication_date>${date}</news:publication_date>` : ""}
   <news:title><![CDATA[${s.title}]]></news:title>
 </news:news></url>`;
   });
@@ -168,13 +178,10 @@ ${urls.join("\n")}
 </urlset>`;
 }
 
+// Atom writes ISO with offset unless the story asks for another style.
 function revistaAtom(now: Date): string {
   const entries = storiesOf("revista").map((s) => {
-    const date = s.dateStyle
-      ? dateOf(s, now)
-      : s.hoursAgo === null
-        ? null
-        : new Date(now.getTime() - s.hoursAgo * HOUR).toISOString();
+    const date = s.dateStyle ? dateOf(s, now) : publishedAt(s, now)?.toISOString();
     return `<entry>
   <title>${esc(s.title)}</title>
   <link rel="alternate" href="${storyUrl(s, now)}"/>
@@ -208,10 +215,10 @@ ${items.join("\n")}
 }
 
 function page(story: Story, now: Date, text: string): string {
-  const published = story.hoursAgo === null ? "" : new Date(now.getTime() - story.hoursAgo * HOUR).toISOString();
+  const published = publishedAt(story, now)?.toISOString() ?? "";
   const paragraphs = text
-    .split(". ")
-    .map((sentence) => `<p>${esc(sentence)}.</p>`)
+    .split(/(?<=\.)\s+/)
+    .map((sentence) => `<p>${esc(sentence)}</p>`)
     .join("\n");
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(story.title)}</title>
 <link rel="canonical" href="${storyUrl(story, now)}">
@@ -260,6 +267,7 @@ export function fixtureDeps(now: Date): FetchDeps {
       const answer = routes.get(url);
       const body = answer?.body ?? "Not Found";
       return Promise.resolve(
+        // A copy: the DOM's `Response` wants a `Uint8Array` over an `ArrayBuffer`, which a `Buffer` is not typed as.
         new Response(typeof body === "string" ? body : new Uint8Array(body), {
           status: answer?.status ?? 404,
           headers: { "content-type": answer?.type ?? "text/html" },

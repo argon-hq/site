@@ -9,14 +9,15 @@ export class MemoryStore implements IngestStore {
   readonly fichas: Ficha[] = [];
   readonly seenHashes = new Map<string, Date>();
   readonly health = new Map<string, { failures: number; alerted: boolean; lastOk: Date | null }>();
+  private readonly links = new Set<string>();
 
   constructor(
-    private readonly sources: ActiveSource[],
-    private readonly published: Known[] = [],
+    private readonly sources: readonly ActiveSource[],
+    private readonly published: readonly Known[] = [],
   ) {}
 
   activeSources() {
-    return Effect.succeed(this.sources);
+    return Effect.succeed([...this.sources]);
   }
 
   seen(hashes: readonly string[]) {
@@ -30,22 +31,22 @@ export class MemoryStore implements IngestStore {
   }
 
   // Everything it holds is recent: a test runs in one day.
-  known() {
+  known(): Effect.Effect<Known[]> {
     return Effect.succeed([
       ...this.published,
-      ...this.fichas.map((f) => ({ url: f.canonicalUrl, signature: f.signature })),
+      ...this.fichas.map((ficha) => ({ url: ficha.canonicalUrl, signature: ficha.signature })),
     ]);
   }
 
+  // One ficha per link: a second with the same link is not an error, it is not saved.
   saveFichas(fichas: readonly Ficha[]) {
     return Effect.sync(() => {
-      let saved = 0;
-      for (const ficha of fichas) {
-        if (this.fichas.some((f) => f.canonicalUrl === ficha.canonicalUrl)) continue;
+      const fresh = fichas.filter((ficha) => !this.links.has(ficha.canonicalUrl));
+      for (const ficha of fresh) {
+        this.links.add(ficha.canonicalUrl);
         this.fichas.push(ficha);
-        saved += 1;
       }
-      return saved;
+      return fresh.length;
     });
   }
 

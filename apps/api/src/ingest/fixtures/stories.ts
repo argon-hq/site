@@ -36,7 +36,7 @@ const paragraph = (lead: string) =>
 
 const fullText = (lead: string) => Array.from({ length: 5 }, () => paragraph(lead)).join(" ");
 
-export const STORIES: Story[] = [
+export const STORIES: readonly Story[] = [
   // --- The same fact in three outlets, two titles alike and one rewritten.
   {
     key: "mei-diario",
@@ -261,7 +261,7 @@ export const STORIES: Story[] = [
 ];
 
 // What the newsletter published in the days before the run: the other side of the late copy.
-export const PUBLISHED = [
+export const PUBLISHED: readonly { path: string; title: string }[] = [
   {
     path: "https://www.diario-ficticio.test/empresas/receita-libera-consulta-lote-residual",
     title: "Receita libera consulta ao lote residual do Imposto de Renda",

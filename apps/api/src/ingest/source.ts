@@ -28,15 +28,23 @@ export type ActiveSource = {
   feeds: readonly SourceFeed[];
 };
 
+// The tier an item's section puts it in, and the rule that said so (`path:/empresas/`), or none.
 export type SectionMatch = { tier: SectionTier; rule: string | null };
 
+const NO_MATCH: SectionMatch = { tier: "neutral", rule: null };
+
+// Patterns and what they are matched against compare in lowercase: a feed that writes `/Empresas/`
+// or `Forbes Money` means the same section.
 export function sectionOf(url: URL, categories: readonly string[], rules: readonly SectionRule[]): SectionMatch {
-  const lowered = categories.map((c) => c.toLowerCase());
+  const path = url.pathname.toLowerCase();
+  const host = url.hostname.toLowerCase();
+  const lowered = new Set(categories.map((category) => category.toLowerCase()));
   const matches = rules.filter((rule) => {
-    if (rule.match === "path") return url.pathname.startsWith(rule.pattern);
-    if (rule.match === "host") return url.hostname.startsWith(rule.pattern.toLowerCase());
-    return lowered.includes(rule.pattern.toLowerCase());
+    const pattern = rule.pattern.toLowerCase();
+    if (rule.match === "path") return path.startsWith(pattern);
+    if (rule.match === "host") return host.startsWith(pattern);
+    return lowered.has(pattern);
   });
   const chosen = matches.find((rule) => rule.tier === "discard") ?? matches[0];
-  return chosen ? { tier: chosen.tier, rule: `${chosen.match}:${chosen.pattern}` } : { tier: "neutral", rule: null };
+  return chosen ? { tier: chosen.tier, rule: `${chosen.match}:${chosen.pattern}` } : NO_MATCH;
 }

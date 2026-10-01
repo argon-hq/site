@@ -1,7 +1,7 @@
 // The code's triage of the day's items: what a title and a section say about relevance to someone
 // who runs a business, before any model reads anything. Versioned here, reviewed in the PR and
-// recalibrated with `pnpm ingest:run --ignore-seen` over real feeds. The section rules are per
-// source and live in the `source` table; everything else is here.
+// recalibrated over real feeds with the run command of the next step. The section rules are per
+// source (`source.ts`); everything else is here.
 //
 // Starting weights measured on 870 real items of 29/09/2026 (ARG-123), to be recalibrated.
 
@@ -31,7 +31,7 @@ export const SECTION_POINTS: Record<Exclude<SectionTier, "discard">, number> = {
 type Rule = { signal: string; pattern: RegExp; points: number };
 
 // Not news for this newsletter whatever the section says.
-export const NOISE: { signal: string; pattern: RegExp }[] = [
+export const NOISE: readonly Omit<Rule, "points">[] = [
   { signal: "live", pattern: /\bao vivo\b/ },
   { signal: "quote", pattern: /\bcotacao\b/ },
   { signal: "lottery", pattern: /\b(loteria|mega-sena|lotofacil|quina|timemania)\b/ },
@@ -47,7 +47,7 @@ export const NOISE: { signal: string; pattern: RegExp }[] = [
 ];
 
 // Each rule counts once per title, however many of its words appear.
-export const TITLE_RULES: Rule[] = [
+export const TITLE_RULES: readonly Rule[] = [
   {
     signal: "lexicon_core",
     points: 3,

@@ -1,9 +1,10 @@
 import { Data, Effect } from "effect";
-import type { FeedKind } from "./source";
-import type { ActiveSource } from "./source";
+import type { Known, Member } from "./group";
 import type { TextKind } from "./parse";
-import type { Member } from "./group";
 import type { Signal } from "./score";
+import type { ActiveSource, FeedKind } from "./source";
+
+export type { Known } from "./group";
 
 export class IngestDbFailed extends Data.TaggedError("IngestDbFailed")<{ reason: string }> {}
 
@@ -25,11 +26,11 @@ export type Ficha = {
   signature: number[];
 };
 
-export type Known = { url: string; signature: number[] };
 export type SourceHealth = { consecutiveFailures: number; alert: boolean };
 
 // The database as an ingestion sees it. An interface: for now only the memory store implements it,
-// for the tests and the manual commands; the next step adds the one over Prisma.
+// for the tests and the manual commands; the next step adds the one over Prisma. `known` answers
+// what was published or stored since a date, the other side of a late copy.
 export type IngestStore = {
   activeSources(): Effect.Effect<ActiveSource[], IngestDbFailed>;
   seen(hashes: readonly string[]): Effect.Effect<Set<string>, IngestDbFailed>;
