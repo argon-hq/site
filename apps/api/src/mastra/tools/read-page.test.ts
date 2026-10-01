@@ -1,6 +1,7 @@
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
-import { fetchArticle, isPublicAddress, MAX_HTML_BYTES, type FetchDeps } from "./read-page";
+import type { FetchDeps } from "../../net/fetch";
+import { fetchArticle, MAX_HTML_BYTES } from "./read-page";
 
 const ARTICLE = `<!doctype html><html><head><title>Copom mantém a Selic</title>
 <link rel="canonical" href="https://valor.globo.com/financas/noticia/copom.ghtml">
@@ -35,46 +36,6 @@ const failure = async (effect: ReturnType<typeof fetchArticle>) => {
   const cause = exit.cause;
   return cause._tag === "Fail" ? cause.error : null;
 };
-
-describe("isPublicAddress", () => {
-  it("refuses loopback, link-local, private and mapped addresses", () => {
-    for (const ip of [
-      "127.0.0.1",
-      "169.254.169.254",
-      "10.0.0.5",
-      "172.16.0.1",
-      "172.31.255.255",
-      "192.168.1.1",
-      "100.64.0.1",
-      "0.0.0.0",
-      "::1",
-      "fe80::1",
-      "fd00::1",
-      "::ffff:169.254.169.254",
-      // The metadata service in the hex spelling of an IPv4-mapped address, and inside NAT64 and 6to4.
-      "::ffff:a9fe:a9fe",
-      "64:ff9b::a9fe:a9fe",
-      "2002:a9fe:a9fe::1",
-      // The rest of the link-local block, documentation, benchmarking, multicast and reserved.
-      "febf::1",
-      "2001:db8::1",
-      "192.0.2.10",
-      "203.0.113.10",
-      "198.18.0.1",
-      "224.0.0.1",
-      "255.255.255.255",
-      "not an ip",
-    ]) {
-      expect(isPublicAddress(ip), ip).toBe(false);
-    }
-  });
-
-  it("accepts public addresses", () => {
-    for (const ip of ["200.1.2.3", "8.8.8.8", "172.32.0.1", "2804:14c::1", "::ffff:8.8.8.8", "::ffff:808:808"]) {
-      expect(isPublicAddress(ip), ip).toBe(true);
-    }
-  });
-});
 
 describe("fetchArticle", () => {
   it("reads a page from a source", async () => {

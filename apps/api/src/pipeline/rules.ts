@@ -1,3 +1,5 @@
+import { domainOf } from "../ingest/url";
+
 // Hard rules of the edition steps. The agent judges inside these limits; it never changes them,
 // and they are the same in every environment — what changes with the environment is in `profile.ts`.
 
@@ -26,13 +28,10 @@ export const RECENT_DAYS = 3; // how far back the agent sees what was already co
 // How much a run may search, how long its text may be and how many turns it gets are not rules:
 // they are what an environment is willing to pay. They live in `profile.ts`.
 
-export function isAllowedDomain(url: string): boolean {
-  const host = new URL(url).hostname.toLowerCase();
-  return ALLOWED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+// A link on one of the sources, by its domain and subdomains. A string that is no URL is not allowed.
+export function isAllowedDomain(url: string | URL): boolean {
+  return domainOf(url, ALLOWED_DOMAINS) !== null;
 }
-
-// Same article, same key: one canonical form for the collection and the ingestion.
-export { canonicalize } from "../ingest/url";
 
 // 24 hours; 48 on Mondays (São Paulo time) to cover the weekend.
 export function windowHours(date: Date): number {

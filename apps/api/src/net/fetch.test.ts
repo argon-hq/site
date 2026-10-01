@@ -5,9 +5,10 @@ import { Effect } from "effect";
 import {
   charsetOf,
   decode,
-  describe as describeError,
+  describeError,
   fetchBody,
   guardedLookup,
+  isPublicAddress,
   liveDeps,
   type BodyRequest,
   type FetchDeps,
@@ -43,12 +44,53 @@ describe("decode", () => {
   });
 });
 
+describe("isPublicAddress", () => {
+  it("refuses loopback, link-local, private and mapped addresses", () => {
+    for (const ip of [
+      "127.0.0.1",
+      "169.254.169.254",
+      "10.0.0.5",
+      "172.16.0.1",
+      "172.31.255.255",
+      "192.168.1.1",
+      "100.64.0.1",
+      "0.0.0.0",
+      "::1",
+      "fe80::1",
+      "fd00::1",
+      "::ffff:169.254.169.254",
+      // The metadata service in the hex spelling of an IPv4-mapped address, and inside NAT64 and 6to4.
+      "::ffff:a9fe:a9fe",
+      "64:ff9b::a9fe:a9fe",
+      "2002:a9fe:a9fe::1",
+      // The rest of the link-local block, documentation, benchmarking, multicast and reserved.
+      "febf::1",
+      "2001:db8::1",
+      "192.0.2.10",
+      "203.0.113.10",
+      "198.18.0.1",
+      "224.0.0.1",
+      "255.255.255.255",
+      "not an ip",
+    ]) {
+      expect(isPublicAddress(ip), ip).toBe(false);
+    }
+  });
+
+  it("accepts public addresses", () => {
+    for (const ip of ["200.1.2.3", "8.8.8.8", "172.32.0.1", "2804:14c::1", "::ffff:8.8.8.8", "::ffff:808:808"]) {
+      expect(isPublicAddress(ip), ip).toBe(true);
+    }
+  });
+});
+
 describe("guardedLookup", () => {
-  const lookupWith = (addresses: { address: string; family: number }[] | Error, all = false) =>
+  type Options = { all?: boolean; family?: number };
+  const lookupWith = (addresses: { address: string; family: number }[] | Error, options: Options = {}) =>
     new Promise<{ error: NodeJS.ErrnoException | null; result: unknown }>((resolve) => {
       const resolver = () => (addresses instanceof Error ? Promise.reject(addresses) : Promise.resolve(addresses));
-      guardedLookup(resolver)("fonte.test", { all }, (error, address, family) =>
-        resolve({ error, result: all ? address : { address, family } }),
+      guardedLookup(resolver)("fonte.test", options, (error, address, family) =>
+        resolve({ error, result: options.all ? address : { address, family } }),
       );
     });
 
@@ -63,7 +105,17 @@ describe("guardedLookup", () => {
       { address: "200.1.2.3", family: 4 },
       { address: "2804:14c::1", family: 6 },
     ];
-    expect((await lookupWith(addresses, true)).result).toEqual(addresses);
+    expect((await lookupWith(addresses, { all: true })).result).toEqual(addresses);
+  });
+
+  it("answers in the family the socket asked for, and fails when the name has none of it", async () => {
+    const addresses = [
+      { address: "2804:14c::1", family: 6 },
+      { address: "200.1.2.3", family: 4 },
+    ];
+    expect((await lookupWith(addresses, { family: 4 })).result).toEqual({ address: "200.1.2.3", family: 4 });
+    expect((await lookupWith(addresses, { all: true, family: 6 })).result).toEqual([addresses[0]]);
+    expect((await lookupWith([addresses[1] as never], { family: 6 })).error?.code).toBe("ENOTFOUND");
   });
 
   it("refuses a name with any private address, which is what a rebinding answer looks like", async () => {
@@ -95,7 +147,7 @@ describe("the live fetch", () => {
   });
 });
 
-describe("describe", () => {
+describe("describeError", () => {
   it("brings the cause of a network error to the reason, not only undici's 'fetch failed'", () => {
     const cause = Object.assign(new Error("connect ECONNREFUSED 200.1.2.3:443"), { code: "ECONNREFUSED" });
     expect(describeError(new TypeError("fetch failed", { cause }))).toBe(
@@ -160,6 +212,29 @@ describe("fetchBody", () => {
       _tag: "Left",
       left: { _tag: "UnexpectedType" },
     });
+  });
+
+  it("refuses credentials in the address before resolving or fetching anything", async () => {
+    const calls: string[] = [];
+    const spy: FetchDeps = {
+      resolve: async (hostname) => {
+        calls.push(`resolve ${hostname}`);
+        return [{ address: "200.1.2.3", family: 4 }];
+      },
+      fetch: async (url) => {
+        calls.push(`fetch ${url}`);
+        return new Response("", { status: 200 });
+      },
+    };
+    const result = await Effect.runPromise(Effect.either(fetchBody("https://user:pw@fonte.test/feed", request(spy))));
+    expect(result).toMatchObject({ _tag: "Left", left: { _tag: "UrlNotAllowed", reason: "credentials in the url" } });
+    expect(calls).toEqual([]);
+  });
+
+  it("fails a redirect to a location that is no address, instead of crashing", async () => {
+    const result = await run(answer("", { location: "http://[" }, 302));
+    expect(result).toMatchObject({ _tag: "Left", left: { _tag: "FetchFailed", status: 302 } });
+    expect(result._tag === "Left" && result.left.reason).toMatch(/invalid location/);
   });
 
   it("aborts the request at the deadline", async () => {

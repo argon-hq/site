@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROFILES } from "../profile";
-import { canonicalize, isAllowedDomain, windowStart } from "../rules";
+import { canonicalize } from "../../ingest/url";
+import { isAllowedDomain, windowStart } from "../rules";
 import { fixtureNews } from "./news";
 
 const now = new Date("2026-09-23T08:30:00Z"); // 5h30 in São Paulo

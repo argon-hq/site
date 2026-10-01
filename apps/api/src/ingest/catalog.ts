@@ -1,4 +1,5 @@
-import type { SectionRule, SourceFeed } from "./source";
+import { hostInDomain } from "./url";
+import type { ActiveSource, SectionRule, SourceFeed } from "./source";
 
 // The sources of the survey of 29/09/2026 (ARG-123), with their addresses and section rules. For now
 // they live here, in code, and only the manual commands and the tests read them: the ingestion only
@@ -10,11 +11,11 @@ export type CatalogSource = {
   covers: string;
   trust: number;
   active: boolean;
-  sectionRules: SectionRule[];
-  feeds: Omit<SourceFeed, "id">[];
+  sectionRules: readonly SectionRule[];
+  feeds: readonly Omit<SourceFeed, "id">[];
 };
 
-export const CATALOG: CatalogSource[] = [
+export const CATALOG: readonly CatalogSource[] = [
   {
     domain: "agenciabrasil.ebc.com.br",
     name: "Agência Brasil",
@@ -178,8 +179,8 @@ export const CATALOG: CatalogSource[] = [
 ];
 
 // The active sources, in the shape a run reads them.
-export const catalogSources = () =>
-  CATALOG.filter((s) => s.active).map(({ domain, name, trust, sectionRules, feeds }) => ({
+export const catalogSources = (): ActiveSource[] =>
+  CATALOG.filter((source) => source.active).map(({ domain, name, trust, sectionRules, feeds }) => ({
     id: `catalog-${domain}`,
     domain,
     name,
@@ -187,3 +188,10 @@ export const catalogSources = () =>
     sectionRules,
     feeds: feeds.map((feed) => ({ id: `catalog-${feed.url}`, ...feed })),
   }));
+
+// The catalogue entry a link belongs to, by its domain and subdomains.
+export const catalogSourceOf = (url: string | URL): CatalogSource | null => {
+  if (!URL.canParse(url)) return null;
+  const { hostname } = new URL(url);
+  return CATALOG.find((source) => hostInDomain(hostname, source.domain)) ?? null;
+};

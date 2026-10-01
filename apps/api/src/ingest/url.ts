@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 
 const TRACKING_PARAMS = /^(utm_|fbclid|gclid|ref$)/;
+// The marker a redirector puts before the real address, as in Folha's `…/rss091/*https://…`.
+const REDIRECT_MARKER = "*http";
 
 // Same article, same key: lowercase host without `www.`, no hash, no tracking parameters, the
 // remaining query in a stable order and no trailing slash.
@@ -11,7 +13,7 @@ export function canonicalize(url: string): string {
   for (const key of [...u.searchParams.keys()]) if (TRACKING_PARAMS.test(key)) u.searchParams.delete(key);
   u.searchParams.sort();
   u.pathname = u.pathname.replace(/\/+$/, "") || "/";
-  return u.toString();
+  return u.href;
 }
 
 // A redirector puts the real address after a marker in its own path: the Folha feed links to
@@ -19,7 +21,7 @@ export function canonicalize(url: string): string {
 // is what carries the section, the domain the allowlist checks and the identity of the article, so
 // it is taken out before anything else looks at the link. A link without the marker is itself.
 export function unwrapRedirect(url: string): string {
-  const marker = url.indexOf("*http");
+  const marker = url.indexOf(REDIRECT_MARKER);
   if (marker < 0) return url;
   const inner = url.slice(marker + 1);
   return URL.canParse(inner) ? inner : url;
@@ -38,8 +40,9 @@ export function hostInDomain(host: string, domain: string): boolean {
   return h === d || h.endsWith(`.${d}`);
 }
 
-// The domain a URL belongs to among the ones given, or null.
-export function domainOf(url: string, domains: readonly string[]): string | null {
-  const host = new URL(url).hostname;
-  return domains.find((domain) => hostInDomain(host, domain)) ?? null;
+// The domain a URL belongs to among the ones given, or null — also for a string that is no URL.
+export function domainOf(url: string | URL, domains: readonly string[]): string | null {
+  if (!URL.canParse(url)) return null;
+  const { hostname } = new URL(url);
+  return domains.find((domain) => hostInDomain(hostname, domain)) ?? null;
 }

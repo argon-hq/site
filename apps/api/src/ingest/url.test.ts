@@ -41,6 +41,8 @@ describe("domains", () => {
       "infomoney.com.br",
     );
     expect(domainOf("https://g1.globo.com/x", ["valor.globo.com"])).toBeNull();
+    expect(domainOf(new URL("https://valor.globo.com/x"), ["valor.globo.com"])).toBe("valor.globo.com");
+    expect(domainOf("not a url", ["valor.globo.com"])).toBeNull();
   });
 });
 

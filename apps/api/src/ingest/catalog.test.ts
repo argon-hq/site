@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATALOG, catalogSources } from "./catalog";
+import { CATALOG, catalogSourceOf, catalogSources } from "./catalog";
 import { sectionRuleSchema } from "./source";
 import { hostInDomain } from "./url";
 
@@ -30,5 +30,11 @@ describe("the sources catalogue", () => {
   it("drops Folha's live blogs by host", () => {
     const folha = CATALOG.find((s) => s.domain === "folha.uol.com.br");
     expect(folha?.sectionRules).toContainEqual({ match: "host", pattern: "aovivo.", tier: "discard" });
+  });
+
+  it("finds the source a link belongs to, by domain and subdomain", () => {
+    expect(catalogSourceOf("https://www1.folha.uol.com.br/mercado/a.shtml")?.name).toBe("Folha Mercado");
+    expect(catalogSourceOf("https://g1.globo.com/x")).toBeNull();
+    expect(catalogSourceOf("not a url")).toBeNull();
   });
 });

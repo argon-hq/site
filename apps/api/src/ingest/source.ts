@@ -23,6 +23,6 @@ export type ActiveSource = {
   domain: string;
   name: string;
   trust: number;
-  sectionRules: SectionRule[];
-  feeds: SourceFeed[];
+  sectionRules: readonly SectionRule[];
+  feeds: readonly SourceFeed[];
 };

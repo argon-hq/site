@@ -3,6 +3,17 @@ import { FeedMalformed, FULL_TEXT_MIN_CHARS, parseFeed } from "./parse";
 
 const long = "Texto completo da notícia. ".repeat(40);
 
+// What `parseFeed` refuses a document with, or null when it reads it.
+function failure(xml: string): FeedMalformed | null {
+  try {
+    parseFeed(xml);
+    return null;
+  } catch (error) {
+    if (error instanceof FeedMalformed) return error;
+    throw error;
+  }
+}
+
 describe("parseFeed", () => {
   it("reads RSS 2.0: link, title, date, categories, and the full text from content:encoded", () => {
     const feed = parseFeed(`<?xml version="1.0" encoding="UTF-8"?>
@@ -80,8 +91,8 @@ describe("parseFeed", () => {
   });
 
   it("refuses XML that does not close, and a document that is not a feed", () => {
-    expect(() => parseFeed("<rss><channel><item><title>Sem fim")).toThrow(FeedMalformed);
-    expect(() => parseFeed("<html><body>Not found</body></html>")).toThrow(/not a feed/);
+    expect(failure("<rss><channel><item><title>Sem fim")?.reason).toMatch(/invalid xml/);
+    expect(failure("<html><body>Not found</body></html>")?.reason).toMatch(/not a feed/);
   });
 
   it("skips an item without link or title instead of failing the feed", () => {
@@ -89,5 +100,14 @@ describe("parseFeed", () => {
 <item><title>Sem link</title></item><item><link>https://x.test/a</link></item>
 <item><title>Com tudo</title><link>https://x.test/b</link></item></channel></rss>`);
     expect(feed.items.map((i) => i.title)).toEqual(["Com tudo"]);
+  });
+
+  it("skips an item whose link is no http address, and reads a guid only when it is a permalink", () => {
+    const feed = parseFeed(`<rss version="2.0"><channel>
+<item><title>Relativo</title><link>/negocios/a</link></item>
+<item><title>Opaco</title><guid isPermaLink="false">a1b2c3</guid></item>
+<item><title>Permalink</title><guid>https://x.test/p</guid></item>
+<item><title>Esquema</title><link>ftp://x.test/f</link></item></channel></rss>`);
+    expect(feed.items.map((i) => [i.title, i.link])).toEqual([["Permalink", "https://x.test/p"]]);
   });
 });
