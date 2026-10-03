@@ -1,7 +1,8 @@
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { FetchDeps } from "../../net/fetch";
-import { fetchArticle, MAX_HTML_BYTES } from "./read-page";
+import { Logger } from "@nestjs/common";
+import { fetchArticle, MAX_HTML_BYTES, readPage } from "./read-page";
 
 const ARTICLE = `<!doctype html><html><head><title>Copom mantém a Selic</title>
 <link rel="canonical" href="https://valor.globo.com/financas/noticia/copom.ghtml">
@@ -143,5 +144,22 @@ describe("fetchArticle", () => {
     });
     const error = await failure(fetchArticle("https://valor.globo.com/file.pdf", d));
     expect(error?._tag).toBe("PageUnreadable");
+  });
+});
+
+describe("the read_page tool", () => {
+  it("logs a refusal with its reason before answering the agent, with no network touched", async () => {
+    const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => {});
+    try {
+      await expect(readPage.execute!({ url: "https://g1.globo.com/economia/" }, {} as never)).rejects.toThrow();
+      expect(warn).toHaveBeenCalledWith({
+        msg: "read_page failed",
+        tag: "UrlNotAllowed",
+        url: "https://g1.globo.com/economia/",
+        reason: "domain not allowed",
+      });
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

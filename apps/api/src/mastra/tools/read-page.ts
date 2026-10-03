@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { Readability } from "@mozilla/readability";
+import { Logger } from "@nestjs/common";
 import { Data, Effect, Schedule } from "effect";
 import { parseHTML } from "linkedom";
 import { z } from "zod";
@@ -76,6 +77,19 @@ export const fetchArticle = (
   );
 
 const readPageInput = z.object({ url: z.url() });
+const logger = new Logger("ReadPage");
+
+// A failure is logged here, where it is still typed: Mastra answers the caller with a generic
+// error, and a refused address — the metadata service, a domain outside the sources — must leave
+// its reason somewhere an operator reads.
+const logged = (url: string) =>
+  fetchArticle(url).pipe(
+    Effect.tapError((error) =>
+      Effect.sync(() =>
+        logger.warn({ msg: "read_page failed", tag: error._tag, url: error.url, reason: error.reason }),
+      ),
+    ),
+  );
 
 export const readPage = createTool({
   id: "read_page",
@@ -85,5 +99,5 @@ export const readPage = createTool({
   outputSchema: extractedArticleSchema,
   // Promise boundary: Mastra calls the tool, the effect runs here. The input is parsed again on
   // the way in: what Mastra types it as depends on its zod version, not on this schema.
-  execute: (input) => Effect.runPromise(fetchArticle(readPageInput.parse(input).url)),
+  execute: (input) => Effect.runPromise(logged(readPageInput.parse(input).url)),
 });
