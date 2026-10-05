@@ -42,11 +42,11 @@ jobs:
           exit 1
       # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda. Full history, so the
       # commit before this push is there to diff against.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # O código publicado pode vir de outra branch: é o caso do lab.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: inputs.branch != ''
         with:
           ref: ${{ inputs.branch }}
