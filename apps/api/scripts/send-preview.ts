@@ -2,16 +2,16 @@
 //   pnpm email:send [destinatário]
 // In development that inbox is Mailpit: http://localhost:8025. Nothing leaves the machine.
 //
-// The content is the fixture's, but the identity comes from this environment: sender and policy
-// from the settings, images from WEB_ORIGIN. The fixture points at a domain that does not exist,
-// so left alone its images would arrive broken.
+// The content is the fixture's, but the identity comes from this environment: the sender from the
+// settings and MAIL_FROM, the networks from the settings, every URL from the origins. The fixture
+// points at a domain that does not exist, so left alone its images would arrive broken.
 //
 // Locally it also makes the unsubscribe link real: the recipient is recorded as a confirmed
 // subscriber and gets a token, so the footer link and the one-click header actually cancel it.
 // Against Resend that step is skipped — a preview must not write subscribers into a real base.
 //
 // Wires the three pieces by hand instead of booting Nest: the script needs a transport and the
-// sender setting, not the HTTP layer, the agents or the guard.
+// sender, not the HTTP layer, the agents or the guard.
 
 import "dotenv/config";
 import { Effect } from "effect";
@@ -20,6 +20,7 @@ import { Resend } from "resend";
 import { loadConfig, type Config } from "../src/config";
 import { assetBaseUrl } from "../src/email/assets";
 import { buildEdition } from "../src/email/edition/build";
+import { editionContext } from "../src/email/edition/from-db";
 import { editionFixture } from "../src/email/fixtures/edition";
 import { MailService } from "../src/mail/mail.service";
 import { ResendTransport } from "../src/mail/transports/resend.transport";
@@ -40,21 +41,22 @@ async function main() {
       ? new ResendTransport(new Resend(config.RESEND_API_KEY))
       : new SmtpTransport(createTransport(config.SMTP_URL));
   const settings = new SettingsService(prisma);
-  const mail = new MailService(transport, settings);
+  const mail = new MailService(transport, settings, config.MAIL_FROM);
 
   const origins = originsFrom(config);
 
   try {
-    const identity = await settings.load();
-    const token = await unsubscribeTokenFor(to, config, prisma, new SubscriberService(prisma, settings, undefined as never, origins, config.UNSUBSCRIBE_TOKEN_SECRET));
+    const [sender, social] = await Promise.all([mail.sender(), settings.get("social")]);
+    const token = await unsubscribeTokenFor(
+      to,
+      config,
+      prisma,
+      new SubscriberService(prisma, settings, undefined as never, origins, config.UNSUBSCRIBE_TOKEN_SECRET),
+    );
     const built = await Effect.runPromise(
       buildEdition({
         ...editionFixture,
-        sender: identity.sender,
-        social: identity.social,
-        assetBaseUrl: assetBaseUrl(origins.assets),
-        privacyPolicyUrl: identity.privacy_policy_url,
-        unsubscribeUrl: unsubscribePageUrl(origins, token),
+        ...editionContext({ sender, social }, { origins, unsubscribeUrl: unsubscribePageUrl(origins, token) }),
       }),
     );
     const sent = await mail.send({

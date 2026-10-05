@@ -110,11 +110,7 @@ describe("buildReason", () => {
 // token would: nothing about the check is relaxed for it.
 describe("unsubscribe placeholder", () => {
   const origins = { web: "https://argon.com.br", api: "https://api.argon.com.br", assets: "https://argon.com.br" };
-  const settings = {
-    sender: editionFixture.sender,
-    privacy_policy_url: editionFixture.privacyPolicyUrl,
-    social: editionFixture.social,
-  };
+  const identity = { sender: editionFixture.sender, social: {} };
   const edition: EditionRow = { date, title: "Três notícias", subject: "Crédito, SELIC e IA" };
   const articles: ArticleRow[] = [1, 2, 3].map((n) => ({
     canonicalUrl: `https://valor.globo.com/noticias/${n}`,
@@ -126,10 +122,7 @@ describe("unsubscribe placeholder", () => {
   }));
 
   it("validates clean and reaches both formats", async () => {
-    const context = editionContext(settings, {
-      assetsOrigin: origins.assets,
-      unsubscribeUrl: unsubscribePlaceholderUrl(origins),
-    });
+    const context = editionContext(identity, { origins, unsubscribeUrl: unsubscribePlaceholderUrl(origins) });
     const built = await Effect.runPromise(
       toEditionInput(edition, articles, context).pipe(
         Effect.flatMap((input) => buildEdition(input).pipe(Effect.flatMap((e) => validateEdition(input, e)))),

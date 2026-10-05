@@ -1,6 +1,7 @@
 import type { MastraService } from "@mastra/nestjs";
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
+import type { MailService } from "../mail/mail.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { SettingsService } from "../settings/settings.service";
 import type { DeliveryService } from "./delivery.service";
@@ -52,6 +53,7 @@ function service(p: { mastra?: unknown; delivery?: { send?: unknown } } = {}) {
     origins,
     lock,
     delivery as unknown as DeliveryService,
+    {} as unknown as MailService,
   );
   return { pipeline, delivery, alert, held };
 }
