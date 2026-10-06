@@ -9,7 +9,8 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
   `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
 - `src/ingest/`: the news, listed and judged by code (ARG-123). Not wired to the edition yet: `collect`
-  still writes it, and `ingest.ts` only runs from the manual commands. No model and no page read:
+  still writes it, and `ingest.ts` runs from `POST /pipeline/ingest` and from the manual commands,
+  to read the sources of an environment and calibrate the triage. No model and no page read:
   every address of every active source — RSS 2.0 or 0.91, Atom, or a news sitemap — is read in
   parallel through the guarded fetch `read_page` also uses (`src/net/fetch.ts`: only the source's
   domain, never a private address, every redirect checked), in the charset the response declares in
@@ -30,7 +31,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   internal routes come with the workflow change. A source whose every address fails three runs in a
   row alerts the owners once, and stays active; a good read resets it. One failing address never
   stops the run; all of them failing fails it. The log has two layers, both with the run id: per
-  address and per run always, and per item and group in debug. `store.ts` is the contract a run
+  address and per run always, and per item and group when the `ingest_debug` setting is on. `store.ts` is the contract a run
   reads and writes through (`IngestStore`), over Prisma or in memory; `mode.ts` picks the live world
   or the mocked one — `fixtures/`, an invented world on `.test` domains (feeds, a sitemap, pages, a
   Latin-1 feed behind a redirector, a malformed feed, a source down) served by a network that
@@ -162,6 +163,14 @@ pnpm ingest:run --dry-run           # the same, writing nothing
 pnpm ingest:run --ignore-seen       # judge again what earlier runs listed (recalibration)
 pnpm ingest:run --mock --dry-run --date 2026-09-30T08:30:00Z
 pnpm ingest:run --source valor.globo.com --json --report out/ingest.json
+```
+
+The same run by HTTP, in an environment: `mode`, `dryRun`, `ignoreSeen` and `source` as in the
+command, the answer being the counts per address.
+
+```bash
+curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"mock"}'
+curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"live","dryRun":true}'
 ```
 
 ```text

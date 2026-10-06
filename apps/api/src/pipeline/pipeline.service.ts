@@ -3,12 +3,16 @@ import type { Agent } from "@mastra/core/agent";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
+import { randomUUID } from "node:crypto";
 import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
 import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { EditionContext } from "../mastra/workflows/context";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
+import { fetchFeed } from "../ingest/fetch-feed";
+import { ingest, type IngestReport } from "../ingest/ingest";
+import { ingestWorld } from "../ingest/mode";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
@@ -42,6 +46,7 @@ import {
 // Every step failure carries a reason and, when the caller is the one to act, the HTTP status that
 // says so (see src/effect/failure.ts).
 export class CollectFailed extends Data.TaggedError("CollectFailed")<Failure> {}
+export class IngestStepFailed extends Data.TaggedError("IngestStepFailed")<Failure> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<Failure> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<Failure> {}
 // A failed run says which step failed, so the single alert it sends is addressed.
@@ -93,6 +98,10 @@ export type RunReport = EditionRun & { runId: string; durationMs: number };
 // or works over the fixture. Both have a default, so a step can still be called bare in a test.
 export type StepRun = { mode?: Mode; now?: Date };
 
+// The ingestion step also takes what the manual command takes: read without writing, judge again
+// what earlier runs listed, or one source only. None of them is for the schedule.
+export type IngestStepRun = StepRun & { dryRun?: boolean; ignoreSeen?: boolean; source?: string };
+
 // The send may name the edition it is for. Without a date it is today's, as the 7h clock means it;
 // with one it is a resume — an edition a run left `sending` and the calendar has moved past.
 export type SendRun = StepRun & { date?: Date };
@@ -140,6 +149,42 @@ export class PipelineService {
             fail(error instanceof EditionBusy ? { reason: error.reason, status: CONFLICT } : { reason: error.reason }),
           ),
       ),
+    );
+  }
+
+  // Ingestion step (ARG-123): every address of every active source, read and judged by code, the
+  // fichas stored. Not in the workflow yet — the edition still comes from `collect` — so for now it
+  // runs from its route, to read the sources in an environment and calibrate the triage. A mocked
+  // run reads the fixture's invented sources and writes real fichas.
+  ingest(run: IngestStepRun = {}): Effect.Effect<IngestReport, IngestStepFailed> {
+    const { mode, now } = startOf(run);
+    const runId = randomUUID();
+    const body = Effect.gen(this, function* () {
+      const settings = yield* Effect.tryPromise({
+        try: () => this.settings.load(),
+        catch: (error) => new IngestStepFailed({ reason: `settings: ${String(error)}` }),
+      });
+      return yield* ingest(
+        {
+          runId,
+          now,
+          since: windowStart(now),
+          dryRun: run.dryRun,
+          ignoreSeen: run.ignoreSeen,
+          onlySource: run.source,
+          debug: settings.ingest_debug,
+        },
+        {
+          ...ingestWorld(mode, this.prisma, now),
+          fetchFeed,
+          logger: this.logger,
+          // A source failing three runs in a row is news for the owners even when the run goes on.
+          alert: (reason) => this.alert.send("ingest", reason),
+        },
+      ).pipe(Effect.mapError((error) => new IngestStepFailed({ reason: error.reason })));
+    });
+    return this.locked(runDate(now), "ingest", body, (failure) => new IngestStepFailed(failure)).pipe(
+      Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "ingest failed", runId, reason: e.reason }))),
     );
   }
 

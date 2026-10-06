@@ -15,6 +15,7 @@ export const settingsSchema = z.object({
   score_cutoff: z.number().min(0).max(5).default(PROFILE.scoreCutoff),
   owner_emails: z.array(z.email()).default([]), // alerted when the pipeline fails
   policy_version: z.string().default(""), // recorded with each consent
+  ingest_debug: z.boolean().default(false), // logs every item an ingestion lists, with its decision
 
   // Business identity: no sensible default in code
   sender: z.object({ name: z.string().min(1), address: z.email(), postalAddress: z.string().min(1) }),
