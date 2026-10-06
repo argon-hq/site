@@ -301,7 +301,6 @@ const readFeed = (
         title: entry.title,
         url: new URL(url),
         categories: entry.categories,
-        trust: source.trust,
         sectionRules: source.sectionRules,
       });
       if (scored.outcome === "discarded") {

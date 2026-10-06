@@ -64,7 +64,8 @@ export const STORIES: readonly Story[] = [
     title: "Teto do microempreendedor individual passa a R$ 150 mil no ano que vem",
     hoursAgo: 3,
     text: paragraph("O teto do microempreendedor individual passa a R$ 150 mil no ano que vem."),
-    expect: "rewritten title: the signature does not catch it, so it stands alone — what escapes",
+    expect:
+      "rewritten title: the signature does not catch it, so it stands alone and, without the lexicon, below the cutoff",
   },
 
   // --- Rates in two outlets.

@@ -11,12 +11,12 @@ export type ScoreInput = {
   title: string;
   url: URL;
   categories: readonly string[];
-  trust: number;
   sectionRules: readonly SectionRule[];
 };
 
-// One item, on its own: section, title and source. What depends on the other items — the same fact
-// in other outlets — is added when the groups are known.
+// One item, on its own: section and title. The source's trust is not a point — it picks the
+// group's representative — and what depends on the other items, the same fact in other outlets, is
+// added when the groups are known.
 export function scoreItem(input: ScoreInput): Scored {
   const section = sectionOf(input.url, input.categories, input.sectionRules);
   if (section.tier === "discard") return { outcome: "discarded", reason: `section ${section.rule}`, signals: [] };
@@ -32,7 +32,6 @@ export function scoreItem(input: ScoreInput): Scored {
     if (rule.pattern.test(title)) signals.push({ signal: rule.signal, points: rule.points });
   if (FOREIGN.foreign.test(title) && !FOREIGN.brazil.test(title))
     signals.push({ signal: FOREIGN.signal, points: FOREIGN.points });
-  if (input.trust > 0) signals.push({ signal: "trust", points: input.trust });
 
   return { outcome: "scored", score: total(signals), signals };
 }

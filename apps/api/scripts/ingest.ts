@@ -150,7 +150,6 @@ async function feed(url: string, flags: Flags) {
         title: item.title,
         url: new URL(link),
         categories: item.categories,
-        trust: known?.trust ?? 0,
         sectionRules: known?.sectionRules ?? [],
       });
       return {

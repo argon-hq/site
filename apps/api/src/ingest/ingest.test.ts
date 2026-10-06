@@ -57,15 +57,17 @@ describe("ingest over the fixture", () => {
 
   it("groups the same fact across outlets under the most trusted, with the others as members", async () => {
     const { store, run } = world(WEDNESDAY);
-    await run();
+    const report = await run();
 
     const mei = store.fichas.find((f) => f.title.startsWith("Governo amplia limite do MEI"));
     expect(mei?.sourceName).toBe("Diário Fictício");
     expect(mei?.sources).toBe(2);
     expect(mei?.members.map((m) => m.sourceName)).toEqual(["Portal Exemplo"]);
     expect(mei?.signals).toContainEqual({ signal: "cross_coverage", points: 1 });
-    // The rewritten title escapes the signature and stands on its own.
-    expect(store.fichas.some((f) => f.title.startsWith("Teto do microempreendedor"))).toBe(true);
+    // The rewritten title escapes the signature and stands on its own — and, with no lexicon of its
+    // own, below the cutoff.
+    const teto = report.groupsDetail.find((g) => g.title.startsWith("Teto do microempreendedor"));
+    expect(teto).toMatchObject({ outcome: "below_cutoff", members: [] });
   });
 
   it("drops a late copy of what an edition already carried", async () => {

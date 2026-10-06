@@ -18,7 +18,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   Each item goes through the chain: unwrap a redirector (`url.ts`), canonicalize, the window (24 h,
   48 h on Mondays; a date without offset is São Paulo time, an item without a date is dropped and
   counted), the section rules of its source and the title noise (`source.ts`, `score.ts`), then a
-  code score with a reason per point (`triage.ts`: lexicon, weights, cutoff 3, cap 200 — versioned
+  code score with a reason per point (`triage.ts`: lexicon, weights, cutoff 4, cap 20 — versioned
   here and recalibrated with the commands below). The same fact in several outlets becomes one group
   by a MinHash of the title (`signature.ts`, `group.ts`), represented by the most trusted source, the
   others kept as members, a point per extra outlet; a group like something published or stored in
@@ -176,7 +176,7 @@ curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTER
 ```text
 run 7d0c… (dry run) — 2026-09-30T08:30:00.000Z, window from 2026-09-29T08:30:00.000Z
 5 sources, 24 listed, 20 in the window, 15 candidates, 13 groups
-0 fichas stored, 0 already there, 3 below the cutoff, 0 over the cap, 1 late copies
+0 fichas stored, 0 already there, 4 below the cutoff, 0 over the cap, 1 late copies
 failed sources: fonte-fora-do-ar.test
 == addresses
 source                  ok    status  listed  inWindow  candidates  dropped                      error
@@ -186,7 +186,7 @@ portal-exemplo.test     ok    200     8       6         4           discarded:2 
 fonte-fora-do-ar.test   FAIL  503     0       0         0                                        FetchFailed: HTTP 503
 == groups (fichas first)
 outcome       score  source              also               title
-ficha         9      Diário Fictício                        Crédito para pequenas empresas cresce 12% no trimestre
+ficha         8      Diário Fictício                        Crédito para pequenas empresas cresce 12% no trimestre
 ```
 
 ## Studio
