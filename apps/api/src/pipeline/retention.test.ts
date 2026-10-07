@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { PrismaService } from "../prisma/prisma.service";
 import {
   CANCELLED_RETENTION_DAYS,
+  FICHA_RETENTION_DAYS,
   RETENTION_BATCH,
   RetentionScheduler,
   SEEN_URL_RETENTION_DAYS,
+  SIGNATURE_RETENTION_DAYS,
   TEXT_RETENTION_DAYS,
   UNCONFIRMED_GRACE_DAYS,
 } from "./retention";
@@ -24,24 +26,41 @@ function scheduler(answers: number[]) {
 }
 
 describe("RetentionScheduler", () => {
-  it("clears old article text, deletes old seen links, purges long-cancelled subscribers and discards dead sign-ups, each past its window", async () => {
-    const { service, calls } = scheduler([3, 2, 1, 4]);
+  it("deletes stale fichas, clears old text and signatures, deletes old seen links and purges long-cancelled subscribers and discards dead sign-ups", async () => {
+    const { service, calls } = scheduler([5, 3, 4, 2, 1, 6]);
 
     const report = await Effect.runPromise(service.run(now));
 
-    expect(report).toEqual({ textsCleared: 3, seenUrlsDeleted: 2, subscribersPurged: 1, unconfirmedDiscarded: 4 });
-    expect(calls[0]?.sql).toMatch(/UPDATE "article" SET "extracted_text" = NULL/);
-    expect(calls[0]?.values).toEqual([daysAgo(TEXT_RETENTION_DAYS), RETENTION_BATCH]);
-    expect(calls[1]?.sql).toMatch(/DELETE FROM "seen_url"/);
-    expect(calls[1]?.values).toEqual([daysAgo(SEEN_URL_RETENTION_DAYS), RETENTION_BATCH]);
-    expect(calls[2]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'cancelled'/);
-    expect(calls[2]?.values).toEqual([daysAgo(CANCELLED_RETENTION_DAYS), RETENTION_BATCH]);
-    expect(calls[3]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'pending'[\s\S]*"token_expires_at" </);
-    expect(calls[3]?.values).toEqual([daysAgo(UNCONFIRMED_GRACE_DAYS), RETENTION_BATCH]);
+    expect(report).toEqual({
+      fichasDeleted: 5,
+      textsCleared: 3,
+      signaturesCleared: 4,
+      seenUrlsDeleted: 2,
+      subscribersPurged: 1,
+      unconfirmedDiscarded: 6,
+    });
+    expect(calls[0]?.sql).toMatch(/DELETE FROM "article"[\s\S]*"edition_id" IS NULL/);
+    expect(calls[0]?.values).toEqual([daysAgo(FICHA_RETENTION_DAYS), RETENTION_BATCH]);
+    expect(calls[1]?.sql).toMatch(/UPDATE "article" SET "extracted_text" = NULL/);
+    expect(calls[1]?.values).toEqual([daysAgo(TEXT_RETENTION_DAYS), RETENTION_BATCH]);
+    expect(calls[2]?.sql).toMatch(/UPDATE "article" SET "title_signature" = '\{\}'/);
+    expect(calls[2]?.values).toEqual([daysAgo(SIGNATURE_RETENTION_DAYS), RETENTION_BATCH]);
+    expect(calls[3]?.sql).toMatch(/DELETE FROM "seen_url"[\s\S]*"url_hash"/);
+    expect(calls[3]?.values).toEqual([daysAgo(SEEN_URL_RETENTION_DAYS), RETENTION_BATCH]);
+    expect(calls[4]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'cancelled'/);
+    expect(calls[4]?.values).toEqual([daysAgo(CANCELLED_RETENTION_DAYS), RETENTION_BATCH]);
+    expect(calls[5]?.sql).toMatch(/DELETE FROM "subscriber"[\s\S]*"status" = 'pending'[\s\S]*"token_expires_at" </);
+    expect(calls[5]?.values).toEqual([daysAgo(UNCONFIRMED_GRACE_DAYS), RETENTION_BATCH]);
+  });
+
+  it("keeps the seen links for the 48 h window and a day more, and nothing of the feed past three days", () => {
+    expect(SEEN_URL_RETENTION_DAYS).toBe(3);
+    expect(FICHA_RETENTION_DAYS).toBe(3);
+    expect(SIGNATURE_RETENTION_DAYS).toBe(3);
   });
 
   it("keeps going in batches until a statement comes back short", async () => {
-    const { service, calls } = scheduler([RETENTION_BATCH, RETENTION_BATCH, 7, 0, 0]);
+    const { service, calls } = scheduler([0, RETENTION_BATCH, RETENTION_BATCH, 7, 0, 0, 0]);
 
     const report = await Effect.runPromise(service.run(now));
 
@@ -59,7 +78,7 @@ describe("RetentionScheduler", () => {
 
     expect(exit._tag).toBe("Failure");
     expect(exit._tag === "Failure" && exit.cause._tag === "Fail" && exit.cause.error.reason).toContain(
-      "clear article text",
+      "delete old fichas",
     );
   });
 });

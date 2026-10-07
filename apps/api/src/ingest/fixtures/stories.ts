@@ -26,6 +26,10 @@ export type Story = {
   full?: boolean; // the text is the whole article
   // A page for the read of ARG-124 and for the bridge to the writing step: its text, or its failure.
   page?: { text: string } | { status: number } | { unreadable: true };
+  // How long the mocked writing makes this story's paragraph, to exercise the body limit: below the
+  // target, inside the slack, or over the ceiling (rejected twice, so a reserve ficha takes its place).
+  // Without it, the paragraph is cut to the target.
+  writtenLength?: number;
   expect: string; // what the chain should do with it, for whoever reads the fixture
 };
 
@@ -46,7 +50,8 @@ export const STORIES: readonly Story[] = [
     hoursAgo: 5,
     text: fullText("O governo federal ampliou o limite de faturamento do MEI para R$ 150 mil a partir de janeiro."),
     full: true,
-    expect: "ficha, representative of the MEI group (highest trust), cross coverage",
+    writtenLength: 266,
+    expect: "ficha, representative of the MEI group (highest trust), cross coverage; paragraph inside the slack",
   },
   {
     key: "mei-portal",
@@ -108,8 +113,9 @@ export const STORIES: readonly Story[] = [
     dateStyle: "iso_local",
     text: paragraph("A startup de logística Entrega Já recebeu aporte de R$ 20 milhões."),
     page: { status: 403 },
+    writtenLength: 240,
     expect:
-      "ficha; date without offset read as São Paulo; page closed (paywall) — the bridge falls back to the feed text",
+      "ficha; date without offset read as São Paulo; page closed (paywall) — the bridge falls back to the feed text; paragraph under the target",
   },
   {
     key: "credito",
@@ -119,7 +125,8 @@ export const STORIES: readonly Story[] = [
     hoursAgo: 2,
     text: fullText("O crédito concedido a pequenas e médias empresas cresceu 12% no trimestre."),
     full: true,
-    expect: "ficha, full text in the feed",
+    writtenLength: 290,
+    expect: "ficha, full text in the feed; paragraph over the ceiling, rejected twice — a reserve takes its place",
   },
   {
     key: "tributaria",

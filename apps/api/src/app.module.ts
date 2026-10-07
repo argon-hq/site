@@ -7,6 +7,7 @@ import { loadConfig } from "./config";
 import { EmailModule } from "./email/email.module";
 import { MailModule } from "./mail/mail.module";
 import { HealthController } from "./health/health.controller";
+import { SourcesModule } from "./ingest/sources.module";
 import { mastra } from "./mastra";
 import { PipelineModule } from "./pipeline/pipeline.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -23,6 +24,7 @@ const config = loadConfig();
     SettingsModule,
     EmailModule.forRoot(config),
     MailModule.forRoot(config),
+    SourcesModule,
     PipelineModule.forRoot(config),
     SubscriberModule.forRoot(config),
     StudioModule.forRoot(config),

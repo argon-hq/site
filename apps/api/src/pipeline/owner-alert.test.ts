@@ -16,23 +16,23 @@ function alert(owners: string[], broken = false) {
 describe("OwnerAlert", () => {
   it("mails every owner registered in the settings", async () => {
     const a = alert(["eduardo@argon.com.br", "joao@argon.com.br"]);
-    await Effect.runPromise(a.instance.send("collect", "settings: boom"));
+    await Effect.runPromise(a.instance.send("ingest", "settings: boom"));
 
     expect(a.send).toHaveBeenCalledTimes(2);
     const first = a.send.mock.calls[0]![0];
-    expect(first).toMatchObject({ to: "eduardo@argon.com.br", subject: "[Argon] step collect failed" });
+    expect(first).toMatchObject({ to: "eduardo@argon.com.br", subject: "[Argon] step ingest failed" });
     expect(first.text).toContain("settings: boom");
   });
 
   it("sends nothing when no owner is registered", async () => {
     const a = alert([]);
-    await Effect.runPromise(a.instance.send("collect", "boom"));
+    await Effect.runPromise(a.instance.send("ingest", "boom"));
     expect(a.send).not.toHaveBeenCalled();
   });
 
   it("never fails: a broken alert does not bury the failure it reports", async () => {
     const a = alert(["eduardo@argon.com.br"], true);
-    await expect(Effect.runPromise(a.instance.send("collect", "boom"))).resolves.toBeUndefined();
+    await expect(Effect.runPromise(a.instance.send("ingest", "boom"))).resolves.toBeUndefined();
   });
 });
 

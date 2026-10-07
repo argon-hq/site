@@ -1,8 +1,8 @@
 import { Body, Controller, HttpCode, Post } from "@nestjs/common";
 import { Effect } from "effect";
 import { z } from "zod";
-import { runEffect } from "../effect/nest";
 import { summaryOf } from "../ingest/ingest";
+import { runEffect } from "../effect/nest";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineService } from "./pipeline.service";
@@ -57,14 +57,7 @@ export class PipelineController {
     return runEffect("ingest", this.alert.onFailure("ingest", this.pipeline.ingest(body).pipe(Effect.map(summaryOf))));
   }
 
-  // POST /pipeline/collect { mode? } → runs the collection step now. Internal secret required.
-  @Post("collect")
-  @HttpCode(200)
-  collect(@Body(ZodBody(stepBody)) body: StepBody) {
-    return runEffect("collect", this.alert.onFailure("collect", this.pipeline.collect(body)));
-  }
-
-  // POST /pipeline/write { mode? } → writes today's edition from what the collection stored. Internal secret required.
+  // POST /pipeline/write { mode? } → writes today's edition from the fichas the ingestion stored. Internal secret required.
   @Post("write")
   @HttpCode(200)
   write(@Body(ZodBody(stepBody)) body: StepBody) {

@@ -1,5 +1,6 @@
 import { Effect, Exit } from "effect";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setAllowedDomains } from "../../ingest/allowlist";
 import type { FetchDeps } from "../../net/fetch";
 import { fetchArticle, MAX_HTML_BYTES } from "./read-page";
 
@@ -38,6 +39,9 @@ const failure = async (effect: ReturnType<typeof fetchArticle>) => {
 };
 
 describe("fetchArticle", () => {
+  // The allowlist is the sources table's; here, one source.
+  beforeEach(() => setAllowedDomains(["valor.globo.com"]));
+
   it("reads a page from a source", async () => {
     const { deps: d } = deps({ "https://valor.globo.com/financas/noticia/copom.ghtml": { body: ARTICLE } });
     const page = await Effect.runPromise(fetchArticle("https://valor.globo.com/financas/noticia/copom.ghtml", d));
