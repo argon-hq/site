@@ -1,22 +1,29 @@
 # Weekly, so the pins in the workflows, the Dockerfiles and the compose file do not quietly age.
 # Majors of next and react are not taken automatically: each one is a migration, not an update.
+# PRs go to dev, like any other change; main only gets what dev promotes.
+# @types/node follows the Node runtime (22), so its majors wait for a runtime upgrade.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    target-branch: dev
   - package-ecosystem: docker
     directory: /apps/api
     schedule: { interval: weekly }
+    target-branch: dev
   - package-ecosystem: docker
     directory: /apps/web
     schedule: { interval: weekly }
+    target-branch: dev
   - package-ecosystem: docker-compose
     directory: /deploy
     schedule: { interval: weekly }
+    target-branch: dev
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
+    target-branch: dev
     groups:
       minor-and-patch:
         update-types: [minor, patch]
@@ -26,4 +33,6 @@ updates:
       - dependency-name: react
         update-types: [version-update:semver-major]
       - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
