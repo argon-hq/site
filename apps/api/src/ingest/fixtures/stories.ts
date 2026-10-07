@@ -81,8 +81,8 @@ export const STORIES: readonly Story[] = [
     title: "Copom mantém a Selic e sinaliza cautela com inflação de serviços",
     hoursAgo: 10,
     text: paragraph("O Comitê de Política Monetária manteve a Selic e sinalizou cautela com a inflação de serviços."),
-    page: { text: fullText("O Comitê de Política Monetária manteve a Selic.") },
-    expect: "ficha in a group of two",
+    page: { status: 403 },
+    expect: "ficha in a group of two; its page is a paywall, so the writing reads the member's",
   },
   {
     key: "copom-agencia",
@@ -91,7 +91,8 @@ export const STORIES: readonly Story[] = [
     title: "Copom mantém a Selic e sinaliza cautela com a inflação",
     hoursAgo: 9,
     text: paragraph("O Copom manteve a taxa Selic."),
-    expect: "member of the Copom group; link through the redirector, feed in ISO-8859-1",
+    page: { text: fullText("O Copom manteve a taxa Selic e sinalizou cautela com a inflação.") },
+    expect: "member of the Copom group; link through the redirector, feed in ISO-8859-1; its open page is the fallback",
   },
 
   // --- Company and small-business news of varied weight.

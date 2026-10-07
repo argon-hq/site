@@ -25,7 +25,7 @@ import { generateStructured } from "./generate";
 import { DeliveryService, SendFailed, type SendReport } from "./delivery.service";
 import { EditionBusy, EditionLock, LockDbFailed } from "./lock";
 import { OwnerAlert } from "./owner-alert";
-import { DEPLOYMENT, resolveMode, type Mode } from "./profile";
+import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
 import { editionDate, windowStart } from "./rules";
 import { mockHeader, mockItem } from "./write-mock";
@@ -37,6 +37,7 @@ import {
   openEdition,
   saveEdition,
   selectFichas,
+  withReadBudget,
   skipEdition,
   sumUsage,
   writeHeader,
@@ -212,16 +213,18 @@ export class PipelineService {
         max: settings.max_articles,
       }).pipe(Effect.mapError(failed));
       // The page is read in the run's world: the sources' web when live, the fixture's when mocked.
-      const read =
+      const pages =
         mode === "mock"
           ? (url: string) => fetchArticle(url, fixtureDeps(now), fixtureAllowed)
           : (url: string) => fetchArticle(url, undefined, isAllowedDomain);
+      const { read, spent } = yield* withReadBudget(pages, PROFILE.maxReads);
       this.logger.log({
         msg: "write started",
         mode,
         date: day,
         edition: edition.id,
         fichas: fichas.length,
+        maxReads: PROFILE.maxReads,
         allowlist: allowedDomains().length,
       });
 
@@ -253,7 +256,7 @@ export class PipelineService {
         (candidate) =>
           writeItem(candidate, mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema), this.logger),
       );
-      this.logger.log({ msg: "fichas tried", date: day, tried, of: fichas.length });
+      this.logger.log({ msg: "fichas tried", date: day, tried, of: fichas.length, pagesRead: yield* spent });
       const written = items.filter((item): item is WrittenResult => item.outcome === "written");
 
       const report = (status: WriteReport["status"], header: EditionHeader | null, usage: unknown[]): WriteReport => ({

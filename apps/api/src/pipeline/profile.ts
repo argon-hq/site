@@ -16,6 +16,10 @@ export type Profile = {
   // The longest page text the writing step works from. The news is listed by code, for free; the
   // model pays for every character it reads.
   maxTextChars: number;
+  // How many pages one writing run may open: the representative of a ficha, then the next member
+  // of its group when that one is closed. Spent, the run writes from the feed's text or drops the
+  // ficha. Twice the edition is enough for a paywall or two; more is a run reading the whole web.
+  maxReads: number;
   // Defaults of the settings that shape the edition. A row in the settings table still wins.
   scoreCutoff: number;
   minArticles: number;
@@ -29,6 +33,7 @@ export const PROFILES: Record<Deployment, Profile> = {
     mode: "live",
     model: "claude-sonnet-5",
     maxTextChars: 12_000,
+    maxReads: 12,
     scoreCutoff: 3,
     minArticles: 3,
     maxArticles: 6,
@@ -37,6 +42,7 @@ export const PROFILES: Record<Deployment, Profile> = {
     mode: "live",
     model: "claude-haiku-4-5-20251001",
     maxTextChars: 6_000,
+    maxReads: 8,
     scoreCutoff: 2,
     minArticles: 2,
     maxArticles: 4,
@@ -45,6 +51,7 @@ export const PROFILES: Record<Deployment, Profile> = {
     mode: "mock",
     model: "claude-haiku-4-5-20251001",
     maxTextChars: 4_000,
+    maxReads: 6,
     scoreCutoff: 2,
     minArticles: 1,
     maxArticles: 3,
@@ -53,6 +60,7 @@ export const PROFILES: Record<Deployment, Profile> = {
     mode: "mock",
     model: "claude-haiku-4-5-20251001",
     maxTextChars: 4_000,
+    maxReads: 6,
     scoreCutoff: 2,
     minArticles: 1,
     maxArticles: 3,

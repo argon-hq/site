@@ -42,8 +42,10 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   (`src/mastra/attempts.ts`).
   `POST /pipeline/write` then turns the fichas into the edition: `write.ts` opens the day's edition (one row per
   São Paulo calendar day) and, until the model's triage (ARG-124), takes the fichas of the window by code score, twice
-  as many as the edition holds; a ficha whose feed did not carry the whole article is read from its page, with the feed's
-  lead as the fallback when the page is closed, and a ficha with no text at all is left out. The Editor loads the
+  as many as the edition holds; a ficha whose feed did not carry the whole article is read from its page; when that one is
+  closed or has no readable text, from the next member of its group, in order; and when none opens, from the feed's lead.
+  A ficha with no text at all is left out. The run opens at most `maxReads` pages (`profile.ts`); past that, the feed's
+  text is all there is. The edition links the ficha either way; the prompt names the outlet the text was read in. The Editor loads the
   `write` skill once per article — two attempts each, the second carrying the validation error. An article rejected
   twice leaves the edition and the others go on; the header (title and subject) is a generation of its own over what
   was approved. Saving is one transaction that detaches whatever an earlier run left attached, so the step can run

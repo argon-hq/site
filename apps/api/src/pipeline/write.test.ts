@@ -1,5 +1,5 @@
 import type { LoggerService } from "@nestjs/common";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Struct } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
 import { BODY_TARGET, SUBJECT_MAX, type WrittenItem } from "../mastra/schemas/edition";
@@ -14,6 +14,7 @@ import {
   hydrate,
   releaseFichas,
   selectFichas,
+  withReadBudget,
   skipEdition,
   sumUsage,
   writeItem,
@@ -32,6 +33,7 @@ const candidate: Candidate = {
   originalTitle: "Copom mantém a Selic em 12%",
   extractedText: "O Copom manteve a taxa básica de juros em 12% ao ano.",
   codeScore: 7,
+  textFrom: { url: "https://valor.globo.com/empresas/noticia/x.ghtml", sourceName: "Valor Econômico", via: "page" },
 };
 
 const item: WrittenItem = {
@@ -141,16 +143,25 @@ describe("belowMinimum", () => {
 describe("selectFichas", () => {
   it("asks for the fichas of the window, free or already in this edition, best score first, twice the edition", async () => {
     const queries: Array<{ where: unknown; orderBy: unknown; take: number }> = [];
+    const row = Struct.omit(candidate, "textFrom");
+    const member = { url: "https://x.test/m", sourceName: "Outro", title: "Mesmo fato", textKind: "summary" };
     const findMany = vi.fn(async (args: { where: unknown; orderBy: unknown; take: number }) => {
       queries.push(args);
-      return [{ ...candidate, textKind: "full" }];
+      return [
+        { ...row, textKind: "full", groupMembers: [member] },
+        { ...row, id: "a2", textKind: "none", groupMembers: "not json we wrote" },
+      ];
     });
     const prisma = { article: { findMany } } as unknown as PrismaClient;
     const since = new Date("2026-09-21T08:00:00Z");
 
     const result = await Effect.runPromise(selectFichas(prisma, { editionId: "e1", since, max: 6 }));
 
-    expect(result).toEqual([{ ...candidate, textKind: "full" }]);
+    // The members column comes back parsed; one that does not parse is a ficha with no members.
+    expect(result).toEqual([
+      { ...row, textKind: "full", members: [member] },
+      { ...row, id: "a2", textKind: "none", members: [] },
+    ]);
     expect(queries[0]).toMatchObject({
       where: { OR: [{ editionId: null }, { editionId: "e1" }], createdAt: { gte: since }, codeScore: { not: null } },
       orderBy: [{ codeScore: "desc" }, { publishedAt: "desc" }],
@@ -160,16 +171,15 @@ describe("selectFichas", () => {
 });
 
 describe("hydrate", () => {
-  const ficha = (over: Partial<Ficha>): Ficha => ({ ...candidate, textKind: "summary", ...over });
-  const page = (text: string) => () =>
-    Effect.succeed({
-      canonicalUrl: candidate.canonicalUrl,
-      originalTitle: "t",
-      extractedText: text,
-      siteName: null,
-      publishedAt: null,
-    });
+  const row = Struct.omit(candidate, "textFrom");
+  const ficha = (over: Partial<Ficha>): Ficha => ({ ...row, textKind: "summary", members: [], ...over });
+  const page = (text: string) => (url: string) =>
+    Effect.succeed({ canonicalUrl: url, originalTitle: "t", extractedText: text, siteName: null, publishedAt: null });
   const closed = () => Effect.fail({ _tag: "FetchFailed", reason: "HTTP 403" });
+  const members = [
+    { url: "https://folha.test/a", sourceName: "Folha", title: "Mesmo fato", textKind: "summary" as const },
+    { url: "https://exame.test/a", sourceName: "Exame", title: "Mesmo fato", textKind: "none" as const },
+  ];
 
   it("writes from the feed when it carried the whole article, without reading the page", async () => {
     const read = vi.fn(page("página"));
@@ -181,6 +191,40 @@ describe("hydrate", () => {
   it("reads the page when the feed had a lead or nothing", async () => {
     const result = await Effect.runPromise(hydrate(ficha({ extractedText: "lead" }), page("página inteira"), silent));
     expect(result?.extractedText).toBe("página inteira");
+    expect(result?.textFrom).toEqual({ url: candidate.canonicalUrl, sourceName: "Valor Econômico", via: "page" });
+  });
+
+  it("reads the next member of the group when the representative's page is closed, and says so", async () => {
+    const log = vi.fn();
+    const read = vi.fn((url: string) => (url === candidate.canonicalUrl ? closed() : page("texto da Folha")(url)));
+    const result = await Effect.runPromise(
+      hydrate(ficha({ extractedText: "lead", members }), read, { ...silent, log }),
+    );
+    expect(result?.extractedText).toBe("texto da Folha");
+    expect(result?.textFrom).toEqual({ url: "https://folha.test/a", sourceName: "Folha", via: "member" });
+    expect(result?.canonicalUrl).toBe(candidate.canonicalUrl); // the edition still links the ficha
+    expect(read.mock.calls.map(([url]) => url)).toEqual([candidate.canonicalUrl, "https://folha.test/a"]);
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ msg: "text read from a member" }));
+    expect(itemPrompt(result!)).toContain("Fonte: Folha");
+  });
+
+  it("tries every member before the feed's lead", async () => {
+    const read = vi.fn(closed);
+    const result = await Effect.runPromise(hydrate(ficha({ extractedText: "lead", members }), read, silent));
+    expect(result?.extractedText).toBe("lead");
+    expect(result?.textFrom.via).toBe("feed");
+    expect(read).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops opening pages once the run's budget is spent, and falls back to the feed", async () => {
+    const pages = vi.fn(page("página"));
+    const { read, spent } = await Effect.runPromise(withReadBudget(pages, 1));
+    const first = await Effect.runPromise(hydrate(ficha({ extractedText: "lead 1", members }), read, silent));
+    const second = await Effect.runPromise(hydrate(ficha({ extractedText: "lead 2", members }), read, silent));
+    expect(first?.extractedText).toBe("página");
+    expect(second?.extractedText).toBe("lead 2");
+    expect(pages).toHaveBeenCalledTimes(1); // the second ficha opened nothing, members included
+    expect(await Effect.runPromise(spent)).toBe(1);
   });
 
   it("falls back to the feed's lead when the page is closed, and leaves out a ficha with no text at all", async () => {
@@ -203,8 +247,10 @@ describe("fillEdition", () => {
       id: `f${i}`,
       canonicalUrl: `https://x.test/${i}`,
       textKind: "full",
+      members: [],
     }));
-  const asCandidate = (ficha: Ficha) => Effect.succeed({ ...ficha, extractedText: ficha.extractedText ?? "" });
+  const asCandidate = (ficha: Ficha): Effect.Effect<Candidate | null> =>
+    Effect.succeed({ ...ficha, extractedText: ficha.extractedText ?? "", textFrom: candidate.textFrom });
   const writes = (rejected: string[]) => {
     const asked: string[] = [];
     const write = (c: Candidate) =>
