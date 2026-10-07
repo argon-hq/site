@@ -13,6 +13,8 @@ describe("writtenItemSchema", () => {
   });
 
   it("rejects a body over the limit", () => {
-    expect(() => writtenItemSchema.parse({ category: "economy", headline: "h", body: "x".repeat(BODY_MAX + 1) })).toThrow();
+    expect(() =>
+      writtenItemSchema.parse({ category: "economy", headline: "h", body: "x".repeat(BODY_MAX + 1) }),
+    ).toThrow();
   });
 });
