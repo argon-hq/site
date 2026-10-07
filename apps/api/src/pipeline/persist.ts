@@ -3,9 +3,11 @@ import { Data, Effect, Match } from "effect";
 import { dbEffect } from "../effect/db";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { ExtractedArticle } from "../mastra/schemas/article";
-import { fetchArticle, type FetchFailed, type PageUnreadable, type UrlNotAllowed } from "../mastra/tools/read-page";
+import { canonicalize } from "../ingest/url";
+import { fetchArticle, type PageUnreadable } from "../mastra/tools/read-page";
+import type { FetchFailed, UrlNotAllowed } from "../net/fetch";
 import type { Candidate } from "./collect.schema";
-import { canonicalize, isAllowedDomain } from "./rules";
+import { isAllowedDomain } from "./rules";
 
 export type Outcome =
   | { outcome: "saved"; url: string; publishedAt: string | null }

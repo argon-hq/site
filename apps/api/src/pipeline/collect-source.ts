@@ -3,6 +3,7 @@ import type { Agent } from "@mastra/core/agent";
 import type { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
+import { canonicalize } from "../ingest/url";
 import { twoAttempts } from "../mastra/attempts";
 import { PageUnreadable, fetchArticle } from "../mastra/tools/read-page";
 import type { CollectContext } from "../mastra/tools/context";
@@ -12,7 +13,7 @@ import { fixtureNews } from "./fixtures/news";
 import { generateStructured } from "./generate";
 import type { ReadPage } from "./persist";
 import type { Profile } from "./profile";
-import { canonicalize, RECENT_DAYS, SOURCES } from "./rules";
+import { RECENT_DAYS, SOURCES } from "./rules";
 
 export class CollectSourceFailed extends Data.TaggedError("CollectSourceFailed")<{ reason: string }> {}
 
