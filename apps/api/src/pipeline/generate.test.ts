@@ -19,7 +19,7 @@ const working = {
   text: "Li duas notícias: a e b.",
   usage: { inputTokens: 100, outputTokens: 10 },
   steps: [{}, {}, {}],
-  toolCalls: [{ payload: { toolName: "skill" } }, { payload: { toolName: "web_search" } }],
+  toolCalls: [{ payload: { toolName: "skill" } }, { payload: { toolName: "read_page" } }],
 };
 const shaping = { object: { items: ["a", "b"] }, usage: { inputTokens: 40, outputTokens: 5 } };
 
@@ -64,7 +64,7 @@ describe("generateStructured", () => {
     const result = await generateStructured(agent, "colete", { schema });
 
     expect(result.steps).toBe(3);
-    expect(result.toolCalls).toEqual(["skill", "web_search"]);
+    expect(result.toolCalls).toEqual(["skill", "read_page"]);
   });
 
   it("fails loudly when the second call answers without an object", async () => {

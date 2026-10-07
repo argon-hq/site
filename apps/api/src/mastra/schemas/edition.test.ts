@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { writtenItemSchema } from "./edition";
+import { BODY_MAX, writtenItemSchema } from "./edition";
 
 describe("writtenItemSchema", () => {
   it("strips zero-width characters before checking the length", () => {
-    const body = "x".repeat(190) + "​";
-    expect(writtenItemSchema.parse({ category: "economy", headline: "h", body }).body).toHaveLength(190);
+    const body = "x".repeat(BODY_MAX) + "​";
+    expect(writtenItemSchema.parse({ category: "economy", headline: "h", body }).body).toHaveLength(BODY_MAX);
   });
 
   it("turns line breaks and other control characters into one space", () => {
@@ -13,6 +13,8 @@ describe("writtenItemSchema", () => {
   });
 
   it("rejects a body over the limit", () => {
-    expect(() => writtenItemSchema.parse({ category: "economy", headline: "h", body: "x".repeat(191) })).toThrow();
+    expect(() =>
+      writtenItemSchema.parse({ category: "economy", headline: "h", body: "x".repeat(BODY_MAX + 1) }),
+    ).toThrow();
   });
 });

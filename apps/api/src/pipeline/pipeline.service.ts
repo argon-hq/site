@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import type { Agent } from "@mastra/core/agent";
 import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
@@ -8,29 +9,34 @@ import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
 import type { EditionContext } from "../mastra/workflows/context";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
+import { allowedDomains, isAllowedDomain, setAllowedDomains } from "../ingest/allowlist";
+import { fetchFeed } from "../ingest/fetch-feed";
+import { fixtureAllowed, fixtureDeps } from "../ingest/fixtures";
+import { ingest, type IngestReport } from "../ingest/ingest";
+import { ingestWorld } from "../ingest/mode";
+import { fetchArticle } from "../mastra/tools/read-page";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { ORIGINS, unsubscribePlaceholderUrl, type Origins } from "../subscriber/urls";
 import { buildReason, loadEdition, saveBuilt } from "./build";
-import { agentCollect, fixtureCollect } from "./collect-source";
-import type { CollectResult } from "./collect.schema";
 import { generateStructured } from "./generate";
 import { DeliveryService, SendFailed, type SendReport } from "./delivery.service";
 import { EditionBusy, EditionLock, LockDbFailed } from "./lock";
 import { OwnerAlert } from "./owner-alert";
-import { dedupeCandidates, persistCandidate, type Outcome } from "./persist";
-import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
+import { DEPLOYMENT, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
-import { editionDate, windowHours, windowStart } from "./rules";
+import { editionDate, windowStart } from "./rules";
 import { mockHeader, mockItem } from "./write-mock";
 import {
   belowMinimum,
   ItemFailed,
+  fillEdition,
+  hydrate,
   openEdition,
   saveEdition,
-  selectCandidates,
+  selectFichas,
   skipEdition,
   sumUsage,
   writeHeader,
@@ -42,24 +48,13 @@ import {
 
 // Every step failure carries a reason and, when the caller is the one to act, the HTTP status that
 // says so (see src/effect/failure.ts).
-export class CollectFailed extends Data.TaggedError("CollectFailed")<Failure> {}
+export class IngestStepFailed extends Data.TaggedError("IngestStepFailed")<Failure> {}
 export class WriteFailed extends Data.TaggedError("WriteFailed")<Failure> {}
 export class BuildFailed extends Data.TaggedError("BuildFailed")<Failure> {}
 // A failed run says which step failed, so the single alert it sends is addressed.
 export class RunFailed extends Data.TaggedError("RunFailed")<{ step: string; reason: string; status?: HttpStatus }> {}
 
-export type CollectReport = {
-  date: string;
-  since: string;
-  windowHours: number;
-  cutoff: number;
-  maxArticles: number;
-  result: CollectResult;
-  outcomes: Outcome[];
-  saved: number;
-  usage: unknown;
-  durationMs: number;
-};
+export type { IngestReport } from "../ingest/ingest";
 
 export type WriteReport = {
   date: string;
@@ -91,8 +86,13 @@ export type BuildReport = {
 export type RunReport = EditionRun & { runId: string; durationMs: number };
 
 // What a step is told before it starts: which clock to read and whether this run pays for judgement
-// or works over the fixture. Both have a default, so a step can still be called bare in a test.
-export type StepRun = { mode?: Mode; now?: Date };
+// or works over the fixture. Both have a default, so a step can still be called bare in a test. The
+// run id, when the step is part of a workflow run, goes into every line it logs.
+export type StepRun = { mode?: Mode; now?: Date; runId?: string };
+
+// The ingestion step also takes what the manual command takes: read without writing, judge again
+// what earlier runs listed, or one source only. None of them is for the schedule.
+export type IngestStepRun = StepRun & { dryRun?: boolean; ignoreSeen?: boolean; source?: string };
 
 // The send may name the edition it is for. Without a date it is today's, as the 7h clock means it;
 // with one it is a resume — an edition a run left `sending` and the calendar has moved past.
@@ -145,83 +145,53 @@ export class PipelineService {
     );
   }
 
-  // Collection step: the Editor loads the `collect` skill and works inside the rules set here. A
-  // mocked run swaps where the news comes from and nothing else — what is stored is decided by the
-  // same code either way.
-  collect(run: StepRun = {}): Effect.Effect<CollectReport, CollectFailed> {
+  // Ingestion step: no model and no page read. The active sources' feeds and news sitemaps are
+  // listed, filtered, scored, grouped and cut by code, and what passes is stored as fichas for the
+  // writing step (and, from ARG-124, for the model's triage). A mocked run reads the fixture's
+  // invented sources through a network that answers only them; everything else is the same code.
+  ingest(run: IngestStepRun = {}): Effect.Effect<IngestReport, IngestStepFailed> {
     const { mode, now } = startOf(run);
+    const runId = run.runId ?? randomUUID();
     const body = Effect.gen(this, function* () {
-      const startedAt = Date.now();
       const settings = yield* Effect.tryPromise({
         try: () => this.settings.load(),
-        catch: (error) => new CollectFailed({ reason: `settings: ${String(error)}` }),
+        catch: (error) => new IngestStepFailed({ reason: `settings: ${String(error)}` }),
       });
-      const since = windowStart(now);
-      this.logger.log({ msg: "collect started", mode, since: since.toISOString(), cutoff: settings.score_cutoff });
-
-      const source =
-        mode === "mock"
-          ? fixtureCollect
-          : agentCollect({ mastra: this.mastra, prisma: this.prisma, profile: PROFILE, logger: this.logger });
-
-      const collected = yield* source({ now, since, cutoff: settings.score_cutoff, max: settings.max_articles }).pipe(
-        Effect.mapError((error) => new CollectFailed({ reason: error.reason })),
-      );
-
-      // The list is persisted by code, a few candidates at a time, in score order, one row per
-      // canonical URL: the answer is deduplicated first, and the unique index catches what the
-      // canonical URL of the page itself only reveals after the read.
-      const persistCtx = {
-        prisma: this.prisma,
-        since,
-        cutoff: settings.score_cutoff,
-        maxTextChars: PROFILE.maxTextChars,
-        logger: this.logger,
-      };
-      const outcomes = yield* Effect.forEach(
-        dedupeCandidates([...collected.result.candidates].sort((a, b) => b.score - a.score)),
-        (candidate) => persistCandidate(candidate, persistCtx, collected.read),
-        { concurrency: 3 },
-      ).pipe(Effect.mapError((e) => new CollectFailed({ reason: `database: ${e.reason}` })));
-
-      const report: CollectReport = {
-        date: now.toISOString(),
-        since: since.toISOString(),
-        windowHours: windowHours(now),
-        cutoff: settings.score_cutoff,
-        maxArticles: settings.max_articles,
-        result: collected.result,
-        outcomes,
-        saved: outcomes.filter((o) => o.outcome === "saved").length,
-        usage: collected.usage,
-        durationMs: Date.now() - startedAt,
-      };
-      // `notes` is the agent's own account of what did not yield — the themes with no fresh news,
-      // the sources that answered nothing. Without it in the log, a thin collection can only be
-      // explained by paying for another one.
-      this.logger.log({
-        msg: "collect finished",
-        mode,
-        saved: report.saved,
-        evaluated: report.result.candidates.length,
-        discarded: report.result.discarded,
-        notes: report.result.notes,
-        durationMs: report.durationMs,
-        usage: report.usage,
-      });
-      return report;
+      const world = ingestWorld(mode, this.prisma, now);
+      return yield* ingest(
+        {
+          runId,
+          now,
+          since: windowStart(now),
+          dryRun: run.dryRun,
+          ignoreSeen: run.ignoreSeen,
+          onlySource: run.source,
+          debug: settings.ingest_debug,
+        },
+        {
+          ...world,
+          fetchFeed,
+          logger: this.logger,
+          // A source failing three runs in a row is news for the owners even when the run goes on.
+          alert: (reason) => this.alert.send("ingest", reason),
+          // A live run is where the allowlist of `read_page` follows the table; a mocked one reads
+          // invented sources and leaves it alone.
+          onSources: mode === "live" ? (sources) => setAllowedDomains(sources.map((s) => s.domain)) : undefined,
+        },
+      ).pipe(Effect.mapError((error) => new IngestStepFailed({ reason: error.reason })));
     });
-    return this.locked(runDate(now), "collect", body, (failure) => new CollectFailed(failure)).pipe(
+    return this.locked(runDate(now), "ingest", body, (failure) => new IngestStepFailed(failure)).pipe(
       // The alert is not here: with a retry per step, alerting inside the step would mail the owners
       // once per attempt. The run alerts once when the workflow gives up, and the per-step route
       // alerts for its own step.
-      Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "collect failed", reason: e.reason }))),
+      Effect.tapError((e) => Effect.sync(() => this.logger.error({ msg: "ingest failed", runId, reason: e.reason }))),
     );
   }
 
   // Writing step: the Editor loads the `write` skill and writes one article at a time, then the
-  // edition header over what was approved. Selection happened in the collection step; this one
-  // turns the stored text into what the e-mail carries.
+  // edition header over what was approved. Until the model's triage (ARG-124), the fichas are taken
+  // by the ingestion's score, and a ficha whose feed carried no whole text is read from its page,
+  // with the feed's lead as the fallback.
   write(run: StepRun = {}): Effect.Effect<WriteReport, WriteFailed> {
     const { mode, now } = startOf(run);
     const body = Effect.gen(this, function* () {
@@ -236,17 +206,28 @@ export class PipelineService {
       const failed = (error: Failure) => new WriteFailed({ reason: error.reason, status: error.status });
 
       const edition = yield* openEdition(this.prisma, date).pipe(Effect.mapError(failed));
-      const candidates = yield* selectCandidates(this.prisma, {
+      const fichas = yield* selectFichas(this.prisma, {
         editionId: edition.id,
         since,
-        cutoff: settings.score_cutoff,
         max: settings.max_articles,
       }).pipe(Effect.mapError(failed));
-      this.logger.log({ msg: "write started", mode, date: day, edition: edition.id, candidates: candidates.length });
+      // The page is read in the run's world: the sources' web when live, the fixture's when mocked.
+      const read =
+        mode === "mock"
+          ? (url: string) => fetchArticle(url, fixtureDeps(now), fixtureAllowed)
+          : (url: string) => fetchArticle(url, undefined, isAllowedDomain);
+      this.logger.log({
+        msg: "write started",
+        mode,
+        date: day,
+        edition: edition.id,
+        fichas: fichas.length,
+        allowlist: allowedDomains().length,
+      });
 
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
       // the second attempt can quote what the first got wrong. Writing loads its skill through the
-      // `skill` tool, so it works and takes shape in two calls, the same as the collection.
+      // `skill` tool, so it works and takes shape in two calls (see `generateStructured`).
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
       const editor: Agent = this.mastra.getAgent("editor");
       const generating =
@@ -263,12 +244,16 @@ export class PipelineService {
       // A mocked run writes from the article itself. The step builds one generation per article, so
       // the mock closes over what it is writing about; everything after it is unchanged, schema and
       // transaction included.
-      const items = yield* Effect.forEach(
-        candidates,
+      // The fichas are the pool: one that has no text or fails its two attempts leaves its place to
+      // the next, until the edition is full or the pool runs out.
+      const { items, tried } = yield* fillEdition(
+        fichas,
+        settings.max_articles,
+        (ficha) => hydrate(ficha, read, this.logger),
         (candidate) =>
           writeItem(candidate, mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema), this.logger),
-        { concurrency: 3 },
       );
+      this.logger.log({ msg: "fichas tried", date: day, tried, of: fichas.length });
       const written = items.filter((item): item is WrittenResult => item.outcome === "written");
 
       const report = (status: WriteReport["status"], header: EditionHeader | null, usage: unknown[]): WriteReport => ({
@@ -304,7 +289,7 @@ export class PipelineService {
         });
       }
       if (outcome === "skip") {
-        yield* skipEdition(this.prisma, edition.id).pipe(Effect.mapError(failed));
+        yield* skipEdition(this.prisma, edition.id, now).pipe(Effect.mapError(failed));
         this.logger.warn({ msg: "edition skipped", date: day, written: written.length, min: settings.min_articles });
         yield* this.alert.send("write", `edition ${day} ${short}`);
         return report(
@@ -324,7 +309,7 @@ export class PipelineService {
       yield* saveEdition(this.prisma, {
         editionId: edition.id,
         header: header.object,
-        written: written.map(({ id, item }) => ({ id, item })),
+        written: written.map(({ id, item, score }) => ({ id, item, score })),
       }).pipe(Effect.mapError(failed));
 
       const done = report("written", header.object, [...written.map((item) => item.usage), header.usage]);
@@ -426,7 +411,7 @@ export class PipelineService {
     });
   }
 
-  // The whole generation as one run of the `edition` workflow: collect → write → build, each step
+  // The whole generation as one run of the `edition` workflow: ingest → write → build, each step
   // with its own retry and its own state in the Studio. The steps have no Nest injection, so the run
   // hands them this service through the request context — the same deal the tools have.
   run(request: StepRun = {}): Effect.Effect<RunReport, RunFailed> {

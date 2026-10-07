@@ -43,6 +43,8 @@ function world(p: {
         return {};
       }),
     },
+    // Closing the edition drops the article text and the fichas nobody chose, in one transaction.
+    article: { updateMany: vi.fn(async () => ({ count: 0 })), deleteMany: vi.fn(async () => ({ count: 0 })) },
     subscriber: { findMany: vi.fn(async () => p.newSubscribers ?? []) },
     delivery: {
       aggregate: vi.fn(async () => ({

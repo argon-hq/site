@@ -12,14 +12,8 @@ const rules: SectionRule[] = [
   { match: "host", pattern: "aovivo.", tier: "discard" },
 ];
 
-const score = (title: string, path: string, extra: { trust?: number; categories?: string[] } = {}): Scored =>
-  scoreItem({
-    title,
-    url: new URL(`https://x.test${path}`),
-    categories: extra.categories ?? [],
-    trust: extra.trust ?? 0,
-    sectionRules: rules,
-  });
+const score = (title: string, path: string, extra: { categories?: string[] } = {}): Scored =>
+  scoreItem({ title, url: new URL(`https://x.test${path}`), categories: extra.categories ?? [], sectionRules: rules });
 
 const signals = (s: Scored) => Object.fromEntries(s.signals.map((x) => [x.signal, x.points]));
 
@@ -33,7 +27,6 @@ describe("scoreItem", () => {
       title: "Dólar recua e Bolsa sobe com inflação dos EUA",
       url: new URL("https://aovivo.folha.uol.com.br/mercado/2026/09/01/6558-dolar.shtml"),
       categories: [],
-      trust: 1,
       sectionRules: rules,
     });
     expect(live).toMatchObject({ outcome: "discarded", reason: "section host:aovivo." });
@@ -50,20 +43,26 @@ describe("scoreItem", () => {
     expect(score("Horóscopo do dia", "/a")).toMatchObject({ outcome: "discarded" });
   });
 
-  it("keeps a story of election week that is not a poll", () => {
+  it("keeps a story of election week that is not a poll, with the election's discount", () => {
     const s = score(
       "Governo anuncia nova renegociação de dívidas para MEIs a cinco dias do primeiro turno",
       "/empresas/a",
     );
     expect(s.outcome).toBe("scored");
-    expect(signals(s).lexicon_core).toBe(3);
+    expect(signals(s)).toMatchObject({ lexicon_core: 3, election: -1 });
+    expect(signals(score("Juros despencam após 1º turno da eleição", "/a"))).toEqual({ lexicon_core: 3, election: -1 });
   });
 
-  it("adds the section, the lexicon, hard data and trust, with a reason per point", () => {
-    const s = score("Crédito para pequenas empresas cresce 12% e lucro dos bancos sobe", "/empresas/a", { trust: 1 });
+  it("adds the section, the lexicon and hard data, with a reason per point, and nothing for the source", () => {
+    const s = score("Crédito para pequenas empresas cresce 12% e lucro dos bancos sobe", "/empresas/a");
     expect(s.outcome).toBe("scored");
-    expect(signals(s)).toEqual({ section_core: 2, lexicon_core: 3, lexicon_company: 2, hard_data: 1, trust: 1 });
-    expect(s.outcome === "scored" && s.score).toBe(9);
+    expect(signals(s)).toEqual({ section_core: 2, lexicon_core: 3, lexicon_company: 2, hard_data: 1 });
+    expect(s.outcome === "scored" && s.score).toBe(8);
+  });
+
+  it("reads 'resultado' as the company's only when the title says which", () => {
+    expect(signals(score("Petrobras divulga resultado trimestral", "/a")).lexicon_company).toBe(2);
+    expect(signals(score("Mercado reage ao resultado do 1º turno", "/a")).lexicon_company).toBeUndefined();
   });
 
   it("counts a lexicon once, however many of its words appear", () => {
@@ -72,6 +71,12 @@ describe("scoreItem", () => {
 
   it("takes points for routine market closes, questions, the off lexicon and abroad without Brazil", () => {
     expect(signals(score("Ibovespa fecha em alta com bancos", "/a")).market_routine).toBe(-2);
+    expect(signals(score("Bolsas de NY têm direções opostas com petróleo em baixa", "/a")).market_routine).toBe(-2);
+    expect(signals(score("Juros futuros despencam após o pregão", "/a")).market_routine).toBe(-2);
+    expect(signals(score("Tesouro Direto sai do ar em meio à forte oscilação dos juros", "/a")).market_routine).toBe(
+      -2,
+    );
+    expect(signals(score("Dólar tem maior queda diária em 8 anos", "/a")).market_routine).toBe(-2);
     expect(signals(score("Copasa elege Augusto Dantas Borges como diretor-presidente", "/a")).market_routine).toBe(-2);
     expect(signals(score("Vale a pena abrir uma PME?", "/a")).question).toBe(-1);
     expect(signals(score("Novela bate recorde", "/a")).lexicon_off).toBe(-3);

@@ -4,6 +4,7 @@ import { Logger } from "@nestjs/common";
 import { Data, Effect, Schedule } from "effect";
 import { parseHTML } from "linkedom";
 import { z } from "zod";
+import { isAllowedDomain } from "../../ingest/allowlist";
 import {
   fetchBody,
   liveDeps,
@@ -13,7 +14,6 @@ import {
   type UrlNotAllowed,
 } from "../../net/fetch";
 import { PROFILE } from "../../pipeline/profile";
-import { isAllowedDomain } from "../../pipeline/rules";
 import { extractedArticleSchema, type ExtractedArticle } from "../schemas/article";
 
 // Hard rules live here, not in the prompt.
@@ -61,8 +61,8 @@ const fetchOnce = (url: string, deps: FetchDeps, allowed: Allowed): Effect.Effec
     };
   });
 
-// Two retries with backoff on network errors only. Only the sources' domains may be read, unless
-// the caller names its own allowlist.
+// Two retries with backoff on network errors only. Only the active sources' domains may be read,
+// unless the caller names its own allowlist.
 export const fetchArticle = (
   url: string,
   deps: FetchDeps = liveDeps,

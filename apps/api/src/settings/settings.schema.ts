@@ -15,6 +15,7 @@ export const settingsSchema = z.object({
   score_cutoff: z.number().min(0).max(5).default(PROFILE.scoreCutoff),
   owner_emails: z.array(z.email()).default([]), // alerted when the pipeline fails
   policy_version: z.string().default(""), // recorded with each consent
+  ingest_debug: z.boolean().default(false), // logs every item an ingestion lists, with its decision
 
   // Business identity: what is the same in every environment. Whatever names a host is not here, so
   // no seeded row can carry one environment's domain into another: the sender's address is MAIL_FROM,

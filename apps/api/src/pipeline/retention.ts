@@ -5,12 +5,17 @@ import { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { TIMEZONE } from "./run";
 
-// What the database keeps, and for how long. The article text is only needed while an edition
-// can still be written from it; a seen link only while the collector could meet it again; and a
-// cancelled subscriber only while they might come back through the old link. After that, keeping
-// any of it is storage and, for the subscriber, personal data with no purpose left (LGPD).
-export const TEXT_RETENTION_DAYS = 30;
-export const SEEN_URL_RETENTION_DAYS = 30;
+// What the database keeps, and for how long. Most of it goes when an edition closes: the text the
+// articles were written from, and the fichas nobody chose (see `closeEdition` and `skipEdition`).
+// This pass is the net under that, for days that never closed, and the clock for the rest: a seen
+// link only while an ingestion could list it again (the 48 h window plus a day); a title signature
+// only while a late copy could turn up; a cancelled subscriber only while they might come back
+// through the old link. After that, keeping any of it is storage and, for the subscriber, personal
+// data with no purpose left (LGPD).
+export const TEXT_RETENTION_DAYS = 3;
+export const SEEN_URL_RETENTION_DAYS = 3;
+export const FICHA_RETENTION_DAYS = 3;
+export const SIGNATURE_RETENTION_DAYS = 3;
 export const CANCELLED_RETENTION_DAYS = 90;
 
 // A sign-up nobody confirmed is discarded once its link has been dead for this long. The wait is not
@@ -29,7 +34,9 @@ export const RETENTION_BATCH = 1_000;
 export class RetentionDbFailed extends Data.TaggedError("RetentionDbFailed")<{ reason: string }> {}
 
 export type RetentionReport = {
+  fichasDeleted: number;
   textsCleared: number;
+  signaturesCleared: number;
   seenUrlsDeleted: number;
   subscribersPurged: number;
   unconfirmedDiscarded: number;
@@ -47,11 +54,21 @@ export class RetentionScheduler {
     await Effect.runPromise(Effect.ignore(this.run()));
   }
 
-  // Runs the four trims and reports what each took. A failure in one is logged and stops the
+  // Runs the trims and reports what each took. A failure in one is logged and stops the
   // pass; tomorrow's pass picks up where it left, because every statement only touches what is
   // still past the window.
   run(now: Date = new Date()): Effect.Effect<RetentionReport, RetentionDbFailed> {
     return Effect.gen(this, function* () {
+      // A ficha no edition chose, left by a day that never closed.
+      const fichasDeleted = yield* this.drain("delete old fichas", (limit) =>
+        this.prisma.$executeRaw(Prisma.sql`
+          DELETE FROM "article"
+          WHERE "id" IN (
+            SELECT "id" FROM "article"
+            WHERE "edition_id" IS NULL AND "created_at" < ${daysBefore(now, FICHA_RETENTION_DAYS)}
+            LIMIT ${limit}
+          )`),
+      );
       const textsCleared = yield* this.drain("clear article text", (limit) =>
         this.prisma.$executeRaw(Prisma.sql`
           UPDATE "article" SET "extracted_text" = NULL
@@ -61,11 +78,20 @@ export class RetentionScheduler {
             LIMIT ${limit}
           )`),
       );
+      const signaturesCleared = yield* this.drain("clear title signatures", (limit) =>
+        this.prisma.$executeRaw(Prisma.sql`
+          UPDATE "article" SET "title_signature" = '{}'
+          WHERE "id" IN (
+            SELECT "id" FROM "article"
+            WHERE "title_signature" <> '{}' AND "created_at" < ${daysBefore(now, SIGNATURE_RETENTION_DAYS)}
+            LIMIT ${limit}
+          )`),
+      );
       const seenUrlsDeleted = yield* this.drain("delete seen urls", (limit) =>
         this.prisma.$executeRaw(Prisma.sql`
           DELETE FROM "seen_url"
-          WHERE "url" IN (
-            SELECT "url" FROM "seen_url" WHERE "seen_at" < ${daysBefore(now, SEEN_URL_RETENTION_DAYS)} LIMIT ${limit}
+          WHERE "url_hash" IN (
+            SELECT "url_hash" FROM "seen_url" WHERE "seen_at" < ${daysBefore(now, SEEN_URL_RETENTION_DAYS)} LIMIT ${limit}
           )`),
       );
       // Only `cancelled`: a bounced or blocked address is kept so it is never written to again.
@@ -89,7 +115,14 @@ export class RetentionScheduler {
             LIMIT ${limit}
           )`),
       );
-      const report = { textsCleared, seenUrlsDeleted, subscribersPurged, unconfirmedDiscarded };
+      const report = {
+        fichasDeleted,
+        textsCleared,
+        signaturesCleared,
+        seenUrlsDeleted,
+        subscribersPurged,
+        unconfirmedDiscarded,
+      };
       this.logger.log({ msg: "retention finished", ...report });
       return report;
     }).pipe(

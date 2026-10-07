@@ -8,10 +8,13 @@ import { editionContext, type EditionRequestContext, type EditionSteps } from ".
 // What one run carries: the day it is for and a summary per step, filled as it goes. The whole
 // report, with the token cost, goes to the log — the architecture keeps cost out of storage — and
 // the snapshot Mastra writes stays small.
-const collectSummary = z.object({
-  saved: z.number(),
-  evaluated: z.number(),
-  discarded: z.number(),
+const ingestSummary = z.object({
+  sources: z.number(),
+  sourcesFailed: z.array(z.string()),
+  listed: z.number(),
+  inWindow: z.number(),
+  groups: z.number(),
+  fichas: z.number(),
   durationMs: z.number(),
 });
 
@@ -38,7 +41,7 @@ export const editionRunSchema = z.object({
   // What this run pays for: `live` calls the model, `mock` works over the fixture. It travels with
   // the run so the Studio and the snapshot say later which one it was.
   mode: z.enum(["live", "mock"]),
-  collect: collectSummary.optional(),
+  ingest: ingestSummary.optional(),
   write: writeSummary.optional(),
   build: buildSummary.optional(),
 });
@@ -47,9 +50,9 @@ export type EditionRun = z.infer<typeof editionRunSchema>;
 
 class StaleRun extends Data.TaggedError("StaleRun")<{ reason: string }> {}
 
-// The run carries the edition date, but the collection window is relative to the clock (24h, 48h on
+// The run carries the edition date, but the ingestion window is relative to the clock (24h, 48h on
 // Mondays), so the steps keep reading the real clock and the date is what says which day this run
-// belongs to. A run for another day would collect into today and write into yesterday, so it stops
+// belongs to. A run for another day would ingest into today and write into yesterday, so it stops
 // here.
 const forToday = (date: string): Effect.Effect<void, StaleRun> => {
   const today = runDate(new Date());
@@ -61,7 +64,7 @@ const forToday = (date: string): Effect.Effect<void, StaleRun> => {
 // again — the services speak Effect and never throw, so the conversion happens here, once.
 const stepOf = <A>(
   id: string,
-  run: (pipeline: EditionSteps, input: EditionRun) => Effect.Effect<A, { reason: string }>,
+  run: (pipeline: EditionSteps, input: EditionRun, runId: string) => Effect.Effect<A, { reason: string }>,
   fold: (previous: EditionRun, report: A) => EditionRun,
   skip?: (previous: EditionRun) => boolean,
 ) =>
@@ -70,7 +73,7 @@ const stepOf = <A>(
     inputSchema: editionRunSchema,
     outputSchema: editionRunSchema,
     retries: STEP_RETRIES,
-    execute: async ({ inputData, requestContext }) => {
+    execute: async ({ inputData, requestContext, runId }) => {
       // Parsed again on the way in: what Mastra types the input as depends on its zod version.
       const input = editionRunSchema.parse(inputData);
       if (skip?.(input)) return input;
@@ -78,7 +81,7 @@ const stepOf = <A>(
       const exit = await Effect.runPromiseExit(
         editionContext(id, requestContext as EditionRequestContext).pipe(
           Effect.tap(() => forToday(input.date)),
-          Effect.flatMap(({ pipeline }) => run(pipeline, input)),
+          Effect.flatMap(({ pipeline }) => run(pipeline, input, runId)),
           Effect.map((report) => fold(input, report)),
         ),
       );
@@ -87,15 +90,18 @@ const stepOf = <A>(
     },
   });
 
-export const collectStep = stepOf(
-  "collect",
-  (pipeline, run) => pipeline.collect({ mode: run.mode }),
+export const ingestStep = stepOf(
+  "ingest",
+  (pipeline, run, runId) => pipeline.ingest({ mode: run.mode, runId }),
   (previous, report) => ({
     ...previous,
-    collect: {
-      saved: report.saved,
-      evaluated: report.result.candidates.length,
-      discarded: report.result.discarded,
+    ingest: {
+      sources: report.sources,
+      sourcesFailed: report.sourcesFailed,
+      listed: report.listed,
+      inWindow: report.inWindow,
+      groups: report.groups,
+      fichas: report.fichas,
       durationMs: report.durationMs,
     },
   }),
@@ -103,7 +109,7 @@ export const collectStep = stepOf(
 
 export const writeStep = stepOf(
   "write",
-  (pipeline, run) => pipeline.write({ mode: run.mode }),
+  (pipeline, run, runId) => pipeline.write({ mode: run.mode, runId }),
   (previous, report) => ({
     ...previous,
     write: {
@@ -121,7 +127,7 @@ export const writeStep = stepOf(
 // would fail the validation and alert the owners over an outcome that is not a failure.
 export const buildStep = stepOf(
   "build",
-  (pipeline, run) => pipeline.build({ mode: run.mode }),
+  (pipeline, run, runId) => pipeline.build({ mode: run.mode, runId }),
   (previous, report) => ({
     ...previous,
     build: {
@@ -143,7 +149,7 @@ export const editionWorkflow = createWorkflow({
   inputSchema: editionRunSchema,
   outputSchema: editionRunSchema,
 })
-  .then(collectStep)
+  .then(ingestStep)
   .then(writeStep)
   .then(buildStep)
   .commit();

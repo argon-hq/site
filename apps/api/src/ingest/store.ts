@@ -1,8 +1,10 @@
 import { Data, Effect } from "effect";
+import { dbEffect } from "../effect/db";
+import type { PrismaClient } from "../generated/prisma/client";
 import type { Known, Member } from "./group";
 import type { TextKind } from "./parse";
 import type { Signal } from "./score";
-import type { ActiveSource, FeedKind } from "./source";
+import { sectionRuleSchema, type ActiveSource, type FeedKind, type SectionRule } from "./source";
 
 export type { Known } from "./group";
 
@@ -28,9 +30,9 @@ export type Ficha = {
 
 export type SourceHealth = { consecutiveFailures: number; alert: boolean };
 
-// The database as an ingestion sees it. An interface: for now only the memory store implements it,
-// for the tests and the manual commands; the next step adds the one over Prisma. `known` answers
-// what was published or stored since a date, the other side of a late copy.
+// The database as an ingestion sees it. An interface, so the whole run can be exercised in a test
+// and in a dry run without a database. `known` answers what was published or stored since a date,
+// the other side of a late copy.
 export type IngestStore = {
   activeSources(): Effect.Effect<ActiveSource[], IngestDbFailed>;
   seen(hashes: readonly string[]): Effect.Effect<Set<string>, IngestDbFailed>;
@@ -47,3 +49,110 @@ export const FAILURES_BEFORE_ALERT = 3;
 
 // The longest text kept of a feed. Enough for any article; a runaway `content:encoded` is cut.
 export const MAX_FEED_TEXT_CHARS = 12_000;
+
+const db = dbEffect((reason) => new IngestDbFailed({ reason }));
+
+export function prismaIngestStore(prisma: PrismaClient): IngestStore {
+  return {
+    activeSources: () =>
+      db(() =>
+        prisma.source.findMany({
+          where: { active: true },
+          orderBy: { domain: "asc" },
+          select: {
+            id: true,
+            domain: true,
+            name: true,
+            trust: true,
+            sectionRules: true,
+            feeds: { select: { id: true, kind: true, url: true }, orderBy: { url: "asc" } },
+          },
+        }),
+      ).pipe(Effect.map((rows) => rows.map((row) => ({ ...row, sectionRules: rulesOf(row.sectionRules) })))),
+
+    seen: (hashes) =>
+      hashes.length === 0
+        ? Effect.succeed(new Set<string>())
+        : db(() =>
+            prisma.seenUrl.findMany({ where: { urlHash: { in: [...hashes] } }, select: { urlHash: true } }),
+          ).pipe(Effect.map((rows) => new Set(rows.map((row) => row.urlHash)))),
+
+    // Seen is refreshed, not only inserted: a link met again today stays out for three more days.
+    markSeen: (hashes, at) =>
+      hashes.length === 0
+        ? Effect.void
+        : db(() =>
+            prisma.$transaction([
+              prisma.seenUrl.updateMany({ where: { urlHash: { in: [...hashes] } }, data: { seenAt: at } }),
+              prisma.seenUrl.createMany({
+                data: hashes.map((urlHash) => ({ urlHash, seenAt: at })),
+                skipDuplicates: true,
+              }),
+            ]),
+          ).pipe(Effect.asVoid),
+
+    known: (since) =>
+      db(() =>
+        prisma.article.findMany({
+          where: { createdAt: { gte: since }, NOT: { titleSignature: { isEmpty: true } } },
+          select: { canonicalUrl: true, titleSignature: true },
+        }),
+      ).pipe(Effect.map((rows) => rows.map((row) => ({ url: row.canonicalUrl, signature: row.titleSignature })))),
+
+    // The canonical URL is unique: a ficha an earlier run of the day stored is skipped, not doubled.
+    saveFichas: (fichas) =>
+      fichas.length === 0
+        ? Effect.succeed(0)
+        : db(() =>
+            prisma.article.createMany({
+              data: fichas.map((f) => ({
+                canonicalUrl: f.canonicalUrl,
+                sourceId: f.sourceId,
+                sourceName: f.sourceName,
+                originalTitle: f.title,
+                publishedAt: f.publishedAt,
+                origin: f.origin,
+                extractedText: f.text?.slice(0, MAX_FEED_TEXT_CHARS) ?? null,
+                textKind: f.textKind,
+                codeScore: f.codeScore,
+                scoreDetails: { signals: f.signals, sources: f.sources },
+                groupMembers: f.members,
+                titleSignature: f.signature,
+              })),
+              skipDuplicates: true,
+            }),
+          ).pipe(Effect.map((result) => result.count)),
+
+    recordSource: (sourceId, ok, at) =>
+      ok
+        ? db(() =>
+            prisma.source.update({
+              where: { id: sourceId },
+              data: { lastOkAt: at, consecutiveFailures: 0, alertedAt: null },
+            }),
+          ).pipe(Effect.as({ consecutiveFailures: 0, alert: false }))
+        : Effect.gen(function* () {
+            const updated = yield* db(() =>
+              prisma.source.update({
+                where: { id: sourceId },
+                data: { consecutiveFailures: { increment: 1 } },
+                select: { consecutiveFailures: true },
+              }),
+            );
+            if (updated.consecutiveFailures < FAILURES_BEFORE_ALERT)
+              return { consecutiveFailures: updated.consecutiveFailures, alert: false };
+            // Claimed in the database, so two runs that fail at once still send one alert.
+            const claimed = yield* db(() =>
+              prisma.source.updateMany({ where: { id: sourceId, alertedAt: null }, data: { alertedAt: at } }),
+            );
+            return { consecutiveFailures: updated.consecutiveFailures, alert: claimed.count === 1 };
+          }),
+  };
+}
+
+// The rules column is JSON, validated on the way in; a row that does not parse is read as no rules
+// rather than failing the run over one source.
+function rulesOf(raw: unknown): SectionRule[] {
+  const parsed = sectionRuleSchema.array().safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}

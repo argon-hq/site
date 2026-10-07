@@ -76,11 +76,11 @@ describe("rank", () => {
 
   it("keeps at most MAX_FICHAS, best first, and says how many went over", () => {
     const groups = Array.from({ length: MAX_FICHAS + 5 }, (_, i) =>
-      groupSameFact([candidate({ title: `Notícia única número ${i} sobre tema ${i * 7}`, score: 3 + (i % 4) })]),
+      groupSameFact([candidate({ title: `Notícia única número ${i} sobre tema ${i * 7}`, score: CUTOFF + (i % 4) })]),
     ).flat();
     const ranked = rank(groups, []);
     expect(ranked.kept).toHaveLength(MAX_FICHAS);
     expect(ranked.overCap).toHaveLength(5);
-    expect(ranked.kept[0]?.score).toBe(6);
+    expect(ranked.kept[0]?.score).toBe(CUTOFF + 3);
   });
 });

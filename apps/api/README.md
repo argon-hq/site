@@ -7,30 +7,43 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step), `editor/agents/<id>.json`, `prompts/`, `schemas/`, `tools/`, `workflows/`. `MastraModule` is imported last and mounted under `/mastra`.
   `paths.ts` names the two folders that are data and not code — the skills and the Studio's overrides. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
   The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
-  `workflows/edition.ts` is the generation as one run — `collect` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
-- `src/ingest/`: the reading of the news by code (ARG-123), the first step of the ingestion that will
-  replace `collect`. Nothing here is wired to the edition yet. `fetch-feed.ts` reads one address — RSS
-  2.0 or 0.91, Atom, or a news sitemap — through the guarded fetch `read_page` also uses
-  (`src/net/fetch.ts`: only the source's domain, never a private address, every redirect checked), in
-  the charset the response declares in its header or its prolog (Folha's feed is ISO-8859-1).
-  `parse.ts` turns it into items — link, title, date as written, categories, and the feed's text with
-  its kind (`full`, `summary`, `none`); `dates.ts` reads RFC 822 and ISO dates, a date without offset
-  as São Paulo time; `url.ts` unwraps a redirector (Folha's `…/*https://…`) and canonicalizes. The
-  sources of the survey of 29/09/2026, with their addresses and section rules, are in `catalog.ts`.
-  The judgement of one item is code too, and still unwired: `source.ts` reads the section rules
-  (path prefix, host prefix such as Folha's `aovivo.`, or feed category; a `discard` match wins),
-  `triage.ts` holds the lexicon, the weights, the cutoff (3) and the cap (200) — versioned here,
-  recalibrated over real feeds — and `score.ts` gives an item its points with a reason per point.
-  The same fact in several outlets becomes one group by a MinHash of the title (`signature.ts`,
-  `group.ts`): the most trusted source represents it, the others stay as members, a point per extra
-  outlet, and a group like something already published is a late copy. `store.ts` is the contract
-  a run reads and writes through (`IngestStore`), for now implemented only in memory. `fixtures/` is
-  an invented world on `.test` domains — feeds, a sitemap, pages, a Latin-1 feed behind a
-  redirector, a malformed feed, a source down — served by a network that answers only it; the run
-  over it comes with the next change.
-- `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
-  `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
-  São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
+  `workflows/edition.ts` is the generation as one run — `ingest` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+- `src/ingest/`: the news, listed and judged by code (ARG-123). `POST /pipeline/ingest` is the first step of the
+  run; the manual commands run the same code to read the sources of an environment and calibrate the triage. No
+  model and no page read:
+  every address of every active source — RSS 2.0 or 0.91, Atom, or a news sitemap — is read in
+  parallel through the guarded fetch `read_page` also uses (`src/net/fetch.ts`: only the source's
+  domain, never a private address, every redirect checked), in the charset the response declares in
+  its header or its prolog (Folha's feed is ISO-8859-1; `fetch-feed.ts`, `parse.ts`, `dates.ts`).
+  Each item goes through the chain: unwrap a redirector (`url.ts`), canonicalize, the window (24 h,
+  48 h on Mondays; a date without offset is São Paulo time, an item without a date is dropped and
+  counted), the section rules of its source and the title noise (`source.ts`, `score.ts`), then a
+  code score with a reason per point (`triage.ts`: lexicon, weights, cutoff 4, cap 20 — versioned
+  here and recalibrated with the commands below). The same fact in several outlets becomes one group
+  by a MinHash of the title (`signature.ts`, `group.ts`), represented by the most trusted source, the
+  others kept as members, a point per extra outlet; a group like something published or stored in
+  the last 3 days is a late copy and is dropped. What passes is a **ficha** in `article`, with no
+  edition: link, source, title, date, origin, the feed's text and its kind (`full`, `summary`,
+  `none`), members, code score and signals. Every listed link goes to `seen_url` as the sha256 of
+  its canonical form — the agent's collection is gone with it. The sources live in the `source` and `source_feed` tables, per environment,
+  seeded by the migration with the survey of 29/09/2026 and written only through `GET|POST /sources`,
+  `PATCH /sources/:domain` and `POST|DELETE /sources/:domain/feeds` (Zod: https, a name and not an IP, every
+  address on the source's domain; before and after in the log). Their active domains are the allowlist of
+  `read_page` (`allowlist.ts`), loaded at boot and refreshed by each live ingestion, so a source turned off leaves
+  it on the next run. A source whose every address fails three runs in a
+  row alerts the owners once, and stays active; a good read resets it. One failing address never
+  stops the run; all of them failing fails it. The log has two layers, both with the run id: per
+  address and per run always, and per item and group when the `ingest_debug` setting is on. `store.ts` is the contract a run
+  reads and writes through (`IngestStore`), over Prisma or in memory; `mode.ts` picks the live world
+  or the mocked one — `fixtures/`, an invented world on `.test` domains (feeds, a sitemap, pages, a
+  Latin-1 feed behind a redirector, a malformed feed, a source down) served by a network that
+  answers only it, whose fichas are real rows.
+- `src/pipeline/`: the steps. Errors, retries and outcomes use Effect; a structured answer gets two attempts
+  (`src/mastra/attempts.ts`).
+  `POST /pipeline/write` then turns the fichas into the edition: `write.ts` opens the day's edition (one row per
+  São Paulo calendar day) and, until the model's triage (ARG-124), takes the fichas of the window by code score, twice
+  as many as the edition holds; a ficha whose feed did not carry the whole article is read from its page, with the feed's
+  lead as the fallback when the page is closed, and a ficha with no text at all is left out. The Editor loads the
   `write` skill once per article — two attempts each, the second carrying the validation error. An article rejected
   twice leaves the edition and the others go on; the header (title and subject) is a generation of its own over what
   was approved. Saving is one transaction that detaches whatever an earlier run left attached, so the step can run
@@ -47,7 +60,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   sentinel for each subscriber's token; it is an absolute https URL, so nothing in the validation is relaxed for it.
   `POST /pipeline/run` is the whole generation, as one run of the `edition` workflow: the same three steps, in order, each
   retried on its own, with the day of the edition as the only input (`run.ts`). The steps keep reading the real clock,
-  because the collection window is relative to it, and a run for another day stops before touching anything. A run below
+  because the ingestion window is relative to it, and a run for another day stops before touching anything. A run below
   the minimum ends after the writing: there is no edition to build. The clock lives in Nest and not in
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
@@ -83,16 +96,16 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.
   `profile.ts` is what an environment is willing to pay: `ARGON_ENV` (`local | lab | dev | prod`) picks one row of a
-  table in code — the model, how far the agent may search, how long the text may be, and the defaults for the cutoff and
-  the article bounds. Production runs the agent on Sonnet; dev runs it on Haiku, searching and reading less and accepting
-  a weaker edition; lab and a development machine run **over a fixture**, with no model and no search at all. The dials
+  table in code — the model, how long the text may be, and the defaults for the cutoff and the article bounds.
+  Production runs the agent on Sonnet; dev runs it on Haiku, reading less and accepting a weaker edition; lab and a
+  development machine run **over a fixture**, with no model and no network at all. The dials
   are not rules: what an edition may contain stays in `rules.ts` and is the same everywhere. `POST /pipeline/run
 {"mode":"live"}` pays for a real run in lab or locally without a deploy, and production refuses `mock` whoever asks.
-  A mocked run swaps only where the news comes from (`collect-source.ts`) and who writes it (`write-mock.ts`); the
-  allowlist, the window, the cutoff, the duplicate check, the schemas and the transaction are the same code either way,
-  so what it proves is the pipeline. The fixture's links (`fixtures/news.ts`) carry the day's date so each run collects
-  fresh news instead of finding only duplicates — they are not real pages, so the lab edition's links do not open, and
-  the text says in every article that it is invented.
+  A mocked run swaps only where the news comes from (`src/ingest/mode.ts`) and who writes it (`write-mock.ts`); the
+  parser, the window, the triage, the groups, the schemas and the transaction are the same code either way, so what it
+  proves is the pipeline. The fixture's links (`src/ingest/fixtures/`) carry the day's date so each run ingests fresh
+  news instead of finding only seen links — they are on `.test` domains, so the lab edition's links do not open, and the
+  text says in every article that it is invented.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason. `failureReason(cause)` is what both boundaries, the route and the workflow step, use to say what went wrong.
 - `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
@@ -128,7 +141,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
   something other than what the profile assumed, and `PATCH /settings { key, value }` is how it is written (`GET
 /settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
-- `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (links the collector already evaluated). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
+- `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (the hash of every link an ingestion or the collector already evaluated) and the `source` and `source_feed` tables of the ingestion. Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
 
 ## Run
 
@@ -143,19 +156,43 @@ pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, ima
 
 ## Ingestion
 
-Manual commands for the reading, against the real sources; nothing is stored and no model is called.
+Manual commands, to look at the sources and calibrate the triage. They wire the database and the
+network by hand, without Nest; `--mock` reads the fixture, and `--mock --dry-run` needs no database.
 
 ```bash
-pnpm ingest:sources                 # the sources of the catalogue, with their addresses
-pnpm ingest:feed <url>              # one address: every item, its date and whether it is in the window
+pnpm ingest:sources                 # sources and addresses of DATABASE_URL, with their health
+pnpm ingest:feed <url>              # one address: every item, its date, window, score or discard reason
 pnpm ingest:page <url>              # one page: what the extraction gets out of it
+pnpm ingest:run                     # the ingestion, live, writing fichas and seen links
+pnpm ingest:run --dry-run           # the same, writing nothing
+pnpm ingest:run --ignore-seen       # judge again what earlier runs listed (recalibration)
+pnpm ingest:run --mock --dry-run --date 2026-09-30T08:30:00Z
+pnpm ingest:run --source valor.globo.com --json --report out/ingest.json
+```
+
+The same run by HTTP, in an environment: `mode`, `dryRun`, `ignoreSeen` and `source` as in the
+command, the answer being the counts per address.
+
+```bash
+curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"mock"}'
+curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"live","dryRun":true}'curl http://localhost:3001/sources -H "x-internal-secret: $INTERNAL_API_SECRET"
+curl -X PATCH http://localhost:3001/sources/exame.com -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"active":false}'
 ```
 
 ```text
-rss, iso-8859-1, 116275 bytes, 100 items, source: folha.uol.com.br
-publishedAt       window  text     categories  title                                               url
-2026-09-30T14:43  in      summary              Tribunal dos EUA analisará tarifas de Trump ligadas…  https://www1.folha.uol.com.br/mercado/2026/09/…
-2026-09-30T14:00  in      summary              Oura Ring, fabricante de anéis inteligentes, adia IPO  https://c-level.folha.uol.com.br/negocios/2026/09/…
+run 7d0c… (dry run) — 2026-09-30T08:30:00.000Z, window from 2026-09-29T08:30:00.000Z
+5 sources, 24 listed, 20 in the window, 15 candidates, 13 groups
+0 fichas stored, 0 already there, 4 below the cutoff, 0 over the cap, 1 late copies
+failed sources: fonte-fora-do-ar.test
+== addresses
+source                  ok    status  listed  inWindow  candidates  dropped                      error
+diario-ficticio.test    ok    200     8       7         5           discarded:2 out_of_window:1
+diario-ficticio.test    FAIL          0       0         0                                        FeedMalformed: invalid xml…
+portal-exemplo.test     ok    200     8       6         4           discarded:2 out_of_window:1 future:1
+fonte-fora-do-ar.test   FAIL  503     0       0         0                                        FetchFailed: HTTP 503
+== groups (fichas first)
+outcome       score  source              also               title
+ficha         8      Diário Fictício                        Crédito para pequenas empresas cresce 12% no trimestre
 ```
 
 ## Studio
