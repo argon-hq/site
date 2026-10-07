@@ -95,7 +95,7 @@ jobs:
           echo "build=${build# }" >> "$GITHUB_OUTPUT"
           echo "skipped=${skipped# }" >> "$GITHUB_OUTPUT"
           echo "build: [${build# }] skipped: [${skipped# }]"
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         if: inputs.tag == ''
       # Layer cache in the Actions cache, one scope per app: a push that only touches the code reuses
       # the pnpm install layers. provenance off keeps the ECR image a plain manifest, which the retag
