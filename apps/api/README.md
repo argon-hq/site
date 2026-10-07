@@ -17,6 +17,17 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   its kind (`full`, `summary`, `none`); `dates.ts` reads RFC 822 and ISO dates, a date without offset
   as São Paulo time; `url.ts` unwraps a redirector (Folha's `…/*https://…`) and canonicalizes. The
   sources of the survey of 29/09/2026, with their addresses and section rules, are in `catalog.ts`.
+  The judgement of one item is code too, and still unwired: `source.ts` reads the section rules
+  (path prefix, host prefix such as Folha's `aovivo.`, or feed category; a `discard` match wins),
+  `triage.ts` holds the lexicon, the weights, the cutoff (3) and the cap (200) — versioned here,
+  recalibrated over real feeds — and `score.ts` gives an item its points with a reason per point.
+  The same fact in several outlets becomes one group by a MinHash of the title (`signature.ts`,
+  `group.ts`): the most trusted source represents it, the others stay as members, a point per extra
+  outlet, and a group like something already published is a late copy. `store.ts` is the contract
+  a run reads and writes through (`IngestStore`), for now implemented only in memory. `fixtures/` is
+  an invented world on `.test` domains — feeds, a sitemap, pages, a Latin-1 feed behind a
+  redirector, a malformed feed, a source down — served by a network that answers only it; the run
+  over it comes with the next change.
 - `src/pipeline/`: the steps. `POST /pipeline/collect` runs the `collect` skill: the Editor searches the sources, reads pages and scores; `persist.ts` then applies allowlist, window and cutoff and stores what passes under the page's own canonical URL, marking every evaluated link in `seen_url`. `rules.ts` holds the one list of sources — it feeds the search allowlist, the persistence check and the step prompt, so the skill never repeats it — plus the window, the search and step ceilings and the text limit. The structured answer gets two attempts (`src/mastra/attempts.ts`). Errors, retries and outcomes use Effect.
   `POST /pipeline/write` then turns what was stored into the edition: `write.ts` opens the day's edition (one row per
   São Paulo calendar day), takes the articles above the cutoff still free of an edition, and the Editor loads the
@@ -76,7 +87,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   the article bounds. Production runs the agent on Sonnet; dev runs it on Haiku, searching and reading less and accepting
   a weaker edition; lab and a development machine run **over a fixture**, with no model and no search at all. The dials
   are not rules: what an edition may contain stays in `rules.ts` and is the same everywhere. `POST /pipeline/run
-  {"mode":"live"}` pays for a real run in lab or locally without a deploy, and production refuses `mock` whoever asks.
+{"mode":"live"}` pays for a real run in lab or locally without a deploy, and production refuses `mock` whoever asks.
   A mocked run swaps only where the news comes from (`collect-source.ts`) and who writes it (`write-mock.ts`); the
   allowlist, the window, the cutoff, the duplicate check, the schemas and the transaction are the same code either way,
   so what it proves is the pipeline. The fixture's links (`fixtures/news.ts`) carry the day's date so each run collects
@@ -116,7 +127,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   the edition — `score_cutoff`, `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
   something other than what the profile assumed, and `PATCH /settings { key, value }` is how it is written (`GET
-  /settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
+/settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.
 - `prisma/schema.prisma`: the application tables from the database diagram, plus `seen_url` (links the collector already evaluated). Check constraints, triggers (`updated_at`, frozen articles after send) and the initial `setting` rows live in the migration SQL, not in the schema.
 
 ## Run
@@ -153,10 +164,10 @@ publishedAt       window  text     categories  title                            
 a deployed environment are reached through the Studio this API serves itself, under `/studio`, where
 `STUDIO_ENABLED` is on — dev and lab, never prod:
 
-| Environment | Address |
-| --- | --- |
-| dev | <https://dev.argon.eduardofockink.com/studio> |
-| lab | <https://lab.argon.eduardofockink.com/studio> |
+| Environment | Address                                       |
+| ----------- | --------------------------------------------- |
+| dev         | <https://dev.argon.eduardofockink.com/studio> |
+| lab         | <https://lab.argon.eduardofockink.com/studio> |
 
 It is the site's host, not the API's, on purpose: Caddy sends `/studio` and `/mastra` of that host to
 the API container (`deploy/Caddyfile`), so the Studio and the routes it calls share one origin. A
@@ -204,7 +215,7 @@ LOG   [EmailAssets] { msg: 'email assets ok', base: 'https://lab.argon.eduardofo
 ERROR [EmailAssets] { msg: 'email assets unreachable', base: '...', broken: [{ url: '.../logo.png', ok: false, detail: '404 text/html' }] }
 ```
 
-A 404 answered by the site's own 404 page counts as broken: the check wants a 2xx *and* an
+A 404 answered by the site's own 404 page counts as broken: the check wants a 2xx _and_ an
 `image/*`. It never blocks the boot — an image out of the air is no reason to take the API down.
 
 ## Conventions
