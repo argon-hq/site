@@ -33,6 +33,7 @@ const candidate: Candidate = {
   originalTitle: "Copom mantém a Selic em 12%",
   extractedText: "O Copom manteve a taxa básica de juros em 12% ao ano.",
   codeScore: 7,
+  verdict: null,
   textFrom: { url: "https://valor.globo.com/empresas/noticia/x.ghtml", sourceName: "Valor Econômico", via: "page" },
 };
 
@@ -77,6 +78,16 @@ describe("writeItem", () => {
 
     expect(prompts).toHaveLength(2);
     expect(result).toEqual({ outcome: "rejected", url: candidate.canonicalUrl, reason: "corpo estourado de novo" });
+  });
+});
+
+describe("writeItem's score", () => {
+  it("is the model's once the triage has spoken, and the code's before", async () => {
+    const before = await Effect.runPromise(writeItem(candidate, generator(item).generate, silent));
+    expect(before).toMatchObject({ outcome: "written", score: 7 });
+    const verdict = { id: "a1", focus: "core_business" as const, impact: 4, score: 4, reason: "r" };
+    const after = await Effect.runPromise(writeItem({ ...candidate, verdict }, generator(item).generate, silent));
+    expect(after).toMatchObject({ outcome: "written", score: 4 });
   });
 });
 
@@ -141,7 +152,7 @@ describe("belowMinimum", () => {
 });
 
 describe("selectFichas", () => {
-  it("asks for the fichas of the window, free or already in this edition, best score first, twice the edition", async () => {
+  it("asks for the fichas of the window, free or already in this edition, best score first, as many as told", async () => {
     const queries: Array<{ where: unknown; orderBy: unknown; take: number }> = [];
     const row = Struct.omit(candidate, "textFrom");
     const member = { url: "https://x.test/m", sourceName: "Outro", title: "Mesmo fato", textKind: "summary" };
@@ -155,12 +166,12 @@ describe("selectFichas", () => {
     const prisma = { article: { findMany } } as unknown as PrismaClient;
     const since = new Date("2026-09-21T08:00:00Z");
 
-    const result = await Effect.runPromise(selectFichas(prisma, { editionId: "e1", since, max: 6 }));
+    const result = await Effect.runPromise(selectFichas(prisma, { editionId: "e1", since, take: 12 }));
 
     // The members column comes back parsed; one that does not parse is a ficha with no members.
     expect(result).toEqual([
-      { ...row, textKind: "full", members: [member] },
-      { ...row, id: "a2", textKind: "none", members: [] },
+      { ...row, textKind: "full", members: [member], verdict: null },
+      { ...row, id: "a2", textKind: "none", members: [], verdict: null },
     ]);
     expect(queries[0]).toMatchObject({
       where: { OR: [{ editionId: null }, { editionId: "e1" }], createdAt: { gte: since }, codeScore: { not: null } },

@@ -19,5 +19,5 @@ export const editor = new Agent({
   instructions: editorInstructions,
   model: modelFor("editor"),
   tools: { read_page: readPage },
-  skills: [path.join(skillsDir, "write")],
+  skills: [path.join(skillsDir, "select"), path.join(skillsDir, "write")],
 });

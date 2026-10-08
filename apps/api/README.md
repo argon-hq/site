@@ -41,8 +41,13 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/pipeline/`: the steps. Errors, retries and outcomes use Effect; a structured answer gets two attempts
   (`src/mastra/attempts.ts`).
   `POST /pipeline/write` then turns the fichas into the edition: `write.ts` opens the day's edition (one row per
-  São Paulo calendar day) and, until the model's triage (ARG-124), takes the fichas of the window by code score, twice
-  as many as the edition holds; a ficha whose feed did not carry the whole article is read from its page; when that one is
+  São Paulo calendar day) and takes the fichas of the window, up to the ingestion's cap. The Editor's `select` skill
+  triages them all in one generation, before any page is read (`triage.ts`, ARG-124): a focus class — business and
+  technology are the core, the market only next to a named business effect, the rest is out — an impact and a score
+  from 0 to 5, a one-line reason, and `sameAs` for the rewrites the title signature missed, checked against the
+  headlines of the last three days. The code then cuts by `score_cutoff`, orders by the model's score with the code's
+  as the tie-break, and keeps twice as many as the edition holds; a mocked run folds the code's score instead of asking
+  a model. Every verdict goes to the log. A ficha whose feed did not carry the whole article is read from its page; when that one is
   closed or has no readable text, from the next member of its group, in order; and when none opens, from the feed's lead.
   A ficha with no text at all is left out. The run opens at most `maxReads` pages (`profile.ts`); past that, the feed's
   text is all there is. The edition links the ficha either way; the prompt names the outlet the text was read in. The Editor loads the

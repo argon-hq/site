@@ -7,6 +7,7 @@ import type { PrismaClient } from "../generated/prisma/client";
 import type { TextKind } from "../generated/prisma/enums";
 import { twoAttempts } from "../mastra/attempts";
 import type { ExtractedArticle } from "../mastra/schemas/article";
+import type { Verdict } from "../mastra/schemas/triage";
 import { BODY_TARGET, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
 
 // Another outlet that told the same fact, as the ingestion stored it on the ficha: where the text
@@ -32,6 +33,8 @@ export type Candidate = {
   originalTitle: string;
   extractedText: string;
   codeScore: number;
+  // The model's triage, once it has spoken; null before it, and in a mocked run folded from the code.
+  verdict: Verdict | null;
   textFrom: TextOrigin;
 };
 
@@ -120,14 +123,12 @@ export function belowMinimum(p: {
   return p.alreadyWritten ? "keep_previous" : "skip";
 }
 
-// Twice the edition's size, best first: fichas whose text cannot be had drop out and the next
-// ones take their place. Unattached or already part of this edition, so a second run rewrites the
-// same set.
-const FICHA_POOL = 2;
-
+// The day's fichas, best code score first, up to `take`: unattached or already part of this
+// edition, so a second run rewrites the same set. The model's triage reads them all; the pool the
+// writing works from is cut after it (see `shortlist`).
 export const selectFichas = (
   prisma: PrismaClient,
-  p: { editionId: string; since: Date; max: number },
+  p: { editionId: string; since: Date; take: number },
 ): Effect.Effect<Ficha[], WriteDbFailed> =>
   db(() =>
     prisma.article.findMany({
@@ -137,7 +138,7 @@ export const selectFichas = (
         codeScore: { not: null },
       },
       orderBy: [{ codeScore: "desc" }, { publishedAt: "desc" }],
-      take: p.max * FICHA_POOL,
+      take: p.take,
       select: {
         id: true,
         canonicalUrl: true,
@@ -155,6 +156,7 @@ export const selectFichas = (
         ...row,
         codeScore: row.codeScore ?? 0,
         members: membersOf(groupMembers),
+        verdict: null,
       })),
     ),
   );
@@ -272,7 +274,8 @@ export const writeItem = (
         ({
           outcome: "written",
           id: article.id,
-          score: article.codeScore,
+          // The model's score orders the edition; the code's only until the model has spoken.
+          score: article.verdict?.score ?? article.codeScore,
           url: article.canonicalUrl,
           item: generated.object,
           usage: generated.usage ?? null,
@@ -310,7 +313,7 @@ export const saveEdition = (
         where: { editionId: p.editionId },
         data: { editionId: null, category: null, headline: null, body: null },
       }),
-      // The score an article joins with is the ingestion's until the model's triage gives its own.
+      // The score an article joins with is the model's triage, on the 0–5 scale the edition is ordered by.
       ...p.written.map(({ id, item, score }) =>
         prisma.article.update({
           where: { id },
