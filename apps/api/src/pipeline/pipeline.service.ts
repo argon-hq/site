@@ -196,10 +196,9 @@ export class PipelineService {
     );
   }
 
-  // Writing step: the Editor loads the `write` skill and writes one article at a time, then the
-  // edition header over what was approved. Until the model's triage (ARG-124), the fichas are taken
-  // by the ingestion's score, and a ficha whose feed carried no whole text is read from its page,
-  // with the feed's lead as the fallback.
+  // Writing step: the model's triage picks the day's articles first, and the Editor loads the
+  // `write` skill and writes only those, one at a time, then the edition header over what was
+  // approved. A ficha the triage left out is never read nor written.
   write(run: StepRun = {}): Effect.Effect<WriteReport, WriteFailed> {
     const { mode, now } = startOf(run);
     const body = Effect.gen(this, function* () {
@@ -318,9 +317,9 @@ export class PipelineService {
         triage: triaged,
       });
 
-      // Better no edition than a weak one: below the minimum nothing is written and the owners hear
-      // about it. This is an outcome of the step, not a failure of it — unless an earlier run of the
-      // day already wrote the edition, and then the thin run fails and leaves that one alone.
+      // Below the minimum nothing is written and the owners hear about it. This is an outcome of the
+      // step, not a failure of it — unless an earlier run of the day already wrote the edition, and
+      // then the thin run fails and leaves that one alone.
       const short = `ended with ${written.length} valid article(s), below the minimum of ${settings.min_articles}`;
       const outcome = belowMinimum({
         written: written.length,

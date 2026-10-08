@@ -338,7 +338,7 @@ export const saveEdition = (
     ]),
   ).pipe(Effect.asVoid);
 
-// Fewer than `min_articles`: better no edition than a weak one. The owners hear about it. The
+// Fewer than `min_articles`: no edition today, and the owners hear about it. The
 // edition is closed, so the fichas nobody chose go with it.
 export const skipEdition = (prisma: PrismaClient, editionId: string, now: Date): Effect.Effect<void, WriteDbFailed> =>
   db(() =>
