@@ -4,11 +4,13 @@ import type { SectionTier } from "./triage";
 // How a source says where its sections are: a path prefix of the article URL (`/empresas/`), the
 // start of its host (`aovivo.`, Folha's live blogs, whose path looks like any other section), or a
 // category of the feed item (`Forbes Money`). A `discard` match drops the item whatever else
-// matches; otherwise the first match gives the tier, and no match is `neutral`.
+// matches; otherwise the first match gives the tier, and no match is `neutral`. The tiers are the
+// classes of the focus in `triage.ts`: `core` for business and technology, `market` for rates and
+// prices that only count next to a business effect, `adjacent`, `peripheral`.
 export const sectionRuleSchema = z.object({
   match: z.enum(["path", "host", "category"]),
   pattern: z.string().trim().min(1).max(200),
-  tier: z.enum(["discard", "core", "adjacent", "neutral", "peripheral"]),
+  tier: z.enum(["discard", "core", "adjacent", "market", "neutral", "peripheral"]),
 });
 export type SectionRule = z.infer<typeof sectionRuleSchema>;
 

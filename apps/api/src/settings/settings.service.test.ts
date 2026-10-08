@@ -34,20 +34,19 @@ describe("SettingsService", () => {
 
     expect(s.min_articles).toBe(PROFILE.minArticles);
     expect(s.max_articles).toBe(PROFILE.maxArticles);
-    expect(s.score_cutoff).toBe(PROFILE.scoreCutoff);
   });
 
   it("lets a row win over the profile: it is how an environment says something else", async () => {
-    const { settings } = service(identity.concat({ key: "score_cutoff", value: 4.5 }));
+    const { settings } = service(identity.concat({ key: "max_articles", value: 9 }));
     const s = await settings.load();
 
-    expect(s.score_cutoff).toBe(4.5);
-    expect(PROFILE.scoreCutoff).not.toBe(4.5);
+    expect(s.max_articles).toBe(9);
+    expect(PROFILE.maxArticles).not.toBe(9);
   });
 
   it("fails naming the missing or invalid keys", async () => {
-    const { settings } = service(identity.filter((r) => r.key !== "sender").concat({ key: "score_cutoff", value: 9 }));
-    await expect(settings.load()).rejects.toThrow("Invalid settings: score_cutoff, sender");
+    const { settings } = service(identity.filter((r) => r.key !== "sender").concat({ key: "max_articles", value: 0 }));
+    await expect(settings.load()).rejects.toThrow("Invalid settings: max_articles, sender");
   });
 
   it("reads one key with its default when there is no row", async () => {

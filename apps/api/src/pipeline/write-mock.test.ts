@@ -14,6 +14,8 @@ const article = (over: Partial<Candidate> = {}): Candidate => ({
     "nesta terça-feira. A alta foi puxada por linhas com garantia de recebíveis, que responderam por quase " +
     "metade das novas concessões. Texto de exemplo da Argon, usado para testar a esteira; os dados são fictícios.",
   codeScore: 9,
+  verdict: null,
+  textFrom: { url: "https://www.diario-ficticio.test/empresas/a", sourceName: "Diário Fictício", via: "feed" },
   ...over,
 });
 

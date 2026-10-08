@@ -28,7 +28,7 @@ const SOURCES: Record<FixtureSourceKey, FixtureSource> = {
       ["path", "/patrocinado/", "discard"],
       ["path", "/opiniao/", "discard"],
       ["path", "/empresas/", "core"],
-      ["path", "/financas/", "adjacent"],
+      ["path", "/financas/", "market"],
       ["path", "/mundo/", "peripheral"],
     ),
     feeds: [
@@ -46,9 +46,9 @@ const SOURCES: Record<FixtureSourceKey, FixtureSource> = {
     sectionRules: rules(
       ["path", "/live/", "discard"],
       ["path", "/negocios/", "core"],
-      ["path", "/economia/", "adjacent"],
+      ["path", "/economia/", "market"],
       ["path", "/brasil/", "adjacent"],
-      ["path", "/mercados/", "neutral"],
+      ["path", "/mercados/", "market"],
     ),
     feeds: [
       { id: "fixture-portal-sitemap", kind: "news_sitemap", url: "https://www.portal-exemplo.test/news-sitemap.xml" },
@@ -69,7 +69,7 @@ const SOURCES: Record<FixtureSourceKey, FixtureSource> = {
     host: "www.agencia-inventada.test",
     name: "Agência Inventada",
     trust: 1,
-    sectionRules: rules(["path", "/economia/", "adjacent"]),
+    sectionRules: rules(["path", "/economia/", "core"]),
     feeds: [{ id: "fixture-agencia-rss", kind: "feed", url: "https://feeds.agencia-inventada.test/economia.xml" }],
   },
   offline: {

@@ -14,6 +14,9 @@ import { fetchFeed } from "../ingest/fetch-feed";
 import { fixtureAllowed, fixtureDeps } from "../ingest/fixtures";
 import { ingest, type IngestReport } from "../ingest/ingest";
 import { ingestWorld } from "../ingest/mode";
+import { MAX_FICHAS, REPUBLISH_DAYS } from "../ingest/triage";
+import { triageAnswerSchema } from "../mastra/schemas/triage";
+import { modelContext, modelId, type ModelStep } from "../mastra/models";
 import { fetchArticle } from "../mastra/tools/read-page";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { MailService } from "../mail/mail.service";
@@ -25,8 +28,9 @@ import { generateStructured } from "./generate";
 import { DeliveryService, SendFailed, type SendReport } from "./delivery.service";
 import { EditionBusy, EditionLock, LockDbFailed } from "./lock";
 import { OwnerAlert } from "./owner-alert";
-import { DEPLOYMENT, resolveMode, type Mode } from "./profile";
+import { DEPLOYMENT, PROFILE, resolveMode, type Mode } from "./profile";
 import { runDate, runFailure } from "./run";
+import { mockTriage, publishedHeadlines, shortlist, triage } from "./triage";
 import { editionDate, windowStart } from "./rules";
 import { mockHeader, mockItem } from "./write-mock";
 import {
@@ -37,6 +41,7 @@ import {
   openEdition,
   saveEdition,
   selectFichas,
+  withReadBudget,
   skipEdition,
   sumUsage,
   writeHeader,
@@ -61,7 +66,6 @@ export type WriteReport = {
   editionId: string;
   status: "written" | "skipped";
   since: string;
-  cutoff: number;
   minArticles: number;
   maxArticles: number;
   header: EditionHeader | null;
@@ -70,6 +74,8 @@ export type WriteReport = {
   rejected: number;
   usage: Record<string, number>;
   durationMs: number;
+  // What the model's triage did with the day's fichas before any page was read.
+  triage: { fichas: number; chosen: number; reserve: number; out: number; sameAs: number; left: number };
 };
 
 export type BuildReport = {
@@ -99,6 +105,8 @@ export type IngestStepRun = StepRun & { dryRun?: boolean; ignoreSeen?: boolean; 
 export type SendRun = StepRun & { date?: Date };
 
 export { SendFailed, type BatchOutcome, type SendReport } from "./delivery.service";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const startOf = (p: StepRun) => ({ mode: resolveMode(DEPLOYMENT, p.mode), now: p.now ?? new Date() });
 
@@ -206,22 +214,23 @@ export class PipelineService {
       const failed = (error: Failure) => new WriteFailed({ reason: error.reason, status: error.status });
 
       const edition = yield* openEdition(this.prisma, date).pipe(Effect.mapError(failed));
-      const fichas = yield* selectFichas(this.prisma, {
-        editionId: edition.id,
-        since,
-        max: settings.max_articles,
-      }).pipe(Effect.mapError(failed));
+      const fichas = yield* selectFichas(this.prisma, { editionId: edition.id, since, take: MAX_FICHAS }).pipe(
+        Effect.mapError(failed),
+      );
       // The page is read in the run's world: the sources' web when live, the fixture's when mocked.
-      const read =
+      const pages =
         mode === "mock"
           ? (url: string) => fetchArticle(url, fixtureDeps(now), fixtureAllowed)
           : (url: string) => fetchArticle(url, undefined, isAllowedDomain);
+      const { read, spent } = yield* withReadBudget(pages, PROFILE.maxReads);
       this.logger.log({
         msg: "write started",
         mode,
         date: day,
         edition: edition.id,
         fichas: fichas.length,
+        maxReads: PROFILE.maxReads,
+        models: { select: modelId("select"), write: modelId("write") },
         allowlist: allowedDomains().length,
       });
 
@@ -231,29 +240,66 @@ export class PipelineService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
       const editor: Agent = this.mastra.getAgent("editor");
       const generating =
-        <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
+        <S extends z.ZodType>(step: ModelStep, schema: S): Generate<z.infer<S>> =>
         (text) =>
           Effect.tryPromise({
             try: async () => {
-              const generated = await generateStructured(editor, text, { schema });
+              const generated = await generateStructured(editor, text, {
+                schema,
+                requestContext: modelContext(step),
+              });
               return { object: generated.object, usage: generated.usage };
             },
             catch: (error) => new ItemFailed({ reason: String(error) }),
           });
 
+      // The model's triage over every ficha of the day, before any page is read (ARG-124): the
+      // focus, the impact, the score and the rewrites the signature missed. A mocked run folds the
+      // code's score instead. The code then orders the verdicts, takes as many as the edition holds
+      // plus the reserve, and logs every one of them. No cutoff: the day's best are the day's edition.
+      const published =
+        mode === "mock"
+          ? []
+          : yield* publishedHeadlines(this.prisma, new Date(now.getTime() - REPUBLISH_DAYS * DAY_MS)).pipe(
+              Effect.mapError(failed),
+            );
+      const judged =
+        mode === "mock"
+          ? { triaged: mockTriage(fichas), usage: null }
+          : yield* triage(fichas, published, generating("select", triageAnswerSchema), this.logger).pipe(
+              Effect.mapError((error) => new WriteFailed({ reason: `triage: ${error.reason}` })),
+            );
+      const list = shortlist(judged.triaged, { max: settings.max_articles });
+      for (const { canonicalUrl, codeScore, verdict } of judged.triaged) {
+        this.logger.log({ msg: "ficha triaged", date: day, url: canonicalUrl, codeScore, ...verdict });
+      }
+      const triaged = {
+        fichas: fichas.length,
+        chosen: list.chosen.length,
+        reserve: list.reserve.length,
+        out: list.out.length,
+        sameAs: list.sameAs.length,
+        left: list.left.length,
+      };
+      this.logger.log({ msg: "triage finished", date: day, ...triaged, usage: judged.usage });
+
       // A mocked run writes from the article itself. The step builds one generation per article, so
       // the mock closes over what it is writing about; everything after it is unchanged, schema and
       // transaction included.
-      // The fichas are the pool: one that has no text or fails its two attempts leaves its place to
-      // the next, until the edition is full or the pool runs out.
+      // The chosen ones first, then the reserve: one that has no text or fails its two attempts
+      // leaves its place to the next, until the edition is full or the list runs out.
       const { items, tried } = yield* fillEdition(
-        fichas,
+        list.kept,
         settings.max_articles,
         (ficha) => hydrate(ficha, read, this.logger),
         (candidate) =>
-          writeItem(candidate, mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema), this.logger),
+          writeItem(
+            candidate,
+            mode === "mock" ? mockItem(candidate) : generating("write", writtenItemSchema),
+            this.logger,
+          ),
       );
-      this.logger.log({ msg: "fichas tried", date: day, tried, of: fichas.length });
+      this.logger.log({ msg: "fichas tried", date: day, tried, of: list.kept.length, pagesRead: yield* spent });
       const written = items.filter((item): item is WrittenResult => item.outcome === "written");
 
       const report = (status: WriteReport["status"], header: EditionHeader | null, usage: unknown[]): WriteReport => ({
@@ -261,15 +307,15 @@ export class PipelineService {
         editionId: edition.id,
         status,
         since: since.toISOString(),
-        cutoff: settings.score_cutoff,
         minArticles: settings.min_articles,
         maxArticles: settings.max_articles,
         header,
         items,
         written: written.length,
         rejected: items.length - written.length,
-        usage: sumUsage(usage),
+        usage: sumUsage([judged.usage, ...usage]),
         durationMs: Date.now() - startedAt,
+        triage: triaged,
       });
 
       // Better no edition than a weak one: below the minimum nothing is written and the owners hear
@@ -302,7 +348,7 @@ export class PipelineService {
       const writtenItems = written.map((item) => item.item);
       const header = yield* writeHeader(
         writtenItems,
-        mode === "mock" ? mockHeader(writtenItems, day) : generating(editionHeaderSchema),
+        mode === "mock" ? mockHeader(writtenItems, day) : generating("write", editionHeaderSchema),
         this.logger,
       ).pipe(Effect.mapError(failed));
 

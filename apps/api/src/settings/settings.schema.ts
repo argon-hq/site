@@ -3,7 +3,7 @@ import { PROFILE } from "../pipeline/profile";
 
 // Single source of truth for setting names, types and defaults.
 // A key with a default needs no row in the table; keys without one are seeded by migration.
-// The three that shape the edition take their default from the environment's profile, so lab and a
+// The two that shape the edition take their default from the environment's profile, so lab and a
 // development machine accept a weaker edition than production without anyone setting a row first. A
 // row still wins: it is how an environment says something other than what the profile assumed.
 // Secrets and infrastructure (DATABASE_URL, API keys) never live here: they come from the environment.
@@ -12,7 +12,6 @@ export const settingsSchema = z.object({
   sending_paused: z.boolean().default(false), // kill switch, re-read right before sending
   min_articles: z.number().int().min(1).default(PROFILE.minArticles),
   max_articles: z.number().int().min(1).default(PROFILE.maxArticles),
-  score_cutoff: z.number().min(0).max(5).default(PROFILE.scoreCutoff),
   owner_emails: z.array(z.email()).default([]), // alerted when the pipeline fails
   policy_version: z.string().default(""), // recorded with each consent
   ingest_debug: z.boolean().default(false), // logs every item an ingestion lists, with its decision

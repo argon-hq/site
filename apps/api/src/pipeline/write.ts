@@ -1,12 +1,28 @@
 import type { LoggerService } from "@nestjs/common";
-import { Data, Effect } from "effect";
+import { Data, Effect, Ref } from "effect";
+import { z } from "zod";
 import { dbEffect } from "../effect/db";
 import { CONFLICT, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
 import type { TextKind } from "../generated/prisma/enums";
 import { twoAttempts } from "../mastra/attempts";
 import type { ExtractedArticle } from "../mastra/schemas/article";
+import type { Verdict } from "../mastra/schemas/triage";
 import { BODY_TARGET, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
+
+// Another outlet that told the same fact, as the ingestion stored it on the ficha: where the text
+// comes from when the representative's page is closed.
+export const memberSchema = z.object({
+  url: z.url(),
+  sourceName: z.string(),
+  title: z.string(),
+  textKind: z.enum(["full", "summary", "none"]),
+});
+export type Member = z.infer<typeof memberSchema>;
+
+// Where the text an article is written from came from: the ficha's own feed or page, or a member's
+// page. The edition still links the ficha; the prompt names the outlet the facts were read in.
+export type TextOrigin = { url: string; sourceName: string; via: "feed" | "page" | "member" };
 
 // One article the step may write: a ficha of the ingestion, not yet in another edition, with the
 // text it will be written from.
@@ -17,12 +33,40 @@ export type Candidate = {
   originalTitle: string;
   extractedText: string;
   codeScore: number;
+  // The model's triage, once it has spoken; null before it, and in a mocked run folded from the code.
+  verdict: Verdict | null;
+  textFrom: TextOrigin;
 };
 
-// A ficha as stored: the feed's text, if any, and what kind of text it is.
-export type Ficha = Omit<Candidate, "extractedText"> & { extractedText: string | null; textKind: TextKind | null };
+// A ficha as stored: the feed's text, if any, what kind of text it is, and the group's members.
+export type Ficha = Omit<Candidate, "extractedText" | "textFrom"> & {
+  extractedText: string | null;
+  textKind: TextKind | null;
+  members: Member[];
+};
 
-export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, { _tag: string; reason: string }>;
+export type ReadError = { _tag: string; reason: string };
+export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, ReadError>;
+
+// The run's reads are counted: past `max` the page is not opened and the read fails like a closed
+// one, so the chain falls through to the feed's text. `spent` says how many were used.
+export const withReadBudget = (
+  read: ReadPage,
+  max: number,
+): Effect.Effect<{ read: ReadPage; spent: Effect.Effect<number> }> =>
+  Ref.make(0).pipe(
+    Effect.map((used) => ({
+      read: (url) =>
+        Ref.modify(used, (n) => [n < max, n < max ? n + 1 : n] as const).pipe(
+          Effect.flatMap((allowed) =>
+            allowed
+              ? read(url)
+              : Effect.fail({ _tag: "ReadBudgetSpent", reason: `the run's budget of ${max} page reads is spent` }),
+          ),
+        ),
+      spent: Ref.get(used),
+    })),
+  );
 
 export type ItemResult =
   | { outcome: "written"; id: string; url: string; item: WrittenItem; score: number; usage: unknown }
@@ -79,14 +123,12 @@ export function belowMinimum(p: {
   return p.alreadyWritten ? "keep_previous" : "skip";
 }
 
-// Twice the edition's size, best first: fichas whose text cannot be had drop out and the next
-// ones take their place. Unattached or already part of this edition, so a second run rewrites the
-// same set.
-const FICHA_POOL = 2;
-
+// The day's fichas, best code score first, up to `take`: unattached or already part of this
+// edition, so a second run rewrites the same set. The model's triage reads them all; the pool the
+// writing works from is cut after it (see `shortlist`).
 export const selectFichas = (
   prisma: PrismaClient,
-  p: { editionId: string; since: Date; max: number },
+  p: { editionId: string; since: Date; take: number },
 ): Effect.Effect<Ficha[], WriteDbFailed> =>
   db(() =>
     prisma.article.findMany({
@@ -96,7 +138,7 @@ export const selectFichas = (
         codeScore: { not: null },
       },
       orderBy: [{ codeScore: "desc" }, { publishedAt: "desc" }],
-      take: p.max * FICHA_POOL,
+      take: p.take,
       select: {
         id: true,
         canonicalUrl: true,
@@ -105,31 +147,63 @@ export const selectFichas = (
         extractedText: true,
         textKind: true,
         codeScore: true,
+        groupMembers: true,
       },
     }),
-  ).pipe(Effect.map((rows) => rows.map((row) => ({ ...row, codeScore: row.codeScore ?? 0 }))));
-
-// The text a ficha is written from, until ARG-124 reads the chosen ones: the feed's own when it was
-// the whole article, the page's otherwise, and the feed's lead when the page is closed or has no
-// readable text. A ficha with none of them is left out.
-export const hydrate = (ficha: Ficha, read: ReadPage, logger: LoggerService): Effect.Effect<Candidate | null> => {
-  const withText = (extractedText: string): Candidate => ({ ...ficha, extractedText });
-  if (ficha.textKind === "full" && ficha.extractedText) return Effect.succeed(withText(ficha.extractedText));
-  return read(ficha.canonicalUrl).pipe(
-    Effect.map((page) => withText(page.extractedText)),
-    Effect.catchAll((error) =>
-      Effect.sync(() => {
-        logger.warn({
-          msg: "page read failed",
-          url: ficha.canonicalUrl,
-          reason: `${error._tag}: ${error.reason}`,
-          fallback: ficha.extractedText ? "feed text" : "none",
-        });
-        return ficha.extractedText ? withText(ficha.extractedText) : null;
-      }),
+  ).pipe(
+    Effect.map((rows) =>
+      rows.map(({ groupMembers, ...row }) => ({
+        ...row,
+        codeScore: row.codeScore ?? 0,
+        members: membersOf(groupMembers),
+        verdict: null,
+      })),
     ),
   );
-};
+
+// The members column is JSON the ingestion wrote; a row that does not parse is a ficha with no
+// members, not a failed step.
+export function membersOf(raw: unknown): Member[] {
+  const parsed = memberSchema.array().safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
+
+// The text a ficha is written from: the feed's own when it was the whole article; else the page,
+// and when that one is closed or has no readable text, the next member of the group, in order; else
+// the feed's lead. A ficha with none of them is left out. The run's read budget ends the chain
+// early: past it, no page is opened and the feed's lead is all there is.
+export const hydrate = (ficha: Ficha, read: ReadPage, logger: LoggerService): Effect.Effect<Candidate | null> =>
+  Effect.gen(function* () {
+    const { members, textKind, ...rest } = ficha;
+    const withText = (extractedText: string, textFrom: TextOrigin): Candidate => ({ ...rest, extractedText, textFrom });
+    const own: TextOrigin = { url: ficha.canonicalUrl, sourceName: ficha.sourceName, via: "page" };
+    if (textKind === "full" && ficha.extractedText) return withText(ficha.extractedText, { ...own, via: "feed" });
+
+    const pages: TextOrigin[] = [
+      own,
+      ...members.map((m): TextOrigin => ({ url: m.url, sourceName: m.sourceName, via: "member" })),
+    ];
+    for (const origin of pages) {
+      const page = yield* Effect.either(read(origin.url));
+      if (page._tag === "Right") {
+        if (origin.via === "member") {
+          logger.log({ msg: "text read from a member", url: ficha.canonicalUrl, from: origin.url });
+        }
+        return withText(page.right.extractedText, origin);
+      }
+      const spent = page.left._tag === "ReadBudgetSpent";
+      const last = spent || origin === pages.at(-1);
+      logger.warn({
+        msg: "page read failed",
+        url: ficha.canonicalUrl,
+        page: origin.url,
+        reason: `${page.left._tag}: ${page.left.reason}`,
+        fallback: last ? (ficha.extractedText ? "feed text" : "none") : "next member",
+      });
+      if (spent) break;
+    }
+    return ficha.extractedText ? withText(ficha.extractedText, { ...own, via: "feed" }) : null;
+  });
 
 // The edition from the pool, best first. Each round takes as many fichas as the edition still lacks,
 // gives them their text and writes them; a ficha with no text, or whose item is rejected twice,
@@ -166,7 +240,7 @@ export function itemPrompt(article: Candidate): string {
     "Escreva o item desta notícia, e só dela.",
     `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
     `Corpo: até ${BODY_TARGET} caracteres, contando espaços.`,
-    `Fonte: ${article.sourceName}`,
+    `Fonte: ${article.textFrom.sourceName}`,
     `Título original: ${article.originalTitle}`,
     "--- notícia ---",
     article.extractedText,
@@ -200,7 +274,8 @@ export const writeItem = (
         ({
           outcome: "written",
           id: article.id,
-          score: article.codeScore,
+          // The model's score orders the edition; the code's only until the model has spoken.
+          score: article.verdict?.score ?? article.codeScore,
           url: article.canonicalUrl,
           item: generated.object,
           usage: generated.usage ?? null,
@@ -238,7 +313,7 @@ export const saveEdition = (
         where: { editionId: p.editionId },
         data: { editionId: null, category: null, headline: null, body: null },
       }),
-      // The score an article joins with is the ingestion's until the model's triage gives its own.
+      // The score an article joins with is the model's triage, on the 0–5 scale the edition is ordered by.
       ...p.written.map(({ id, item, score }) =>
         prisma.article.update({
           where: { id },

@@ -1,4 +1,5 @@
 import type { Agent } from "@mastra/core/agent";
+import { RequestContext } from "@mastra/core/request-context";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { generateStructured, NothingToShape } from "./generate";
@@ -47,6 +48,17 @@ describe("generateStructured", () => {
     expect(calls[1]?.options.maxSteps).toBe(1);
     // The shaping call reads the working call's answer, so nothing is researched twice.
     expect(calls[1]?.prompt).toContain(working.text);
+  });
+
+  it("carries the request context into both halves, so a step's model is the step's on each", async () => {
+    const { agent, calls } = fakeAgent([working, shaping]);
+    const requestContext = new RequestContext<{ step: string }>();
+    requestContext.set("step", "select");
+
+    await generateStructured(agent, "selecione", { schema, requestContext });
+
+    expect(calls[0]?.options.requestContext).toBe(requestContext);
+    expect(calls[1]?.options.requestContext).toBe(requestContext);
   });
 
   it("returns the shaped object and charges for both halves", async () => {
