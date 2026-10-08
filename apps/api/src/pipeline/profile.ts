@@ -32,14 +32,14 @@ export const PROFILES: Record<Deployment, Profile> = {
     mode: "live",
     maxTextChars: 12_000,
     maxReads: 12,
-    minArticles: 3,
+    minArticles: 1,
     maxArticles: 6,
   },
   dev: {
     mode: "live",
     maxTextChars: 6_000,
     maxReads: 8,
-    minArticles: 2,
+    minArticles: 1,
     maxArticles: 4,
   },
   lab: {
