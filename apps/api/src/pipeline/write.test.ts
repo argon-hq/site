@@ -2,7 +2,14 @@ import type { LoggerService } from "@nestjs/common";
 import { Effect, Exit, Struct } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
-import { BODY_TARGET, SUBJECT_MAX, type WrittenItem } from "../mastra/schemas/edition";
+import {
+  BODY_MIN,
+  BODY_TARGET,
+  HEADLINE_MAX,
+  SUBJECT_MAX,
+  TITLE_MAX,
+  type WrittenItem,
+} from "../mastra/schemas/edition";
 import {
   belowMinimum,
   headerPrompt,
@@ -95,14 +102,18 @@ describe("prompts", () => {
   it("carries the limits from the code and names the skill", () => {
     const prompt = itemPrompt(candidate);
     expect(prompt).toContain('skill "write"');
+    expect(prompt).toContain(String(BODY_MIN));
     expect(prompt).toContain(String(BODY_TARGET));
+    expect(prompt).toContain(String(HEADLINE_MAX));
     expect(prompt).toContain("economy");
     expect(prompt).toContain(candidate.extractedText);
   });
 
-  it("gives the header the written items in edition order", () => {
+  it("gives the header the written items in edition order, the lead story first", () => {
     const prompt = headerPrompt([item, { ...item, headline: "Segunda manchete" }]);
     expect(prompt).toContain(String(SUBJECT_MAX));
+    expect(prompt).toContain(String(TITLE_MAX));
+    expect(prompt).toContain("principal");
     expect(prompt.indexOf("Copom")).toBeLessThan(prompt.indexOf("Segunda manchete"));
   });
 });

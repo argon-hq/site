@@ -2,7 +2,9 @@ import { Effect } from "effect";
 import { fixtureWrittenLength } from "../ingest/fixtures";
 import {
   BODY_TARGET,
+  HEADLINE_MAX,
   SUBJECT_MAX,
+  TITLE_MAX,
   writtenItemSchema,
   type EditionHeader,
   type WrittenItem,
@@ -40,15 +42,15 @@ function sized(text: string, length: number): string {
     .padEnd(length - 1, ".")}.`;
 }
 
-// The answer goes through the same schema a real generation meets, so a paragraph over the ceiling
-// is rejected twice and the article leaves the edition, as it would with the model.
+// The answer goes through the same schema a real generation meets, so a paragraph over the ceiling,
+// or under the minimum, is rejected twice and the article leaves the edition, as it would with the model.
 export const mockItem =
   (article: Candidate): Generate<WrittenItem> =>
   () => {
     const length = fixtureWrittenLength(article.canonicalUrl);
     const answer = {
       category: MOCK_CATEGORY,
-      headline: trimTo(article.originalTitle, 120),
+      headline: trimTo(article.originalTitle, HEADLINE_MAX),
       body: length ? sized(article.extractedText, length) : trimTo(article.extractedText, BODY_TARGET),
     };
     const parsed = writtenItemSchema.safeParse(answer);
@@ -64,7 +66,7 @@ export const mockHeader =
   () =>
     Effect.succeed({
       object: {
-        title: trimTo(`Edição de ${day}`, 80),
+        title: trimTo(`Edição de ${day}`, TITLE_MAX),
         subject: trimTo(items[0]?.headline ?? `Edição de ${day}`, SUBJECT_MAX),
       },
       usage: undefined,

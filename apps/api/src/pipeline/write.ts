@@ -8,7 +8,16 @@ import type { TextKind } from "../generated/prisma/enums";
 import { twoAttempts } from "../mastra/attempts";
 import type { ExtractedArticle } from "../mastra/schemas/article";
 import type { Verdict } from "../mastra/schemas/triage";
-import { BODY_TARGET, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
+import {
+  BODY_MIN,
+  BODY_TARGET,
+  CATEGORIES,
+  HEADLINE_MAX,
+  SUBJECT_MAX,
+  TITLE_MAX,
+  type EditionHeader,
+  type WrittenItem,
+} from "../mastra/schemas/edition";
 
 // Another outlet that told the same fact, as the ingestion stored it on the ficha: where the text
 // comes from when the representative's page is closed.
@@ -239,7 +248,8 @@ export function itemPrompt(article: Candidate): string {
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
     "Escreva o item desta notícia, e só dela.",
     `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
-    `Corpo: até ${BODY_TARGET} caracteres, contando espaços.`,
+    `Manchete: até ${HEADLINE_MAX} caracteres.`,
+    `Corpo: de ${BODY_MIN} a ${BODY_TARGET} caracteres, contando espaços.`,
     `Fonte: ${article.textFrom.sourceName}`,
     `Título original: ${article.originalTitle}`,
     "--- notícia ---",
@@ -251,7 +261,8 @@ export function itemPrompt(article: Candidate): string {
 export function headerPrompt(items: WrittenItem[]): string {
   return [
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
-    "Escreva o título e o assunto do e-mail da edição de hoje, a partir das notícias abaixo.",
+    "Escreva o título e o assunto do e-mail da edição de hoje. A primeira notícia abaixo é a principal do dia.",
+    `Título: até ${TITLE_MAX} caracteres, contando espaços.`,
     `Assunto: até ${SUBJECT_MAX} caracteres, contando espaços.`,
     "--- notícias, na ordem da edição ---",
     ...items.map((item, index) => `${index + 1}. [${CATEGORIES[item.category]}] ${item.headline}\n${item.body}`),

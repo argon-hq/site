@@ -55,6 +55,12 @@ describe("the mocked writing", () => {
     expect(JSON.stringify(over)).toContain("body");
   });
 
+  it("rejects a paragraph under the minimum, as the schema would the model's", async () => {
+    const thin = await Effect.runPromiseExit(mockItem(article({ extractedText: "Crédito cresce 12%." }))("x"));
+    expect(Exit.isFailure(thin)).toBe(true);
+    expect(JSON.stringify(thin)).toContain("body");
+  });
+
   it("keeps a headline inside the limit even when the title is long", async () => {
     const long = article({ originalTitle: "Palavra ".repeat(40) });
     const written = await Effect.runPromise(mockItem(long)("ignored"));
