@@ -104,9 +104,11 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   the run, for the step that failed, and each per-step route — never inside a step, where a retry would mail the owners
   once per attempt.
   `profile.ts` is what an environment is willing to pay: `ARGON_ENV` (`local | lab | dev | prod`) picks one row of a
-  table in code — the model, how long the text may be, and the defaults for the cutoff and the article bounds.
-  Production runs the agent on Sonnet; dev runs it on Haiku, reading less and accepting a weaker edition; lab and a
-  development machine run **over a fixture**, with no model and no network at all. The dials
+  table in code — how long the text may be, how many pages a run may open, and the defaults for the article bounds.
+  The model is not a dial of the profile: every environment runs Haiku on both steps, and `MODEL_SELECT` and
+  `MODEL_WRITE` change one step without the other (`src/mastra/models.ts`; the Editor reads the step from the request
+  context of each call). Dev reads less and accepts a weaker edition than production; lab and a development machine
+  run **over a fixture**, with no model and no network at all. The dials
   are not rules: what an edition may contain stays in `rules.ts` and is the same everywhere. `POST /pipeline/run
 {"mode":"live"}` pays for a real run in lab or locally without a deploy, and production refuses `mock` whoever asks.
   A mocked run swaps only where the news comes from (`src/ingest/mode.ts`) and who writes it (`write-mock.ts`); the
@@ -145,7 +147,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
 - `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; what shapes
-  the edition — `score_cutoff`, `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
+  the edition — `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
   something other than what the profile assumed, and `PATCH /settings { key, value }` is how it is written (`GET
 /settings` reads the table as the pipeline sees it, defaults included). The rest: `SettingsService.load()` reads the table into the typed object (the pipeline loads once per run), `get(key)` re-reads one key, `set(key, value)` is the only write path and validates first. Secrets stay in the environment; template copy and theme stay in code.

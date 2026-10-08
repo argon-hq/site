@@ -1,6 +1,6 @@
 import path from "node:path";
 import { Agent } from "@mastra/core/agent";
-import { modelFor } from "../models";
+import { modelOf } from "../models";
 import { editorInstructions } from "../prompts/editor";
 import { readPage } from "../tools/read-page";
 import { mastraDir } from "../paths";
@@ -17,7 +17,7 @@ export const editor = new Agent({
   id: "editor",
   name: "Editor",
   instructions: editorInstructions,
-  model: modelFor("editor"),
+  model: modelOf,
   tools: { read_page: readPage },
   skills: [path.join(skillsDir, "select"), path.join(skillsDir, "write")],
 });

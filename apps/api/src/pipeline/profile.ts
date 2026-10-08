@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 // Where this process is running. The four environments share one code base and one pipeline; what
-// changes is how much a run is allowed to cost. Everything below is a dial, never a rule: what an
+// changes is how much a run is allowed to cost. The model is not one of these: every environment
+// runs the same one, per step, from `mastra/models.ts`. Everything below is a dial, never a rule: what an
 // edition may contain lives in `rules.ts` and is the same everywhere.
 export const deploymentSchema = z.enum(["local", "lab", "dev", "prod"]);
 export type Deployment = z.infer<typeof deploymentSchema>;
@@ -12,7 +13,6 @@ export type Mode = "live" | "mock";
 
 export type Profile = {
   mode: Mode;
-  model: string;
   // The longest page text the writing step works from. The news is listed by code, for free; the
   // model pays for every character it reads.
   maxTextChars: number;
@@ -21,7 +21,6 @@ export type Profile = {
   // ficha. Twice the edition is enough for a paywall or two; more is a run reading the whole web.
   maxReads: number;
   // Defaults of the settings that shape the edition. A row in the settings table still wins.
-  scoreCutoff: number;
   minArticles: number;
   maxArticles: number;
 };
@@ -31,44 +30,36 @@ export type Profile = {
 export const PROFILES: Record<Deployment, Profile> = {
   prod: {
     mode: "live",
-    model: "claude-sonnet-5",
     maxTextChars: 12_000,
     maxReads: 12,
-    scoreCutoff: 3,
     minArticles: 3,
     maxArticles: 6,
   },
   dev: {
     mode: "live",
-    model: "claude-haiku-4-5-20251001",
     maxTextChars: 6_000,
     maxReads: 8,
-    scoreCutoff: 2,
     minArticles: 2,
     maxArticles: 4,
   },
   lab: {
     mode: "mock",
-    model: "claude-haiku-4-5-20251001",
     maxTextChars: 4_000,
     maxReads: 6,
-    scoreCutoff: 2,
     minArticles: 1,
     maxArticles: 3,
   },
   local: {
     mode: "mock",
-    model: "claude-haiku-4-5-20251001",
     maxTextChars: 4_000,
     maxReads: 6,
-    scoreCutoff: 2,
     minArticles: 1,
     maxArticles: 3,
   },
 };
 
 // Read at import, not by injection: the tools have no Nest around them, the same reason `models.ts`
-// reads MODEL_<AGENT> from the environment.
+// reads MODEL_<STEP> from the environment.
 // An unknown value is refused here, in the same words `loadConfig` would use — this runs first,
 // while the modules are still loading, so its message is the one that gets seen; a missing one is
 // a development machine.

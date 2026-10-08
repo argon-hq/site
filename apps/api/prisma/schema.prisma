@@ -2,15 +2,13 @@
 // Rules Prisma cannot express (check constraints, triggers, seed rows) live in the migration SQL.
 
 generator client {
-  provider        = "prisma-client"
-  output          = "../src/generated/prisma"
-  moduleFormat    = "cjs"
-  previewFeatures = ["postgresqlExtensions"]
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [vector]
+  provider = "postgresql"
 }
 
 enum SubscriberStatus {
@@ -105,27 +103,26 @@ model Subscriber {
 }
 
 model Article {
-  id             String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  editionId      String?                      @map("edition_id") @db.Uuid // null until selected
-  canonicalUrl   String                       @unique @map("canonical_url") // identity and link
-  sourceId       String?                      @map("source_id") @db.Uuid // null for articles from before ARG-123
-  sourceName     String                       @map("source_name")
-  originalTitle  String                       @map("original_title")
-  extractedText  String?                      @map("extracted_text") // feed or page text; cleared once sent
-  textKind       TextKind?                    @map("text_kind") // what the feed carried
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  editionId      String?          @map("edition_id") @db.Uuid // null until selected
+  canonicalUrl   String           @unique @map("canonical_url") // identity and link
+  sourceId       String?          @map("source_id") @db.Uuid // null for articles from before ARG-123
+  sourceName     String           @map("source_name")
+  originalTitle  String           @map("original_title")
+  extractedText  String?          @map("extracted_text") // feed or page text; cleared once sent
+  textKind       TextKind?        @map("text_kind") // what the feed carried
   origin         FeedKind? // the kind of address that listed it
-  publishedAt    DateTime?                    @map("published_at") @db.Timestamptz
-  codeScore      Int?                         @map("code_score") // the ingestion's triage; signals in score_details
-  groupMembers   Json                         @default("[]") @map("group_members") // same fact elsewhere, by relevance
-  titleSignature Int[]                        @default([]) @map("title_signature") // MinHash; emptied after 3 days
+  publishedAt    DateTime?        @map("published_at") @db.Timestamptz
+  codeScore      Int?             @map("code_score") // the ingestion's triage; signals in score_details
+  groupMembers   Json             @default("[]") @map("group_members") // same fact elsewhere, by relevance
+  titleSignature Int[]            @default([]) @map("title_signature") // MinHash; emptied after 3 days
   category       ArticleCategory?
-  embedding      Unsupported("vector(1536)")? // dedup by similarity
-  score          Decimal?                     @db.Decimal(5, 2) // set on selection, frozen once sent
-  scoreDetails   Json?                        @map("score_details")
+  score          Decimal?         @db.Decimal(5, 2) // set on selection, frozen once sent
+  scoreDetails   Json?            @map("score_details")
   headline       String?
   body           String? // up to 272 characters (check constraint)
-  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   edition Edition? @relation(fields: [editionId], references: [id])
   source  Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)

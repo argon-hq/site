@@ -55,6 +55,7 @@ export async function generateStructured<S extends z.ZodType, C>(
   });
 
   const shaped = await agent.generate(`${SHAPE_REQUEST}${worked.text ?? ""}`, {
+    ...(requestContext ? { requestContext } : {}),
     structuredOutput: { schema },
     toolChoice: "none",
     maxSteps: 1,

@@ -16,6 +16,7 @@ import { ingest, type IngestReport } from "../ingest/ingest";
 import { ingestWorld } from "../ingest/mode";
 import { MAX_FICHAS, REPUBLISH_DAYS } from "../ingest/triage";
 import { triageAnswerSchema } from "../mastra/schemas/triage";
+import { modelContext, modelId, type ModelStep } from "../mastra/models";
 import { fetchArticle } from "../mastra/tools/read-page";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
 import { MailService } from "../mail/mail.service";
@@ -229,6 +230,7 @@ export class PipelineService {
         edition: edition.id,
         fichas: fichas.length,
         maxReads: PROFILE.maxReads,
+        models: { select: modelId("select"), write: modelId("write") },
         allowlist: allowedDomains().length,
       });
 
@@ -238,11 +240,14 @@ export class PipelineService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
       const editor: Agent = this.mastra.getAgent("editor");
       const generating =
-        <S extends z.ZodType>(schema: S): Generate<z.infer<S>> =>
+        <S extends z.ZodType>(step: ModelStep, schema: S): Generate<z.infer<S>> =>
         (text) =>
           Effect.tryPromise({
             try: async () => {
-              const generated = await generateStructured(editor, text, { schema });
+              const generated = await generateStructured(editor, text, {
+                schema,
+                requestContext: modelContext(step),
+              });
               return { object: generated.object, usage: generated.usage };
             },
             catch: (error) => new ItemFailed({ reason: String(error) }),
@@ -261,7 +266,7 @@ export class PipelineService {
       const judged =
         mode === "mock"
           ? { triaged: mockTriage(fichas), usage: null }
-          : yield* triage(fichas, published, generating(triageAnswerSchema), this.logger).pipe(
+          : yield* triage(fichas, published, generating("select", triageAnswerSchema), this.logger).pipe(
               Effect.mapError((error) => new WriteFailed({ reason: `triage: ${error.reason}` })),
             );
       const list = shortlist(judged.triaged, { max: settings.max_articles });
@@ -288,7 +293,11 @@ export class PipelineService {
         settings.max_articles,
         (ficha) => hydrate(ficha, read, this.logger),
         (candidate) =>
-          writeItem(candidate, mode === "mock" ? mockItem(candidate) : generating(writtenItemSchema), this.logger),
+          writeItem(
+            candidate,
+            mode === "mock" ? mockItem(candidate) : generating("write", writtenItemSchema),
+            this.logger,
+          ),
       );
       this.logger.log({ msg: "fichas tried", date: day, tried, of: list.kept.length, pagesRead: yield* spent });
       const written = items.filter((item): item is WrittenResult => item.outcome === "written");
@@ -339,7 +348,7 @@ export class PipelineService {
       const writtenItems = written.map((item) => item.item);
       const header = yield* writeHeader(
         writtenItems,
-        mode === "mock" ? mockHeader(writtenItems, day) : generating(editionHeaderSchema),
+        mode === "mock" ? mockHeader(writtenItems, day) : generating("write", editionHeaderSchema),
         this.logger,
       ).pipe(Effect.mapError(failed));
 
