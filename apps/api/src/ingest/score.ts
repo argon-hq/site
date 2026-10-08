@@ -5,8 +5,7 @@ import { FOREIGN, NOISE, normalize, SECTION_POINTS, TITLE_RULES } from "./triage
 export type Signal = { signal: string; points: number };
 
 export type Scored =
-  | { outcome: "scored"; score: number; signals: Signal[] }
-  | { outcome: "discarded"; reason: string; signals: Signal[] };
+  { outcome: "scored"; score: number; signals: Signal[] } | { outcome: "discarded"; reason: string; signals: Signal[] };
 
 export type ScoreInput = {
   title: string;

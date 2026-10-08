@@ -52,7 +52,8 @@ export const NOISE: readonly Omit<Rule, "points">[] = [
   // Personal finance: what an investor should do with their money is not what a business decides.
   {
     signal: "personal_finance",
-    pattern: /\b(investidor(es|a|as)?|tesouro direto|renda fixa|ipca\+|cdbs?|lcis?|lcas?|como investir|onde investir|vale a pena investir|carteira de investimentos?)\b/,
+    pattern:
+      /\b(investidor(es|a|as)?|tesouro direto|renda fixa|ipca\+|cdbs?|lcis?|lcas?|como investir|onde investir|vale a pena investir|carteira de investimentos?)\b/,
   },
   // "Turno" alone is any story of election week ("a cinco dias do primeiro turno"); it is a poll
   // only next to one.
