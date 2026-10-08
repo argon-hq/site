@@ -5,7 +5,8 @@ import { FOREIGN, NOISE, normalize, SECTION_POINTS, TITLE_RULES } from "./triage
 export type Signal = { signal: string; points: number };
 
 export type Scored =
-  { outcome: "scored"; score: number; signals: Signal[] } | { outcome: "discarded"; reason: string; signals: Signal[] };
+  | { outcome: "scored"; score: number; signals: Signal[] }
+  | { outcome: "discarded"; reason: string; signals: Signal[] };
 
 export type ScoreInput = {
   title: string;
@@ -28,10 +29,15 @@ export function scoreItem(input: ScoreInput): Scored {
   const signals: Signal[] = [];
   const sectionPoints = SECTION_POINTS[section.tier];
   if (sectionPoints !== 0) signals.push({ signal: `section_${section.tier}`, points: sectionPoints });
-  for (const rule of TITLE_RULES)
-    if (rule.pattern.test(title)) signals.push({ signal: rule.signal, points: rule.points });
-  if (FOREIGN.foreign.test(title) && !FOREIGN.brazil.test(title))
+  for (const rule of TITLE_RULES) {
+    // A rule with `requires` counts only when the title also carries what it requires.
+    if (rule.pattern.test(title) && (!rule.requires || rule.requires.test(title))) {
+      signals.push({ signal: rule.signal, points: rule.points });
+    }
+  }
+  if (FOREIGN.foreign.test(title) && !FOREIGN.brazil.test(title)) {
     signals.push({ signal: FOREIGN.signal, points: FOREIGN.points });
+  }
 
   return { outcome: "scored", score: total(signals), signals };
 }

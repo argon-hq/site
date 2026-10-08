@@ -46,7 +46,11 @@ describe("ingest over the fixture", () => {
     expect(report.fichas).toBe(store.fichas.length);
     expect(report.fichas).toBeGreaterThanOrEqual(8);
     const titles = store.fichas.map((f) => f.title);
-    expect(titles[0]).toBe("Crédito para pequenas empresas cresce 12% no trimestre");
+    expect(titles).toContain("Plataforma de IA para pequenas empresas automatiza cobrança");
+    expect(titles).not.toContain("Juros futuros recuam com dados de inflação");
+    // The Copom pair names its business effect in two outlets and leads; the credit story is next.
+    expect(titles[0]).toMatch(/^Copom mantém a Selic/);
+    expect(titles[1]).toBe("Crédito para pequenas empresas cresce 12% no trimestre");
     expect(titles).not.toContain("Feira de artesanato reúne expositores no fim de semana");
     expect(titles).not.toContain("Ibovespa fecha em alta de 0,8% puxado por bancos");
     expect(titles).not.toContain("Banco central da Austrália eleva juros pela segunda vez");

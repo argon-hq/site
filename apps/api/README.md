@@ -183,8 +183,8 @@ curl -X PATCH http://localhost:3001/sources/exame.com -H "x-internal-secret: $IN
 
 ```text
 run 7d0c… (dry run) — 2026-09-30T08:30:00.000Z, window from 2026-09-29T08:30:00.000Z
-5 sources, 24 listed, 20 in the window, 15 candidates, 13 groups
-0 fichas stored, 0 already there, 4 below the cutoff, 0 over the cap, 1 late copies
+5 sources, 26 listed, 22 in the window, 17 candidates, 15 groups
+0 fichas stored, 0 already there, 5 below the cutoff, 0 over the cap, 1 late copies
 failed sources: fonte-fora-do-ar.test
 == addresses
 source                  ok    status  listed  inWindow  candidates  dropped                      error
@@ -194,7 +194,7 @@ portal-exemplo.test     ok    200     8       6         4           discarded:2 
 fonte-fora-do-ar.test   FAIL  503     0       0         0                                        FetchFailed: HTTP 503
 == groups (fichas first)
 outcome       score  source              also               title
-ficha         8      Diário Fictício                        Crédito para pequenas empresas cresce 12% no trimestre
+ficha         9      Agência Inventada   Diário Fictício  Copom mantém a Selic e o crédito às empresas segue caro
 ```
 
 ## Studio
