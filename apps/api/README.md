@@ -45,9 +45,10 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   triages them all in one generation, before any page is read (`triage.ts`, ARG-124): a focus class — business and
   technology are the core, the market only next to a named business effect, the rest is out — an impact and a score
   from 0 to 5, a one-line reason, and `sameAs` for the rewrites the title signature missed, checked against the
-  headlines of the last three days. The code then cuts by `score_cutoff`, orders by the model's score with the code's
-  as the tie-break, and keeps twice as many as the edition holds; a mocked run folds the code's score instead of asking
-  a model. Every verdict goes to the log. A ficha whose feed did not carry the whole article is read from its page; when that one is
+  headlines of the last three days. The code then orders by the model's score with the code's as the tie-break and
+  takes as many as the edition holds, plus a reserve of two for a page that will not open or an item rejected twice;
+  no cutoff — the day's best are the day's edition, and a thin day is `min_articles`'s business. A mocked run folds
+  the code's score instead of asking a model. Every verdict goes to the log. A ficha whose feed did not carry the whole article is read from its page; when that one is
   closed or has no readable text, from the next member of its group, in order; and when none opens, from the feed's lead.
   A ficha with no text at all is left out. The run opens at most `maxReads` pages (`profile.ts`); past that, the feed's
   text is all there is. The edition links the ficha either way; the prompt names the outlet the text was read in. The Editor loads the

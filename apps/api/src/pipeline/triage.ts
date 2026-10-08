@@ -8,9 +8,9 @@ import type { Ficha, Generate } from "./write";
 
 // The model's triage of the day's fichas (ARG-124): one generation over the whole list, before any
 // page is read, giving each ficha a focus class, an impact and a score, and naming the rewrites the
-// title signature missed. The code keeps what it always kept — the cutoff, the pool, the order —
-// and the model judges what the code cannot: whether the fact is the newsletter's and how much it
-// matters. The classes come from `schemas/triage.ts`; the craft from the `select` skill.
+// title signature missed. The code keeps the order and the count — the edition takes the top of
+// the model's ranking, with a short reserve behind it — and the model judges what the code cannot:
+// whether the fact is the newsletter's and how much it matters. The classes come from `schemas/triage.ts`; the craft from the `select` skill.
 
 export class TriageFailed extends Data.TaggedError("TriageFailed")<{ reason: string }> {}
 export class TriageDbFailed extends Data.TaggedError("TriageDbFailed")<{ reason: string }> {}
@@ -19,9 +19,11 @@ export class TriageDbFailed extends Data.TaggedError("TriageDbFailed")<{ reason:
 // read later, for the ones that pass.
 export const LEAD_CHARS = 320;
 
-// How many fichas the writing works from once the model has spoken: twice the edition, so a ficha
-// whose text cannot be had leaves its place to the next one.
-export const SHORTLIST_POOL = 2;
+// How many fichas follow the chosen ones into the writing, in order: a chosen ficha whose text
+// cannot be had, or whose item is rejected twice, leaves its place to the first of these. Two is
+// enough for a paywall and a bad generation on the same morning; more would be pages read for
+// nothing.
+export const RESERVE = 2;
 
 export type Triaged = Ficha & { verdict: Verdict };
 
@@ -97,25 +99,28 @@ export const triage = (
   );
 
 export type Shortlist = {
+  // The chosen ones, then the reserve, in the order the writing tries them.
   kept: Triaged[];
+  chosen: Triaged[];
+  reserve: Triaged[];
   out: Triaged[];
   sameAs: Triaged[];
-  belowCutoff: Triaged[];
-  overPool: Triaged[];
+  left: Triaged[];
 };
 
-// What the code decides after the model spoke: out of focus and the same story go first, then the
-// cutoff, then the order — the model's score, the code's score to break ties — and the pool.
-export function shortlist(triaged: readonly Triaged[], p: { cutoff: number; max: number }): Shortlist {
+// What the code decides after the model spoke: out of focus and the same story go first; the rest
+// is ordered — the model's score, the code's score to break ties — and the edition takes the first
+// `max`, with the next ones as the reserve. No cutoff: the day's best are the day's edition, and a
+// thin day is `min_articles`'s business, not this list's.
+export function shortlist(triaged: readonly Triaged[], p: { max: number }): Shortlist {
   const out = triaged.filter((t) => t.verdict.focus === "out");
   const sameAs = triaged.filter((t) => t.verdict.focus !== "out" && t.verdict.sameAs !== undefined);
-  const judged = triaged.filter((t) => t.verdict.focus !== "out" && t.verdict.sameAs === undefined);
-  const belowCutoff = judged.filter((t) => t.verdict.score < p.cutoff);
-  const passing = judged
-    .filter((t) => t.verdict.score >= p.cutoff)
+  const ordered = triaged
+    .filter((t) => t.verdict.focus !== "out" && t.verdict.sameAs === undefined)
     .sort((a, b) => b.verdict.score - a.verdict.score || b.codeScore - a.codeScore);
-  const pool = p.max * SHORTLIST_POOL;
-  return { kept: passing.slice(0, pool), overPool: passing.slice(pool), out, sameAs, belowCutoff };
+  const chosen = ordered.slice(0, p.max);
+  const reserve = ordered.slice(p.max, p.max + RESERVE);
+  return { kept: [...chosen, ...reserve], chosen, reserve, out, sameAs, left: ordered.slice(p.max + RESERVE) };
 }
 
 // The triage without a model: the code's prior, folded into the model's scale, every ficha in

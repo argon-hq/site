@@ -65,7 +65,6 @@ export type WriteReport = {
   editionId: string;
   status: "written" | "skipped";
   since: string;
-  cutoff: number;
   minArticles: number;
   maxArticles: number;
   header: EditionHeader | null;
@@ -75,7 +74,7 @@ export type WriteReport = {
   usage: Record<string, number>;
   durationMs: number;
   // What the model's triage did with the day's fichas before any page was read.
-  triage: { fichas: number; kept: number; out: number; sameAs: number; belowCutoff: number; overPool: number };
+  triage: { fichas: number; chosen: number; reserve: number; out: number; sameAs: number; left: number };
 };
 
 export type BuildReport = {
@@ -251,8 +250,8 @@ export class PipelineService {
 
       // The model's triage over every ficha of the day, before any page is read (ARG-124): the
       // focus, the impact, the score and the rewrites the signature missed. A mocked run folds the
-      // code's score instead. The code then does what it always did — the cutoff, the order, the
-      // pool — over the verdicts, and logs every one of them.
+      // code's score instead. The code then orders the verdicts, takes as many as the edition holds
+      // plus the reserve, and logs every one of them. No cutoff: the day's best are the day's edition.
       const published =
         mode === "mock"
           ? []
@@ -265,25 +264,25 @@ export class PipelineService {
           : yield* triage(fichas, published, generating(triageAnswerSchema), this.logger).pipe(
               Effect.mapError((error) => new WriteFailed({ reason: `triage: ${error.reason}` })),
             );
-      const list = shortlist(judged.triaged, { cutoff: settings.score_cutoff, max: settings.max_articles });
+      const list = shortlist(judged.triaged, { max: settings.max_articles });
       for (const { canonicalUrl, codeScore, verdict } of judged.triaged) {
         this.logger.log({ msg: "ficha triaged", date: day, url: canonicalUrl, codeScore, ...verdict });
       }
       const triaged = {
         fichas: fichas.length,
-        kept: list.kept.length,
+        chosen: list.chosen.length,
+        reserve: list.reserve.length,
         out: list.out.length,
         sameAs: list.sameAs.length,
-        belowCutoff: list.belowCutoff.length,
-        overPool: list.overPool.length,
+        left: list.left.length,
       };
       this.logger.log({ msg: "triage finished", date: day, ...triaged, usage: judged.usage });
 
       // A mocked run writes from the article itself. The step builds one generation per article, so
       // the mock closes over what it is writing about; everything after it is unchanged, schema and
       // transaction included.
-      // The shortlist is the pool: one that has no text or fails its two attempts leaves its place to
-      // the next, until the edition is full or the pool runs out.
+      // The chosen ones first, then the reserve: one that has no text or fails its two attempts
+      // leaves its place to the next, until the edition is full or the list runs out.
       const { items, tried } = yield* fillEdition(
         list.kept,
         settings.max_articles,
@@ -299,7 +298,6 @@ export class PipelineService {
         editionId: edition.id,
         status,
         since: since.toISOString(),
-        cutoff: settings.score_cutoff,
         minArticles: settings.min_articles,
         maxArticles: settings.max_articles,
         header,

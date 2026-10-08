@@ -8,7 +8,7 @@ export const focusSchema = z.enum(FOCUS);
 export type Focus = z.infer<typeof focusSchema>;
 
 // The scale of the selection, as the architecture decided: 0 to 5, the same the edition is ordered
-// by and `score_cutoff` is measured in.
+// by.
 export const SCORE_MAX = 5;
 const scoreSchema = z.number().int().min(0).max(SCORE_MAX);
 

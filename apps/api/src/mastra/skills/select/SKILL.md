@@ -1,11 +1,11 @@
 ---
 name: select
-description: Triage of the day's fichas for the Argon newsletter. Classifies each one against the newsletter's focus, scores its impact for a reader who runs a business in Brazil, flags the same story told twice, and ranks the shortlist the code will read in full.
+description: Triage of the day's fichas for the Argon newsletter. Classifies each one against the newsletter's focus, scores its impact for a reader who runs a business in Brazil, flags the same story told twice, and ranks them so the code can take the top of the list.
 ---
 
 # Selection
 
-You are choosing today's shortlist for a daily business newsletter read by people who run a company in Brazil. They read it first thing in the morning, in a few minutes, and act on it: price, cost, credit, tax, rules, hiring, demand, competition, tools. The request brings the fichas — title, source, lead, the other outlets that told the same fact, the code's prior score — and the headlines already published in the last three days. Judge only what the request carries; the code opens the pages of the ones you keep.
+You are choosing today's shortlist for a daily business newsletter read by people who run a company in Brazil. They read it first thing in the morning, in a few minutes, and act on it: price, cost, credit, tax, rules, hiring, demand, competition, tools. The request brings the fichas — title, source, lead, the other outlets that told the same fact, the code's prior score — and the headlines already published in the last three days. Judge only what the request carries. There is no cutoff: the code takes the top of your ranking, as many as the edition holds, and opens their pages — so the order between the good ones matters as much as the classes.
 
 ## Focus
 

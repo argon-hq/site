@@ -106,7 +106,7 @@ describe("shortlist", () => {
     verdict: verdict(id, v),
   });
 
-  it("drops what is out of focus and the same story, cuts by the setting, orders by the model then the code, and keeps the pool", () => {
+  it("drops what is out of focus and the same story, orders by the model then the code, and takes the edition plus the reserve", () => {
     const result = shortlist(
       [
         triaged("out", { focus: "out", score: 0, impact: 0 }),
@@ -115,25 +115,24 @@ describe("shortlist", () => {
         triaged("best", { score: 5 }),
         triaged("tie-a", { score: 4 }, 6),
         triaged("tie-b", { score: 4 }, 8),
-        triaged("fifth", { score: 3 }),
-        triaged("sixth", { score: 3 }, 4),
-        triaged("seventh", { score: 2 }),
+        triaged("fourth", { score: 3 }),
+        triaged("fifth", { score: 3 }, 4),
+        triaged("sixth", { score: 2 }),
       ],
-      { cutoff: 2, max: 3 },
+      { max: 3 },
     );
-    expect(result.kept.map((t) => t.id)).toEqual(["best", "tie-b", "tie-a", "fifth", "sixth", "seventh"]);
-    expect(result.overPool).toEqual([]);
+    expect(result.chosen.map((t) => t.id)).toEqual(["best", "tie-b", "tie-a"]);
+    expect(result.reserve.map((t) => t.id)).toEqual(["fourth", "fifth"]);
+    expect(result.kept.map((t) => t.id)).toEqual(["best", "tie-b", "tie-a", "fourth", "fifth"]);
+    expect(result.left.map((t) => t.id)).toEqual(["sixth", "low"]);
     expect(result.out.map((t) => t.id)).toEqual(["out"]);
     expect(result.sameAs.map((t) => t.id)).toEqual(["copy"]);
-    expect(result.belowCutoff.map((t) => t.id)).toEqual(["low"]);
   });
 
-  it("leaves what is past the pool aside, best first", () => {
-    const many = Array.from({ length: 8 }, (_, i) => triaged(`f${i}`, { score: 5 - (i % 3) }));
-    const result = shortlist(many, { cutoff: 2, max: 2 });
-    expect(result.kept).toHaveLength(4);
-    expect(result.kept.every((t) => t.verdict.score === 5 || t.verdict.score === 4)).toBe(true);
-    expect(result.overPool).toHaveLength(4);
+  it("has no cutoff: a thin day's best still go, and a day with less than the edition goes whole", () => {
+    const thin = shortlist([triaged("a", { score: 1 }), triaged("b", { score: 0 })], { max: 3 });
+    expect(thin.chosen.map((t) => t.id)).toEqual(["a", "b"]);
+    expect(thin.reserve).toEqual([]);
   });
 });
 
