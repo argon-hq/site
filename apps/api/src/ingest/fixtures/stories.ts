@@ -126,7 +126,7 @@ export const STORIES: readonly Story[] = [
     hoursAgo: 2,
     text: fullText("O crédito concedido a pequenas e médias empresas cresceu 12% no trimestre."),
     full: true,
-    writtenLength: 290,
+    writtenLength: 310,
     expect: "ficha, full text in the feed; paragraph over the ceiling, rejected twice — a reserve takes its place",
   },
   {

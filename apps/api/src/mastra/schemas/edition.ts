@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-// The body the model is asked for, and the most the code accepts: twelve characters of slack, so a
-// paragraph a word over the target is not thrown away with its two attempts. The e-mail, the
+// The body the model is asked for, and the most the code accepts: forty characters of slack, so a
+// paragraph a few words over the target is not sent back for a second attempt. The e-mail, the
 // validation and the database all hold the hard limit. Under the minimum the item says too little
 // to be worth a place in the edition; the database holds that one too.
 export const BODY_MIN = 100;
 export const BODY_TARGET = 260;
-export const BODY_MAX = BODY_TARGET + 12;
+export const BODY_MAX = BODY_TARGET + 40;
 // The same target in words, which is what the model can count: asked only for characters, it
 // writes some forty-five words and overshoots the ceiling on the first attempt.
 export const BODY_WORDS = 35;

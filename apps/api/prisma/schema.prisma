@@ -120,7 +120,7 @@ model Article {
   score          Decimal?         @db.Decimal(5, 2) // set on selection, frozen once sent
   scoreDetails   Json?            @map("score_details")
   headline       String?
-  body           String? // 100 to 272 characters (check constraints)
+  body           String? // 100 to 300 characters (check constraints)
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
