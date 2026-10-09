@@ -167,7 +167,7 @@ describe("mockTriage", () => {
 });
 
 describe("publishedHeadlines", () => {
-  it("asks for the headlines of the editions since the date, the written one over the original", async () => {
+  it("asks for the headlines of the other editions since the date, the written one over the original", async () => {
     const findMany = vi.fn<(args: unknown) => Promise<{ headline: string | null; originalTitle: string }[]>>(
       async () => [
         { headline: "Manchete escrita", originalTitle: "Título original" },
@@ -176,9 +176,13 @@ describe("publishedHeadlines", () => {
     );
     const prisma = { article: { findMany } } as unknown as PrismaClient;
     const since = new Date("2026-10-05T08:00:00Z");
-    expect(await Effect.runPromise(publishedHeadlines(prisma, since))).toEqual(["Manchete escrita", "Só o original"]);
+    expect(await Effect.runPromise(publishedHeadlines(prisma, since, "today"))).toEqual([
+      "Manchete escrita",
+      "Só o original",
+    ]);
+    // Today's edition is left out: a second run of the day must not find its own articles published.
     expect(findMany.mock.calls[0]?.[0]).toMatchObject({
-      where: { editionId: { not: null }, createdAt: { gte: since } },
+      where: { editionId: { not: null, notIn: ["today"] }, createdAt: { gte: since } },
     });
   });
 });

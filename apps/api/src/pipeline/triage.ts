@@ -27,11 +27,17 @@ export const RESERVE = 2;
 
 export type Triaged = Ficha & { verdict: Verdict };
 
-// What the newsletter already carried in the last days, for the same-story check.
-export const publishedHeadlines = (prisma: PrismaClient, since: Date): Effect.Effect<string[], TriageDbFailed> =>
+// What the newsletter already carried in the last days, for the same-story check. The edition being
+// written is not part of it: on a second run of the day its own articles would look published, and
+// the model would mark the day's best as the same story told twice.
+export const publishedHeadlines = (
+  prisma: PrismaClient,
+  since: Date,
+  editionId: string,
+): Effect.Effect<string[], TriageDbFailed> =>
   dbEffect((reason) => new TriageDbFailed({ reason }))(() =>
     prisma.article.findMany({
-      where: { editionId: { not: null }, createdAt: { gte: since } },
+      where: { editionId: { not: null, notIn: [editionId] }, createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
       select: { headline: true, originalTitle: true },
     }),

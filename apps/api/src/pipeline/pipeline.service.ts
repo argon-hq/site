@@ -259,7 +259,7 @@ export class PipelineService {
       const published =
         mode === "mock"
           ? []
-          : yield* publishedHeadlines(this.prisma, new Date(now.getTime() - REPUBLISH_DAYS * DAY_MS)).pipe(
+          : yield* publishedHeadlines(this.prisma, new Date(now.getTime() - REPUBLISH_DAYS * DAY_MS), edition.id).pipe(
               Effect.mapError(failed),
             );
       const judged =
