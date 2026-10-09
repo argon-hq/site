@@ -93,6 +93,45 @@
       "expiry": "O link vale por 48 horas. Não achou? Procure no spam ou nas promoções."
     }
   },
+  "events": {
+    "metaTitle": "Próximos eventos",
+    "metaDescription": "Uma seleção de eventos de negócios no Sul, no Brasil e no mundo, com datas conferidas nas páginas dos organizadores.",
+    "kicker": "Agenda",
+    "heading": "Próximos eventos de negócios",
+    "lead": "Para não descobrir depois que passou: uma seleção de eventos no Sul, no Brasil e no mundo, com datas conferidas nas páginas dos organizadores.",
+    "mockNotice": "Página de exemplo. A agenda completa e o aviso por e-mail ainda estão em construção.",
+    "notifyText": "Assine a newsletter e avisamos quando novas datas entrarem na agenda.",
+    "notifyCta": "Quero ser avisado",
+    "free": "Gratuito",
+    "opensInNewTab": "abre em nova aba",
+    "scopes": {
+      "region": "No Sul",
+      "brazil": "No Brasil",
+      "world": "No mundo"
+    },
+    "items": {
+      "feira-empreendedores": {
+        "city": "Curitiba, PR",
+        "description": "Palestras, oficinas e exposição de pequenos negócios e produtos autorais de Curitiba e região."
+      },
+      "tecnopuc-experience": {
+        "city": "Porto Alegre, RS",
+        "description": "Festival de inovação e empreendedorismo do parque tecnológico da PUCRS. O dia 22 é aberto a toda a sociedade."
+      },
+      "web-summit": {
+        "city": "Lisboa, Portugal",
+        "description": "Uma das maiores conferências de tecnologia e startups do mundo."
+      },
+      "slush": {
+        "city": "Helsinque, Finlândia",
+        "description": "Encontro de fundadores de startups e investidores."
+      },
+      "brasil-global-summit": {
+        "city": "Brasília, DF",
+        "description": "Debates sobre inovação, tecnologia, economia e negócios. A inscrição é feita no site."
+      }
+    }
+  },
   "privacy": {
     "metaTitle": "Política de privacidade",
     "heading": "Política de privacidade",
