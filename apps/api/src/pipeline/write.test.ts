@@ -5,6 +5,7 @@ import type { PrismaClient } from "../generated/prisma/client";
 import {
   BODY_MIN,
   BODY_TARGET,
+  BODY_WORDS,
   HEADLINE_MAX,
   SUBJECT_MAX,
   TITLE_MAX,
@@ -105,8 +106,14 @@ describe("prompts", () => {
     expect(prompt).toContain(String(BODY_MIN));
     expect(prompt).toContain(String(BODY_TARGET));
     expect(prompt).toContain(String(HEADLINE_MAX));
+    expect(prompt).toContain(`no máximo ${BODY_WORDS} palavras`);
     expect(prompt).toContain("economy");
     expect(prompt).toContain(candidate.extractedText);
+  });
+
+  it("puts the limits after the article, the last thing the model reads", () => {
+    const prompt = itemPrompt(candidate);
+    expect(prompt.indexOf("--- fim ---")).toBeLessThan(prompt.indexOf(`no máximo ${BODY_WORDS} palavras`));
   });
 
   it("gives the header the written items in edition order, the lead story first", () => {

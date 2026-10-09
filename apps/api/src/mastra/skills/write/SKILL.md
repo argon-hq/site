@@ -27,7 +27,7 @@ A de quem entende de negócios e respeita o tempo do leitor: direta, segura, con
 - Fraca: "Novo levantamento mostra mudanças no crédito para pequenas empresas"
 - Direta: "Crédito para pequenas empresas cresce 12% no trimestre"
 
-**Corpo**: um parágrafo de duas frases, nunca três, umas 40 palavras, dentro da faixa do pedido, contando espaços. A primeira frase diz o que aconteceu, com o número que importa. A segunda é obrigatória e diz o que isso muda para quem empreende — custo, crédito, imposto, regra, demanda ou concorrência; um corpo que só descreve o fato está incompleto. Sem adjetivo vazio ("importante", "histórico"), sem advérbio de opinião, sem repetir a manchete com outras palavras. Passou do teto, corte antes de responder: tire contexto, não o número. Ficou abaixo do mínimo, acrescente o que a fonte traz — quem é afetado, quando vale, quanto custa —, nunca enchimento.
+**Corpo**: um parágrafo de duas frases, nunca três, sem passar do limite de palavras do pedido — conte antes de responder — e dentro da faixa de caracteres, contando espaços. A primeira frase diz o que aconteceu, com o número que importa. A segunda é obrigatória e diz o que isso muda para quem empreende — custo, crédito, imposto, regra, demanda ou concorrência; um corpo que só descreve o fato está incompleto. Sem adjetivo vazio ("importante", "histórico"), sem advérbio de opinião, sem repetir a manchete com outras palavras. Passou do teto, corte antes de responder: tire contexto, não o número. Ficou abaixo do mínimo, acrescente o que a fonte traz — quem é afetado, quando vale, quanto custa —, nunca enchimento.
 
 ## O cabeçalho da edição
 

@@ -11,6 +11,7 @@ import type { Verdict } from "../mastra/schemas/triage";
 import {
   BODY_MIN,
   BODY_TARGET,
+  BODY_WORDS,
   CATEGORIES,
   HEADLINE_MAX,
   SUBJECT_MAX,
@@ -242,19 +243,21 @@ export const fillEdition = (
     return { items, tried: next };
   });
 
-// Limits come from the code into the prompt; the skill holds the craft.
+// Limits come from the code into the prompt; the skill holds the craft. They go after the article,
+// the last thing the model reads before it writes: placed before a text of thousands of characters,
+// they were forgotten and every first attempt came back over the ceiling.
 export function itemPrompt(article: Candidate): string {
   return [
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
     "Escreva o item desta notícia, e só dela.",
-    `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
-    `Manchete: até ${HEADLINE_MAX} caracteres.`,
-    `Corpo: de ${BODY_MIN} a ${BODY_TARGET} caracteres, contando espaços.`,
     `Fonte: ${article.textFrom.sourceName}`,
     `Título original: ${article.originalTitle}`,
     "--- notícia ---",
     article.extractedText,
     "--- fim ---",
+    `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
+    `Manchete: até ${HEADLINE_MAX} caracteres.`,
+    `Corpo: no máximo ${BODY_WORDS} palavras, e de ${BODY_MIN} a ${BODY_TARGET} caracteres, contando espaços. Conte as palavras antes de responder; passou de ${BODY_WORDS}, corte.`,
   ].join("\n");
 }
 

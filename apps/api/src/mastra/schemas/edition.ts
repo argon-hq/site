@@ -7,6 +7,9 @@ import { z } from "zod";
 export const BODY_MIN = 100;
 export const BODY_TARGET = 260;
 export const BODY_MAX = BODY_TARGET + 12;
+// The same target in words, which is what the model can count: asked only for characters, it
+// writes some forty-five words and overshoots the ceiling on the first attempt.
+export const BODY_WORDS = 35;
 export const HEADLINE_MAX = 120;
 export const TITLE_MAX = 80;
 export const SUBJECT_MAX = 78;
