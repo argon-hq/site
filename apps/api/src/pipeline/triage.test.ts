@@ -74,14 +74,22 @@ describe("matchVerdicts", () => {
     const matched = matchVerdicts([ficha("a1"), ficha("a2")], {
       fichas: [verdict("a2"), verdict("a1", { score: 2 }), verdict("ghost")],
     });
-    expect(Array.isArray(matched) && matched.map((t) => [t.id, t.verdict.score])).toEqual([
+    expect(typeof matched !== "string" && matched.triaged.map((t) => [t.id, t.verdict.score])).toEqual([
       ["a1", 2],
       ["a2", 4],
     ]);
   });
 
-  it("names the fichas the answer left out", () => {
-    expect(matchVerdicts([ficha("a1"), ficha("a2")], { fichas: [verdict("a1")] })).toBe("no verdict for ficha(s) a2");
+  it("leaves out of focus a ficha the answer forgot, and names it", () => {
+    const matched = matchVerdicts([ficha("a1"), ficha("a2"), ficha("a3")], { fichas: [verdict("a1"), verdict("a3")] });
+    expect(typeof matched !== "string" && matched.missing).toEqual(["a2"]);
+    expect(typeof matched !== "string" && matched.triaged[1]?.verdict).toMatchObject({ focus: "out", score: 0 });
+  });
+
+  it("refuses an answer that forgot more than half of the fichas", () => {
+    expect(matchVerdicts([ficha("a1"), ficha("a2"), ficha("a3")], { fichas: [verdict("a1")] })).toBe(
+      "no verdict for 2 of 3 fichas: a2, a3",
+    );
   });
 });
 
@@ -89,14 +97,23 @@ describe("triage", () => {
   it("gives the second attempt the reason the first was incomplete, and fails after two", async () => {
     const warn = vi.fn();
     const { generate, prompts } = answering({ fichas: [verdict("a1")] }, { fichas: [verdict("a1"), verdict("a2")] });
-    const result = await Effect.runPromise(triage([ficha("a1"), ficha("a2")], [], generate, { ...silent, warn }));
-    expect(result.triaged.map((t) => t.id)).toEqual(["a1", "a2"]);
-    expect(prompts[1]).toContain("no verdict for ficha(s) a2");
+    const fichas = [ficha("a1"), ficha("a2"), ficha("a3")];
+    const result = await Effect.runPromise(triage(fichas, [], generate, { ...silent, warn }));
+    expect(result.triaged.map((t) => t.id)).toEqual(["a1", "a2", "a3"]);
+    expect(prompts[1]).toContain("no verdict for 2 of 3 fichas");
     expect(warn).toHaveBeenCalledWith(expect.objectContaining({ msg: "triage rejected, retrying" }));
+    expect(warn).toHaveBeenCalledWith({ msg: "fichas without a verdict, left out", ids: ["a3"] });
 
     const twice = answering("schema: focus invalid", "schema: focus invalid");
     const exit = await Effect.runPromiseExit(triage([ficha("a1")], [], twice.generate, silent));
     expect(Exit.isFailure(exit)).toBe(true);
+  });
+
+  it("goes on with one ficha forgotten, without a second attempt", async () => {
+    const { generate, prompts } = answering({ fichas: [verdict("a1"), verdict("a2")] });
+    const result = await Effect.runPromise(triage([ficha("a1"), ficha("a2"), ficha("a3")], [], generate, silent));
+    expect(prompts).toHaveLength(1);
+    expect(result.triaged.find((t) => t.id === "a3")?.verdict.focus).toBe("out");
   });
 });
 
@@ -150,7 +167,7 @@ describe("mockTriage", () => {
 });
 
 describe("publishedHeadlines", () => {
-  it("asks for the headlines of the editions since the date, the written one over the original", async () => {
+  it("asks for the headlines of the other editions since the date, the written one over the original", async () => {
     const findMany = vi.fn<(args: unknown) => Promise<{ headline: string | null; originalTitle: string }[]>>(
       async () => [
         { headline: "Manchete escrita", originalTitle: "Título original" },
@@ -159,9 +176,13 @@ describe("publishedHeadlines", () => {
     );
     const prisma = { article: { findMany } } as unknown as PrismaClient;
     const since = new Date("2026-10-05T08:00:00Z");
-    expect(await Effect.runPromise(publishedHeadlines(prisma, since))).toEqual(["Manchete escrita", "Só o original"]);
+    expect(await Effect.runPromise(publishedHeadlines(prisma, since, "today"))).toEqual([
+      "Manchete escrita",
+      "Só o original",
+    ]);
+    // Today's edition is left out: a second run of the day must not find its own articles published.
     expect(findMany.mock.calls[0]?.[0]).toMatchObject({
-      where: { editionId: { not: null }, createdAt: { gte: since } },
+      where: { editionId: { not: null, notIn: ["today"] }, createdAt: { gte: since } },
     });
   });
 });

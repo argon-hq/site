@@ -8,7 +8,17 @@ import type { TextKind } from "../generated/prisma/enums";
 import { twoAttempts } from "../mastra/attempts";
 import type { ExtractedArticle } from "../mastra/schemas/article";
 import type { Verdict } from "../mastra/schemas/triage";
-import { BODY_TARGET, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
+import {
+  BODY_MIN,
+  BODY_TARGET,
+  BODY_WORDS,
+  CATEGORIES,
+  HEADLINE_MAX,
+  SUBJECT_MAX,
+  TITLE_MAX,
+  type EditionHeader,
+  type WrittenItem,
+} from "../mastra/schemas/edition";
 
 // Another outlet that told the same fact, as the ingestion stored it on the ficha: where the text
 // comes from when the representative's page is closed.
@@ -233,25 +243,29 @@ export const fillEdition = (
     return { items, tried: next };
   });
 
-// Limits come from the code into the prompt; the skill holds the craft.
+// Limits come from the code into the prompt; the skill holds the craft. They go after the article,
+// the last thing the model reads before it writes: placed before a text of thousands of characters,
+// they were forgotten and every first attempt came back over the ceiling.
 export function itemPrompt(article: Candidate): string {
   return [
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
     "Escreva o item desta notícia, e só dela.",
-    `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
-    `Corpo: até ${BODY_TARGET} caracteres, contando espaços.`,
     `Fonte: ${article.textFrom.sourceName}`,
     `Título original: ${article.originalTitle}`,
     "--- notícia ---",
     article.extractedText,
     "--- fim ---",
+    `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
+    `Manchete: até ${HEADLINE_MAX} caracteres.`,
+    `Corpo: no máximo ${BODY_WORDS} palavras, e de ${BODY_MIN} a ${BODY_TARGET} caracteres, contando espaços. Conte as palavras antes de responder; passou de ${BODY_WORDS}, corte.`,
   ].join("\n");
 }
 
 export function headerPrompt(items: WrittenItem[]): string {
   return [
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
-    "Escreva o título e o assunto do e-mail da edição de hoje, a partir das notícias abaixo.",
+    "Escreva o título e o assunto do e-mail da edição de hoje. A primeira notícia abaixo é a principal do dia.",
+    `Título: até ${TITLE_MAX} caracteres, contando espaços.`,
     `Assunto: até ${SUBJECT_MAX} caracteres, contando espaços.`,
     "--- notícias, na ordem da edição ---",
     ...items.map((item, index) => `${index + 1}. [${CATEGORIES[item.category]}] ${item.headline}\n${item.body}`),
@@ -296,9 +310,46 @@ export const writeItem = (
 // The header gets the same two attempts, but an edition without title and subject is no edition:
 // failing twice fails the step.
 export const writeHeader = (items: WrittenItem[], generate: Generate<EditionHeader>, logger: LoggerService) =>
-  twoAttempts(headerPrompt(items), generate, (reason) => {
+  twoAttempts(headerPrompt(items), checkingSubject(generate, items[0]?.headline), (reason) => {
     logger.warn({ msg: "header rejected, retrying", reason });
   });
+
+// The subject must tell the lead story in its own words: the reader sees it in the inbox and meets
+// the headline as soon as the e-mail opens, so a copy says the same thing twice. The skill asks for
+// it; the model does not always comply, and the code holds the rule.
+export const SUBJECT_OVERLAP_MAX = 0.6;
+
+const checkingSubject =
+  (generate: Generate<EditionHeader>, headline: string | undefined): Generate<EditionHeader> =>
+  (prompt) =>
+    generate(prompt).pipe(
+      Effect.filterOrFail(
+        (generated) => headline === undefined || overlap(generated.object.subject, headline) <= SUBJECT_OVERLAP_MAX,
+        (generated) =>
+          new ItemFailed({
+            reason: `subject repeats the lead headline ("${generated.object.subject}" / "${headline}"): tell the same fact in other words`,
+          }),
+      ),
+    );
+
+// How much two lines share, by their words: accents, case and punctuation aside, and the words of
+// one or two letters too, except numbers, so "de", "da" and "US" do not make two lines alike.
+export function overlap(a: string, b: string): number {
+  const words = (s: string) =>
+    new Set(
+      s
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((w) => w.length > 2 || /\d/.test(w)),
+    );
+  const x = words(a);
+  const y = words(b);
+  const shared = [...x].filter((w) => y.has(w)).length;
+  const all = new Set([...x, ...y]).size;
+  return all === 0 ? 0 : shared / all;
+}
 
 // One transaction: whatever an earlier run left attached goes back to the pool, the approved
 // articles get their text and join the edition, and the edition gets its header. Running the step
@@ -327,7 +378,7 @@ export const saveEdition = (
     ]),
   ).pipe(Effect.asVoid);
 
-// Fewer than `min_articles`: better no edition than a weak one. The owners hear about it. The
+// Fewer than `min_articles`: no edition today, and the owners hear about it. The
 // edition is closed, so the fichas nobody chose go with it.
 export const skipEdition = (prisma: PrismaClient, editionId: string, now: Date): Effect.Effect<void, WriteDbFailed> =>
   db(() =>
