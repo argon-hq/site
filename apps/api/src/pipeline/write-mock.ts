@@ -67,7 +67,8 @@ export const mockHeader =
     Effect.succeed({
       object: {
         title: trimTo(`Edição de ${day}`, TITLE_MAX),
-        subject: trimTo(items[0]?.headline ?? `Edição de ${day}`, SUBJECT_MAX),
+        // Not the first headline: the code refuses a subject that repeats it.
+        subject: trimTo(`${items.length} notícia(s) de ${day}`, SUBJECT_MAX),
       },
       usage: undefined,
     });

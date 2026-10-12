@@ -69,13 +69,13 @@ describe("the mocked writing", () => {
     expect(written.object.headline.length).toBeLessThanOrEqual(120);
   });
 
-  it("answers a header the schema accepts, from the day and the first headline", async () => {
+  it("answers a header the schema accepts, from the day and the count", async () => {
     const items = [{ category: "business" as const, headline: "Crédito cresce 12%", body: "Corpo." }];
     const header = await Effect.runPromise(mockHeader(items, "2026-09-23")("ignored"));
 
     expect(editionHeaderSchema.safeParse(header.object).success).toBe(true);
     expect(header.object.title).toContain("2026-09-23");
-    expect(header.object.subject).toBe("Crédito cresce 12%");
+    expect(header.object.subject).toBe("1 notícia(s) de 2026-09-23");
   });
 
   it("still answers a header when nothing was written", async () => {

@@ -17,6 +17,7 @@ import {
   itemPrompt,
   ItemFailed,
   openEdition,
+  overlap,
   saveEdition,
   fillEdition,
   hydrate,
@@ -25,6 +26,7 @@ import {
   withReadBudget,
   skipEdition,
   sumUsage,
+  writeHeader,
   writeItem,
   type Candidate,
   type Ficha,
@@ -96,6 +98,47 @@ describe("writeItem's score", () => {
     const verdict = { id: "a1", focus: "core_business" as const, impact: 4, score: 4, reason: "r" };
     const after = await Effect.runPromise(writeItem({ ...candidate, verdict }, generator(item).generate, silent));
     expect(after).toMatchObject({ outcome: "written", score: 4 });
+  });
+});
+
+describe("writeHeader", () => {
+  const lead: WrittenItem = { ...item, headline: "Amazon negocia compra da startup Decart por US$ 7 bilhões" };
+  const header = (subject: string) => ({ title: "Quem ganha com a corrida dos vídeos por IA", subject });
+  const answering = (...subjects: string[]) => {
+    const prompts: string[] = [];
+    const generate = (prompt: string) => {
+      prompts.push(prompt);
+      return Effect.succeed({ object: header(subjects[prompts.length - 1] ?? "") });
+    };
+    return { generate, prompts };
+  };
+
+  it("sends back a subject that copies the lead headline, and keeps the one in other words", async () => {
+    const { generate, prompts } = answering(
+      "Amazon negocia compra de startup de IA por US$ 7 bilhões",
+      "Amazon quer pagar US$ 7 bilhões por startup de vídeo com IA",
+    );
+    const result = await Effect.runPromise(writeHeader([lead], generate, silent));
+
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain("subject repeats the lead headline");
+    expect(result.object.subject).toBe("Amazon quer pagar US$ 7 bilhões por startup de vídeo com IA");
+  });
+
+  it("fails the header when the subject copies the headline twice", async () => {
+    const copy = "Amazon negocia compra da startup Decart por US$ 7 bilhões";
+    const exit = await Effect.runPromiseExit(writeHeader([lead], answering(copy, copy).generate, silent));
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+});
+
+describe("overlap", () => {
+  it("measures shared words, ignoring accents, case, punctuation and short words", () => {
+    expect(overlap("Crédito SOBE 12%", "credito sobe 12")).toBe(1);
+    expect(
+      overlap("Investidores freiam startups de IA", "Firmus desiste de IPO; investidores questionam"),
+    ).toBeLessThan(0.3);
+    expect(overlap("", "")).toBe(0);
   });
 });
 

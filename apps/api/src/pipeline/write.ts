@@ -310,9 +310,46 @@ export const writeItem = (
 // The header gets the same two attempts, but an edition without title and subject is no edition:
 // failing twice fails the step.
 export const writeHeader = (items: WrittenItem[], generate: Generate<EditionHeader>, logger: LoggerService) =>
-  twoAttempts(headerPrompt(items), generate, (reason) => {
+  twoAttempts(headerPrompt(items), checkingSubject(generate, items[0]?.headline), (reason) => {
     logger.warn({ msg: "header rejected, retrying", reason });
   });
+
+// The subject must tell the lead story in its own words: the reader sees it in the inbox and meets
+// the headline as soon as the e-mail opens, so a copy says the same thing twice. The skill asks for
+// it; the model does not always comply, and the code holds the rule.
+export const SUBJECT_OVERLAP_MAX = 0.6;
+
+const checkingSubject =
+  (generate: Generate<EditionHeader>, headline: string | undefined): Generate<EditionHeader> =>
+  (prompt) =>
+    generate(prompt).pipe(
+      Effect.filterOrFail(
+        (generated) => headline === undefined || overlap(generated.object.subject, headline) <= SUBJECT_OVERLAP_MAX,
+        (generated) =>
+          new ItemFailed({
+            reason: `subject repeats the lead headline ("${generated.object.subject}" / "${headline}"): tell the same fact in other words`,
+          }),
+      ),
+    );
+
+// How much two lines share, by their words: accents, case and punctuation aside, and the words of
+// one or two letters too, except numbers, so "de", "da" and "US" do not make two lines alike.
+export function overlap(a: string, b: string): number {
+  const words = (s: string) =>
+    new Set(
+      s
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((w) => w.length > 2 || /\d/.test(w)),
+    );
+  const x = words(a);
+  const y = words(b);
+  const shared = [...x].filter((w) => y.has(w)).length;
+  const all = new Set([...x, ...y]).size;
+  return all === 0 ? 0 : shared / all;
+}
 
 // One transaction: whatever an earlier run left attached goes back to the pool, the approved
 // articles get their text and join the edition, and the edition gets its header. Running the step
