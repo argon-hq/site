@@ -60,7 +60,7 @@
     "@eslint/js": "^10.0.1",
     "@fortawesome/free-brands-svg-icons": "^7.1.0",
     "@nestjs/cli": "^11.0.24",
-    "@nestjs/testing": "^11.2.5",
+    "@nestjs/testing": "^12.1.2",
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.5",
     "@types/nodemailer": "^8.0.2",
