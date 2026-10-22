@@ -27,11 +27,17 @@ export const RESERVE = 2;
 
 export type Triaged = Ficha & { verdict: Verdict };
 
-// What the newsletter already carried in the last days, for the same-story check.
-export const publishedHeadlines = (prisma: PrismaClient, since: Date): Effect.Effect<string[], TriageDbFailed> =>
+// What the newsletter already carried in the last days, for the same-story check. The edition being
+// written is not part of it: on a second run of the day its own articles would look published, and
+// the model would mark the day's best as the same story told twice.
+export const publishedHeadlines = (
+  prisma: PrismaClient,
+  since: Date,
+  editionId: string,
+): Effect.Effect<string[], TriageDbFailed> =>
   dbEffect((reason) => new TriageDbFailed({ reason }))(() =>
     prisma.article.findMany({
-      where: { editionId: { not: null }, createdAt: { gte: since } },
+      where: { editionId: { not: null, notIn: [editionId] }, createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
       select: { headline: true, originalTitle: true },
     }),
@@ -65,14 +71,30 @@ export function triagePrompt(fichas: readonly Ficha[], published: readonly strin
   ].join("\n");
 }
 
-// Every ficha must come back, once, by its id; a verdict for a ficha that was not asked is
-// ignored. A missing one is a reason for the second attempt.
-export function matchVerdicts(fichas: readonly Ficha[], answer: TriageAnswer): Triaged[] | string {
+// Every ficha should come back, once, by its id; a verdict for a ficha that was not asked is
+// ignored. One the answer leaves out is out of focus, with a reason that says so: a forgotten ficha
+// is not chosen, but it does not cost the day its edition. An answer that leaves out more than half
+// of them is no triage, and a reason for the second attempt.
+export function matchVerdicts(
+  fichas: readonly Ficha[],
+  answer: TriageAnswer,
+): { triaged: Triaged[]; missing: string[] } | string {
   const byId = new Map(answer.fichas.map((verdict) => [verdict.id, verdict]));
   const missing = fichas.filter((ficha) => !byId.has(ficha.id)).map((ficha) => ficha.id);
-  if (missing.length > 0) return `no verdict for ficha(s) ${missing.join(", ")}`;
-  return fichas.map((ficha) => ({ ...ficha, verdict: byId.get(ficha.id) as Verdict }));
+  if (missing.length * 2 > fichas.length) {
+    return `no verdict for ${missing.length} of ${fichas.length} fichas: ${missing.join(", ")}`;
+  }
+  const triaged = fichas.map((ficha) => ({ ...ficha, verdict: byId.get(ficha.id) ?? unjudged(ficha.id) }));
+  return { triaged, missing };
 }
+
+const unjudged = (id: string): Verdict => ({
+  id,
+  focus: "out",
+  impact: 0,
+  score: 0,
+  reason: "no verdict from the model",
+});
 
 // Two attempts, like every generation: the second carries what the first got wrong.
 export const triage = (
@@ -88,9 +110,11 @@ export const triage = (
         Effect.mapError((error) => new TriageFailed({ reason: error.reason })),
         Effect.flatMap((generated) => {
           const matched = matchVerdicts(fichas, generated.object);
-          return typeof matched === "string"
-            ? Effect.fail(new TriageFailed({ reason: matched }))
-            : Effect.succeed({ triaged: matched, usage: generated.usage });
+          if (typeof matched === "string") return Effect.fail(new TriageFailed({ reason: matched }));
+          if (matched.missing.length > 0) {
+            logger.warn({ msg: "fichas without a verdict, left out", ids: matched.missing });
+          }
+          return Effect.succeed({ triaged: matched.triaged, usage: generated.usage });
         }),
       ),
     (reason) => {

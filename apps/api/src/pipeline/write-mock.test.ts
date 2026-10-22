@@ -55,6 +55,12 @@ describe("the mocked writing", () => {
     expect(JSON.stringify(over)).toContain("body");
   });
 
+  it("rejects a paragraph under the minimum, as the schema would the model's", async () => {
+    const thin = await Effect.runPromiseExit(mockItem(article({ extractedText: "Crédito cresce 12%." }))("x"));
+    expect(Exit.isFailure(thin)).toBe(true);
+    expect(JSON.stringify(thin)).toContain("body");
+  });
+
   it("keeps a headline inside the limit even when the title is long", async () => {
     const long = article({ originalTitle: "Palavra ".repeat(40) });
     const written = await Effect.runPromise(mockItem(long)("ignored"));
@@ -63,13 +69,13 @@ describe("the mocked writing", () => {
     expect(written.object.headline.length).toBeLessThanOrEqual(120);
   });
 
-  it("answers a header the schema accepts, from the day and the first headline", async () => {
+  it("answers a header the schema accepts, from the day and the count", async () => {
     const items = [{ category: "business" as const, headline: "Crédito cresce 12%", body: "Corpo." }];
     const header = await Effect.runPromise(mockHeader(items, "2026-09-23")("ignored"));
 
     expect(editionHeaderSchema.safeParse(header.object).success).toBe(true);
     expect(header.object.title).toContain("2026-09-23");
-    expect(header.object.subject).toBe("Crédito cresce 12%");
+    expect(header.object.subject).toBe("1 notícia(s) de 2026-09-23");
   });
 
   it("still answers a header when nothing was written", async () => {
