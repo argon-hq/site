@@ -156,8 +156,8 @@ container em crash loop aparece como o que é, não como um convite a publicar d
 Cada parâmetro `/argon/<env>/NOME` vira `NOME="valor"` em `env/<env>.env`, que a API lê inteiro. O
 site lê `env/<env>.web.env`, um recorte com só `API_URL`, `INTERNAL_API_SECRET` e `ARGON_ENV`: as
 chaves de modelo e de e-mail nunca entram no container do site. Os arquivos ficam em `env/` com
-`700` no diretório e `600` nos arquivos, só root. Todo ambiente espera estas nove, e aceita uma
-décima:
+`700` no diretório e `600` nos arquivos, só root. Todo ambiente espera estas dez, e aceita uma
+décima primeira:
 
 | Variável                   | Quem lê    | Tipo             |
 | -------------------------- | ---------- | ---------------- |
@@ -168,6 +168,7 @@ décima:
 | `API_URL`                  | site       | String           |
 | `WEB_ORIGIN`, `API_ORIGIN` | API        | String           |
 | `MAIL_TRANSPORT`           | API        | String           |
+| `MAIL_FROM`                | API        | String           |
 | `UNSUBSCRIBE_TOKEN_SECRET` | API        | SecureString     |
 | `SCHEDULER_ENABLED`        | API        | String, opcional |
 
@@ -177,6 +178,11 @@ pelo menos 32 caracteres, um por ambiente, e trocá-lo invalida todo link de des
 `API_URL` alcança a API pela rede do compose: `http://api-<env>:3001`. `WEB_ORIGIN` e `API_ORIGIN`
 são absolutos e entram nos links de todo e-mail — o site serve a página de descadastro, a API o
 endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a API não sobe.
+
+`MAIL_FROM` é o endereço que assina todo e-mail, num domínio verificado no Resend para aquele
+ambiente: `newsletter@argon.eduardofockink.com` em prod, `newsletter@dev.argon.eduardofockink.com`
+em dev e lab. Sem ela a API não sobe. Nome e endereço postal do remetente ficam na tabela de
+configurações; o link da política e o do site saem de `WEB_ORIGIN`.
 
 As imagens do e-mail não têm parâmetro: a API as busca no bucket público, no prefixo do próprio
 ambiente (`ARGON_ENV`, que o `deploy.sh` escreve), e o deploy copia `apps/web/public` para lá antes

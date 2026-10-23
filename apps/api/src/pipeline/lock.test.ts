@@ -74,7 +74,7 @@ describe("EditionLock", () => {
     vi.mocked(fake.query).mockRejectedValueOnce(new Error("connection reset"));
     const lock = new EditionLock("postgresql://x", () => fake);
 
-    const exit = await Effect.runPromiseExit(lock.hold(day, "collect", Effect.succeed(1)));
+    const exit = await Effect.runPromiseExit(lock.hold(day, "ingest", Effect.succeed(1)));
 
     expect(Exit.isFailure(exit) && exit.cause._tag === "Fail" && exit.cause.error._tag).toBe("LockDbFailed");
     expect(calls).toEqual(["connect", "end"]);

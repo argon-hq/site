@@ -5,7 +5,7 @@ import { settingKeys, settingsSchema, type SettingKey, type Settings } from "./s
 import { SettingsService } from "./settings.service";
 
 // The key first, so the value is validated by the schema of that key and not by a union of all of
-// them: a bad number for `score_cutoff` is refused for being a bad cutoff.
+// them: a zero for `min_articles` is refused for being a bad count.
 export const patchBody = z
   .object({ key: z.enum(settingKeys as [SettingKey, ...SettingKey[]]), value: z.unknown() })
   .superRefine((body, ctx) => {

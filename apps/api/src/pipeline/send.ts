@@ -1,3 +1,4 @@
+import { releaseFichas } from "./write";
 import { Data, Effect } from "effect";
 import { dbEffect } from "../effect/db";
 import { CONFLICT, NOT_FOUND, type Failure } from "../effect/failure";
@@ -163,13 +164,20 @@ export const countSettled = (prisma: PrismaClient, p: { editionId: string }): Ef
 
 // The edition is out: nothing is pending any more. `sent` is what the writing and building steps
 // refuse to touch, and `sentAt` is what the archive reads.
+// Sent is closed: the text the articles were written from is dropped, and the fichas no edition
+// chose go too. What the archive needs — headline, body, link — stays, and the title signature
+// stays three more days to catch a late copy.
 export const closeEdition = (
   prisma: PrismaClient,
   p: { editionId: string; now: Date },
 ): Effect.Effect<void, SendDbFailed> =>
-  db(() => prisma.edition.update({ where: { id: p.editionId }, data: { status: "sent", sentAt: p.now } })).pipe(
-    Effect.asVoid,
-  );
+  db(() =>
+    prisma.$transaction([
+      prisma.article.updateMany({ where: { editionId: p.editionId }, data: { extractedText: null } }),
+      releaseFichas(prisma, p.now),
+      prisma.edition.update({ where: { id: p.editionId }, data: { status: "sent", sentAt: p.now } }),
+    ]),
+  ).pipe(Effect.asVoid);
 
 // The one call that leaves the API. A batch the provider refused whole is a failure of the step:
 // nothing was delivered, and the rows it names stay pending for the next run.

@@ -33,7 +33,7 @@ describe("runFailure", () => {
     const failure = runFailure({
       status: "failed",
       steps: {
-        collect: { status: "success" },
+        ingest: { status: "success" },
         write: { status: "failed", error: { message: "settings: boom" } },
       },
     });

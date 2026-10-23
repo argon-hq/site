@@ -42,11 +42,11 @@ jobs:
           exit 1
       # compose, Caddyfile e deploy.sh vêm da branch em que o workflow roda. Full history, so the
       # commit before this push is there to diff against.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # O código publicado pode vir de outra branch: é o caso do lab.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: inputs.branch != ''
         with:
           ref: ${{ inputs.branch }}
@@ -65,7 +65,7 @@ jobs:
           else
             echo "tag=$(git -C "$DIR" rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
           fi
-      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -95,14 +95,14 @@ jobs:
           echo "build=${build# }" >> "$GITHUB_OUTPUT"
           echo "skipped=${skipped# }" >> "$GITHUB_OUTPUT"
           echo "build: [${build# }] skipped: [${skipped# }]"
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         if: inputs.tag == ''
       # Layer cache in the Actions cache, one scope per app: a push that only touches the code reuses
       # the pnpm install layers. provenance off keeps the ECR image a plain manifest, which the retag
       # below copies as is.
       - name: Build e push web
         if: inputs.tag == '' && contains(steps.changes.outputs.build, 'web')
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ${{ steps.src.outputs.dir }}
           file: ${{ steps.src.outputs.dir }}/apps/web/Dockerfile
@@ -116,7 +116,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=web
       - name: Build e push api
         if: inputs.tag == '' && contains(steps.changes.outputs.build, 'api')
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ${{ steps.src.outputs.dir }}
           file: ${{ steps.src.outputs.dir }}/apps/api/Dockerfile
@@ -151,7 +151,7 @@ jobs:
       # Every deploy runs it: Terraform compares each file's MD5 with its state, so an unchanged
       # folder uploads nothing, and an environment whose prefix is still empty gets filled. A
       # rollback (tag) skips it: the checkout is not that tag's code.
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         if: inputs.tag == ''
         with:
           terraform_version: 1.16.4

@@ -13,7 +13,7 @@ de 24/09/2026.
 | Arquivo | Recursos |
 | --- | --- |
 | `ec2.tf` | Instância `i-00296133cc8e8093d` (t4g.small, AL2023 arm64, gp3 de 16 GB), IP elástico `54.94.89.230`, security groups `argon-web` e `argon-db` com suas regras, IMDSv2 obrigatório |
-| `iam.tf` | Papel `argon-ec2` (SSM, ECR pull, Parameter Store, logs, S3 dos dumps) e seu instance profile; provedor OIDC do GitHub e papel `argon-github-deploy`, que também escreve no bucket público e no prefixo `public-assets/` do bucket de estado |
+| `iam.tf` | Papel `argon-ec2` (SSM, ECR pull, Parameter Store, logs, S3 dos dumps) e seu instance profile; provedor OIDC do GitHub e papel `argon-github-deploy`, que também escreve no bucket público e no prefixo `public-assets/` do bucket de estado e avisa o tópico de alertas quando um deploy falha |
 | `ecr.tf` | Repositórios `argon/web` e `argon/api`, com ciclo de vida de 10 imagens |
 | `s3.tf` | Bucket `argon-db-backups-382597877834`: acesso público bloqueado, SSE-S3, sem versionamento, dumps expiram em 30 dias |
 | `s3_public.tf` | Bucket `argon-public-382597877834`: leitura pública de objetos por política (sem listagem, sem ACL), SSE-S3, CORS de GET. O conteúdo é do root `public-assets/`, abaixo |

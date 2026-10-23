@@ -8,12 +8,12 @@ const issues = (body: unknown) => {
 
 describe("the settings body", () => {
   it("takes a value the key's own schema accepts", () => {
-    expect(patchBody.safeParse({ key: "score_cutoff", value: 2.5 }).success).toBe(true);
+    expect(patchBody.safeParse({ key: "min_articles", value: 2 }).success).toBe(true);
     expect(patchBody.safeParse({ key: "sending_paused", value: true }).success).toBe(true);
   });
 
   it("refuses a value the key's own schema rejects, and says it was the value", () => {
-    expect(issues({ key: "score_cutoff", value: 9 })).toEqual(["value"]);
+    expect(issues({ key: "sending_paused", value: "yes" })).toEqual(["value"]);
     expect(issues({ key: "min_articles", value: 0 })).toEqual(["value"]);
     expect(issues({ key: "owner_emails", value: ["not an address"] })).toEqual(["value.0"]);
   });

@@ -1,26 +1,89 @@
 import type { LoggerService } from "@nestjs/common";
-import { Data, Effect } from "effect";
+import { Data, Effect, Ref } from "effect";
+import { z } from "zod";
 import { dbEffect } from "../effect/db";
 import { CONFLICT, type Failure } from "../effect/failure";
 import type { PrismaClient } from "../generated/prisma/client";
+import type { TextKind } from "../generated/prisma/enums";
 import { twoAttempts } from "../mastra/attempts";
-import { BODY_MAX, CATEGORIES, SUBJECT_MAX, type EditionHeader, type WrittenItem } from "../mastra/schemas/edition";
+import type { ExtractedArticle } from "../mastra/schemas/article";
+import type { Verdict } from "../mastra/schemas/triage";
+import {
+  BODY_MIN,
+  BODY_TARGET,
+  BODY_WORDS,
+  CATEGORIES,
+  HEADLINE_MAX,
+  SUBJECT_MAX,
+  TITLE_MAX,
+  type EditionHeader,
+  type WrittenItem,
+} from "../mastra/schemas/edition";
 
-// One article the step may write: collected, above the cutoff and not yet in another edition.
+// Another outlet that told the same fact, as the ingestion stored it on the ficha: where the text
+// comes from when the representative's page is closed.
+export const memberSchema = z.object({
+  url: z.url(),
+  sourceName: z.string(),
+  title: z.string(),
+  textKind: z.enum(["full", "summary", "none"]),
+});
+export type Member = z.infer<typeof memberSchema>;
+
+// Where the text an article is written from came from: the ficha's own feed or page, or a member's
+// page. The edition still links the ficha; the prompt names the outlet the facts were read in.
+export type TextOrigin = { url: string; sourceName: string; via: "feed" | "page" | "member" };
+
+// One article the step may write: a ficha of the ingestion, not yet in another edition, with the
+// text it will be written from.
 export type Candidate = {
   id: string;
   canonicalUrl: string;
   sourceName: string;
   originalTitle: string;
   extractedText: string;
+  codeScore: number;
+  // The model's triage, once it has spoken; null before it, and in a mocked run folded from the code.
+  verdict: Verdict | null;
+  textFrom: TextOrigin;
 };
 
+// A ficha as stored: the feed's text, if any, what kind of text it is, and the group's members.
+export type Ficha = Omit<Candidate, "extractedText" | "textFrom"> & {
+  extractedText: string | null;
+  textKind: TextKind | null;
+  members: Member[];
+};
+
+export type ReadError = { _tag: string; reason: string };
+export type ReadPage = (url: string) => Effect.Effect<ExtractedArticle, ReadError>;
+
+// The run's reads are counted: past `max` the page is not opened and the read fails like a closed
+// one, so the chain falls through to the feed's text. `spent` says how many were used.
+export const withReadBudget = (
+  read: ReadPage,
+  max: number,
+): Effect.Effect<{ read: ReadPage; spent: Effect.Effect<number> }> =>
+  Ref.make(0).pipe(
+    Effect.map((used) => ({
+      read: (url) =>
+        Ref.modify(used, (n) => [n < max, n < max ? n + 1 : n] as const).pipe(
+          Effect.flatMap((allowed) =>
+            allowed
+              ? read(url)
+              : Effect.fail({ _tag: "ReadBudgetSpent", reason: `the run's budget of ${max} page reads is spent` }),
+          ),
+        ),
+      spent: Ref.get(used),
+    })),
+  );
+
 export type ItemResult =
-  | { outcome: "written"; id: string; url: string; item: WrittenItem; usage: unknown }
+  | { outcome: "written"; id: string; url: string; item: WrittenItem; score: number; usage: unknown }
   | { outcome: "rejected"; url: string; reason: string };
 
 export type WrittenResult = Extract<ItemResult, { outcome: "written" }>;
-export type Written = { id: string; item: WrittenItem };
+export type Written = { id: string; item: WrittenItem; score: number };
 
 // A generation that already carries its reason, so the second attempt can quote it.
 export class ItemFailed extends Data.TaggedError("ItemFailed")<{ reason: string }> {}
@@ -70,45 +133,139 @@ export function belowMinimum(p: {
   return p.alreadyWritten ? "keep_previous" : "skip";
 }
 
-// What the collection left ready to write: inside the window, above the cutoff, with text, and
-// either unattached or already part of this edition — so a second run rewrites the same set.
-export const selectCandidates = (
+// The day's fichas, best code score first, up to `take`: unattached or already part of this
+// edition, so a second run rewrites the same set. The model's triage reads them all; the pool the
+// writing works from is cut after it (see `shortlist`).
+export const selectFichas = (
   prisma: PrismaClient,
-  p: { editionId: string; since: Date; cutoff: number; max: number },
-): Effect.Effect<Candidate[], WriteDbFailed> =>
+  p: { editionId: string; since: Date; take: number },
+): Effect.Effect<Ficha[], WriteDbFailed> =>
   db(() =>
     prisma.article.findMany({
       where: {
         OR: [{ editionId: null }, { editionId: p.editionId }],
         createdAt: { gte: p.since },
-        score: { gte: p.cutoff },
-        extractedText: { not: null },
+        codeScore: { not: null },
       },
-      orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
-      take: p.max,
-      select: { id: true, canonicalUrl: true, sourceName: true, originalTitle: true, extractedText: true },
+      orderBy: [{ codeScore: "desc" }, { publishedAt: "desc" }],
+      take: p.take,
+      select: {
+        id: true,
+        canonicalUrl: true,
+        sourceName: true,
+        originalTitle: true,
+        extractedText: true,
+        textKind: true,
+        codeScore: true,
+        groupMembers: true,
+      },
     }),
-  ).pipe(Effect.map((rows) => rows.filter((row): row is Candidate => Boolean(row.extractedText))));
+  ).pipe(
+    Effect.map((rows) =>
+      rows.map(({ groupMembers, ...row }) => ({
+        ...row,
+        codeScore: row.codeScore ?? 0,
+        members: membersOf(groupMembers),
+        verdict: null,
+      })),
+    ),
+  );
 
-// Limits come from the code into the prompt; the skill holds the craft.
+// The members column is JSON the ingestion wrote; a row that does not parse is a ficha with no
+// members, not a failed step.
+export function membersOf(raw: unknown): Member[] {
+  const parsed = memberSchema.array().safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
+
+// The text a ficha is written from: the feed's own when it was the whole article; else the page,
+// and when that one is closed or has no readable text, the next member of the group, in order; else
+// the feed's lead. A ficha with none of them is left out. The run's read budget ends the chain
+// early: past it, no page is opened and the feed's lead is all there is.
+export const hydrate = (ficha: Ficha, read: ReadPage, logger: LoggerService): Effect.Effect<Candidate | null> =>
+  Effect.gen(function* () {
+    const { members, textKind, ...rest } = ficha;
+    const withText = (extractedText: string, textFrom: TextOrigin): Candidate => ({ ...rest, extractedText, textFrom });
+    const own: TextOrigin = { url: ficha.canonicalUrl, sourceName: ficha.sourceName, via: "page" };
+    if (textKind === "full" && ficha.extractedText) return withText(ficha.extractedText, { ...own, via: "feed" });
+
+    const pages: TextOrigin[] = [
+      own,
+      ...members.map((m): TextOrigin => ({ url: m.url, sourceName: m.sourceName, via: "member" })),
+    ];
+    for (const origin of pages) {
+      const page = yield* Effect.either(read(origin.url));
+      if (page._tag === "Right") {
+        if (origin.via === "member") {
+          logger.log({ msg: "text read from a member", url: ficha.canonicalUrl, from: origin.url });
+        }
+        return withText(page.right.extractedText, origin);
+      }
+      const spent = page.left._tag === "ReadBudgetSpent";
+      const last = spent || origin === pages.at(-1);
+      logger.warn({
+        msg: "page read failed",
+        url: ficha.canonicalUrl,
+        page: origin.url,
+        reason: `${page.left._tag}: ${page.left.reason}`,
+        fallback: last ? (ficha.extractedText ? "feed text" : "none") : "next member",
+      });
+      if (spent) break;
+    }
+    return ficha.extractedText ? withText(ficha.extractedText, { ...own, via: "feed" }) : null;
+  });
+
+// The edition from the pool, best first. Each round takes as many fichas as the edition still lacks,
+// gives them their text and writes them; a ficha with no text, or whose item is rejected twice,
+// leaves its place to the next one. It ends when the edition is full or the pool is empty, so a
+// thin day costs no more generations than it has fichas.
+export const fillEdition = (
+  fichas: readonly Ficha[],
+  max: number,
+  toCandidate: (ficha: Ficha) => Effect.Effect<Candidate | null>,
+  write: (candidate: Candidate) => Effect.Effect<ItemResult>,
+): Effect.Effect<{ items: ItemResult[]; tried: number }> =>
+  Effect.gen(function* () {
+    const items: ItemResult[] = [];
+    const missing = () => max - items.filter((item) => item.outcome === "written").length;
+    let next = 0;
+    while (next < fichas.length && missing() > 0) {
+      const round = fichas.slice(next, next + missing());
+      next += round.length;
+      const candidates = yield* Effect.forEach(round, toCandidate, { concurrency: 3 });
+      const written = yield* Effect.forEach(
+        candidates.filter((candidate): candidate is Candidate => candidate !== null),
+        write,
+        { concurrency: 3 },
+      );
+      items.push(...written);
+    }
+    return { items, tried: next };
+  });
+
+// Limits come from the code into the prompt; the skill holds the craft. They go after the article,
+// the last thing the model reads before it writes: placed before a text of thousands of characters,
+// they were forgotten and every first attempt came back over the ceiling.
 export function itemPrompt(article: Candidate): string {
   return [
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
     "Escreva o item desta notícia, e só dela.",
-    `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
-    `Corpo: até ${BODY_MAX} caracteres, contando espaços.`,
-    `Fonte: ${article.sourceName}`,
+    `Fonte: ${article.textFrom.sourceName}`,
     `Título original: ${article.originalTitle}`,
     "--- notícia ---",
     article.extractedText,
     "--- fim ---",
+    `Categorias: ${Object.keys(CATEGORIES).join(", ")}.`,
+    `Manchete: até ${HEADLINE_MAX} caracteres.`,
+    `Corpo: no máximo ${BODY_WORDS} palavras, e de ${BODY_MIN} a ${BODY_TARGET} caracteres, contando espaços. Conte as palavras antes de responder; passou de ${BODY_WORDS}, corte.`,
   ].join("\n");
 }
 
 export function headerPrompt(items: WrittenItem[]): string {
   return [
     'Carregue a skill "write" com a ferramenta skill e siga o processo dela.',
-    "Escreva o título e o assunto do e-mail da edição de hoje, a partir das notícias abaixo.",
+    "Escreva o título e o assunto do e-mail da edição de hoje. A primeira notícia abaixo é a principal do dia.",
+    `Título: até ${TITLE_MAX} caracteres, contando espaços.`,
     `Assunto: até ${SUBJECT_MAX} caracteres, contando espaços.`,
     "--- notícias, na ordem da edição ---",
     ...items.map((item, index) => `${index + 1}. [${CATEGORIES[item.category]}] ${item.headline}\n${item.body}`),
@@ -131,6 +288,8 @@ export const writeItem = (
         ({
           outcome: "written",
           id: article.id,
+          // The model's score orders the edition; the code's only until the model has spoken.
+          score: article.verdict?.score ?? article.codeScore,
           url: article.canonicalUrl,
           item: generated.object,
           usage: generated.usage ?? null,
@@ -151,9 +310,46 @@ export const writeItem = (
 // The header gets the same two attempts, but an edition without title and subject is no edition:
 // failing twice fails the step.
 export const writeHeader = (items: WrittenItem[], generate: Generate<EditionHeader>, logger: LoggerService) =>
-  twoAttempts(headerPrompt(items), generate, (reason) => {
+  twoAttempts(headerPrompt(items), checkingSubject(generate, items[0]?.headline), (reason) => {
     logger.warn({ msg: "header rejected, retrying", reason });
   });
+
+// The subject must tell the lead story in its own words: the reader sees it in the inbox and meets
+// the headline as soon as the e-mail opens, so a copy says the same thing twice. The skill asks for
+// it; the model does not always comply, and the code holds the rule.
+export const SUBJECT_OVERLAP_MAX = 0.6;
+
+const checkingSubject =
+  (generate: Generate<EditionHeader>, headline: string | undefined): Generate<EditionHeader> =>
+  (prompt) =>
+    generate(prompt).pipe(
+      Effect.filterOrFail(
+        (generated) => headline === undefined || overlap(generated.object.subject, headline) <= SUBJECT_OVERLAP_MAX,
+        (generated) =>
+          new ItemFailed({
+            reason: `subject repeats the lead headline ("${generated.object.subject}" / "${headline}"): tell the same fact in other words`,
+          }),
+      ),
+    );
+
+// How much two lines share, by their words: accents, case and punctuation aside, and the words of
+// one or two letters too, except numbers, so "de", "da" and "US" do not make two lines alike.
+export function overlap(a: string, b: string): number {
+  const words = (s: string) =>
+    new Set(
+      s
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((w) => w.length > 2 || /\d/.test(w)),
+    );
+  const x = words(a);
+  const y = words(b);
+  const shared = [...x].filter((w) => y.has(w)).length;
+  const all = new Set([...x, ...y]).size;
+  return all === 0 ? 0 : shared / all;
+}
 
 // One transaction: whatever an earlier run left attached goes back to the pool, the approved
 // articles get their text and join the edition, and the edition gets its header. Running the step
@@ -168,10 +364,11 @@ export const saveEdition = (
         where: { editionId: p.editionId },
         data: { editionId: null, category: null, headline: null, body: null },
       }),
-      ...p.written.map(({ id, item }) =>
+      // The score an article joins with is the model's triage, on the 0–5 scale the edition is ordered by.
+      ...p.written.map(({ id, item, score }) =>
         prisma.article.update({
           where: { id },
-          data: { editionId: p.editionId, category: item.category, headline: item.headline, body: item.body },
+          data: { editionId: p.editionId, category: item.category, headline: item.headline, body: item.body, score },
         }),
       ),
       prisma.edition.update({
@@ -181,9 +378,20 @@ export const saveEdition = (
     ]),
   ).pipe(Effect.asVoid);
 
-// Fewer than `min_articles`: better no edition than a weak one. The owners hear about it.
-export const skipEdition = (prisma: PrismaClient, editionId: string): Effect.Effect<void, WriteDbFailed> =>
-  db(() => prisma.edition.update({ where: { id: editionId }, data: { status: "skipped" } })).pipe(Effect.asVoid);
+// Fewer than `min_articles`: no edition today, and the owners hear about it. The
+// edition is closed, so the fichas nobody chose go with it.
+export const skipEdition = (prisma: PrismaClient, editionId: string, now: Date): Effect.Effect<void, WriteDbFailed> =>
+  db(() =>
+    prisma.$transaction([
+      releaseFichas(prisma, now),
+      prisma.edition.update({ where: { id: editionId }, data: { status: "skipped" } }),
+    ]),
+  ).pipe(Effect.asVoid);
+
+// The fichas no edition chose, stored before `before`: deleted when an edition closes, sent or
+// skipped. Of what was not chosen only the seen hash stays, so it is not processed again.
+export const releaseFichas = (prisma: PrismaClient, before: Date) =>
+  prisma.article.deleteMany({ where: { editionId: null, createdAt: { lt: before } } });
 
 // The step's token cost is every call added up: one per article, plus the header, plus the retries.
 export function sumUsage(usages: unknown[]): Record<string, number> {

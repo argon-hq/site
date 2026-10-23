@@ -1,6 +1,9 @@
 import { Effect, Exit } from "effect";
-import { describe, expect, it, vi } from "vitest";
-import { fetchArticle, isPublicAddress, MAX_HTML_BYTES, type FetchDeps } from "./read-page";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setAllowedDomains } from "../../ingest/allowlist";
+import type { FetchDeps } from "../../net/fetch";
+import { Logger } from "@nestjs/common";
+import { fetchArticle, MAX_HTML_BYTES, readPage } from "./read-page";
 
 const ARTICLE = `<!doctype html><html><head><title>Copom mantém a Selic</title>
 <link rel="canonical" href="https://valor.globo.com/financas/noticia/copom.ghtml">
@@ -23,8 +26,8 @@ function deps(answers: Record<string, Answer>, addresses: Record<string, string>
     });
   });
   const fakeDeps: FetchDeps = {
-    fetch: fetchMock as unknown as typeof fetch,
-    lookup: async (hostname) => [{ address: addresses[hostname] ?? "200.1.2.3" }],
+    fetch: fetchMock as unknown as FetchDeps["fetch"],
+    resolve: async (hostname: string) => [{ address: addresses[hostname] ?? "200.1.2.3", family: 4 }],
   };
   return { deps: fakeDeps, calls };
 }
@@ -36,34 +39,10 @@ const failure = async (effect: ReturnType<typeof fetchArticle>) => {
   return cause._tag === "Fail" ? cause.error : null;
 };
 
-describe("isPublicAddress", () => {
-  it("refuses loopback, link-local, private and mapped addresses", () => {
-    for (const ip of [
-      "127.0.0.1",
-      "169.254.169.254",
-      "10.0.0.5",
-      "172.16.0.1",
-      "172.31.255.255",
-      "192.168.1.1",
-      "100.64.0.1",
-      "0.0.0.0",
-      "::1",
-      "fe80::1",
-      "fd00::1",
-      "::ffff:169.254.169.254",
-    ]) {
-      expect(isPublicAddress(ip), ip).toBe(false);
-    }
-  });
-
-  it("accepts public addresses", () => {
-    for (const ip of ["200.1.2.3", "8.8.8.8", "172.32.0.1", "2001:db8::1", "::ffff:8.8.8.8"]) {
-      expect(isPublicAddress(ip), ip).toBe(true);
-    }
-  });
-});
-
 describe("fetchArticle", () => {
+  // The allowlist is the sources table's; here, one source.
+  beforeEach(() => setAllowedDomains(["valor.globo.com"]));
+
   it("reads a page from a source", async () => {
     const { deps: d } = deps({ "https://valor.globo.com/financas/noticia/copom.ghtml": { body: ARTICLE } });
     const page = await Effect.runPromise(fetchArticle("https://valor.globo.com/financas/noticia/copom.ghtml", d));
@@ -120,6 +99,15 @@ describe("fetchArticle", () => {
     expect(calls).toEqual(["https://valor.globo.com/out"]);
   });
 
+  it("refuses a redirect from https down to http, even inside the sources", async () => {
+    const { deps: d, calls } = deps({
+      "https://valor.globo.com/down": { status: 301, headers: { location: "http://valor.globo.com/financas/x" } },
+    });
+    const error = await failure(fetchArticle("https://valor.globo.com/down", d));
+    expect(error).toMatchObject({ _tag: "UrlNotAllowed", reason: "redirect from https to http" });
+    expect(calls).toEqual(["https://valor.globo.com/down"]);
+  });
+
   it("gives up after too many redirects", async () => {
     const { deps: d } = deps({
       "https://valor.globo.com/a": { status: 302, headers: { location: "/b" } },
@@ -160,5 +148,22 @@ describe("fetchArticle", () => {
     });
     const error = await failure(fetchArticle("https://valor.globo.com/file.pdf", d));
     expect(error?._tag).toBe("PageUnreadable");
+  });
+});
+
+describe("the read_page tool", () => {
+  it("logs a refusal with its reason before answering the agent, with no network touched", async () => {
+    const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => {});
+    try {
+      await expect(readPage.execute!({ url: "https://g1.globo.com/economia/" }, {} as never)).rejects.toThrow();
+      expect(warn).toHaveBeenCalledWith({
+        msg: "read_page failed",
+        tag: "UrlNotAllowed",
+        url: "https://g1.globo.com/economia/",
+        reason: "domain not allowed",
+      });
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

@@ -300,6 +300,15 @@ data "aws_iam_policy_document" "github_deploy" {
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = ["arn:aws:s3:::${local.state_bucket}/public-assets/*"]
   }
+
+  # The workflow's failure step tells the alerts topic that a deploy went red; without this the
+  # alert itself fails and a red deploy reaches only whoever is watching the Actions tab.
+  statement {
+    sid       = "AvisaDeployComFalha"
+    effect    = "Allow"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.alerts.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {

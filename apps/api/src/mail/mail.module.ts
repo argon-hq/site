@@ -3,7 +3,7 @@ import { createTransport } from "nodemailer";
 import { Resend } from "resend";
 import type { Config } from "../config";
 import { MailService } from "./mail.service";
-import { MAIL_TRANSPORT } from "./mail.types";
+import { MAIL_FROM, MAIL_TRANSPORT } from "./mail.types";
 import { RESEND_CLIENT, ResendTransport } from "./transports/resend.transport";
 import { SMTP_TRANSPORTER, SmtpTransport } from "./transports/smtp.transport";
 
@@ -26,7 +26,7 @@ export class MailModule {
 
     return {
       module: MailModule,
-      providers: [client, transport, MailService],
+      providers: [client, transport, { provide: MAIL_FROM, useValue: config.MAIL_FROM }, MailService],
       exports: [MailService, MAIL_TRANSPORT],
     };
   }

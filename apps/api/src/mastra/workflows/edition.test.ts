@@ -1,18 +1,32 @@
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
-import type { BuildReport, CollectReport, WriteReport } from "../../pipeline/pipeline.service";
+import type { BuildReport, IngestReport, WriteReport } from "../../pipeline/pipeline.service";
 import { runDate, STEP_RETRIES } from "../../pipeline/run";
 import type { EditionContext, EditionSteps } from "./context";
-import { buildStep, collectStep, editionRunSchema, editionWorkflow, writeStep, type EditionRun } from "./edition";
+import { buildStep, editionRunSchema, editionWorkflow, ingestStep, writeStep, type EditionRun } from "./edition";
 
 class StepFailed extends Data.TaggedError("StepFailed")<{ reason: string }> {}
 
-const collectReport = {
-  saved: 4,
-  result: { candidates: [1, 2, 3, 4, 5], discarded: 7 },
+const ingestReport = {
+  sources: 6,
+  sourcesFailed: ["gartner.com"],
+  listed: 870,
+  inWindow: 579,
+  groups: 388,
+  fichas: 166,
+  items: [{}],
   durationMs: 90,
-} as unknown as CollectReport;
+} as unknown as IngestReport;
+const ingestSummary = {
+  sources: 6,
+  sourcesFailed: ["gartner.com"],
+  listed: 870,
+  inWindow: 579,
+  groups: 388,
+  fichas: 166,
+  durationMs: 90,
+};
 const writeReport = {
   editionId: "e1",
   status: "written",
@@ -31,7 +45,7 @@ const buildReport = {
 } as unknown as BuildReport;
 
 const steps = (over: Partial<EditionSteps> = {}): EditionSteps => ({
-  collect: () => Effect.succeed(collectReport),
+  ingest: () => Effect.succeed(ingestReport),
   write: () => Effect.succeed(writeReport),
   build: () => Effect.succeed(buildReport),
   ...over,
@@ -47,22 +61,28 @@ const contextOf = (pipeline: EditionSteps) => {
 type Step = { execute: (args: unknown) => Promise<EditionRun>; retries?: number };
 
 const execute = (step: unknown, inputData: EditionRun, pipeline = steps()): Promise<EditionRun> =>
-  (step as Step).execute({ inputData, requestContext: contextOf(pipeline) });
+  (step as Step).execute({ inputData, requestContext: contextOf(pipeline), runId: "run-1" });
 
 const today = (over: Partial<EditionRun> = {}): EditionRun => ({ date: runDate(new Date()), mode: "live", ...over });
 
 describe("the edition steps", () => {
-  it("folds the collection into the run", async () => {
-    const run = await execute(collectStep, today());
+  it("folds the ingestion's counts into the run, without the items", async () => {
+    const run = await execute(ingestStep, today());
 
-    expect(run.collect).toEqual({ saved: 4, evaluated: 5, discarded: 7, durationMs: 90 });
+    expect(run.ingest).toEqual(ingestSummary);
     expect(editionRunSchema.safeParse(run).success).toBe(true);
   });
 
-  it("folds the writing into the run, keeping what came before", async () => {
-    const run = await execute(writeStep, today({ collect: { saved: 4, evaluated: 5, discarded: 7, durationMs: 90 } }));
+  it("hands every step the workflow's run id, for its log lines", async () => {
+    const ingest = vi.fn(() => Effect.succeed(ingestReport));
+    await execute(ingestStep, today({ mode: "mock" }), steps({ ingest }));
+    expect(ingest).toHaveBeenCalledWith({ mode: "mock", runId: "run-1" });
+  });
 
-    expect(run.collect).toBeDefined();
+  it("folds the writing into the run, keeping what came before", async () => {
+    const run = await execute(writeStep, today({ ingest: ingestSummary }));
+
+    expect(run.ingest).toBeDefined();
     expect(run.write).toEqual({
       editionId: "e1",
       status: "written",
@@ -98,13 +118,13 @@ describe("the edition steps", () => {
   });
 
   it("throws the reason when the step fails, which is what makes Mastra try again", async () => {
-    const pipeline = steps({ collect: () => new StepFailed({ reason: "settings: boom" }) });
+    const pipeline = steps({ ingest: () => new StepFailed({ reason: "settings: boom" }) });
 
-    await expect(execute(collectStep, today(), pipeline)).rejects.toThrow("settings: boom");
+    await expect(execute(ingestStep, today(), pipeline)).rejects.toThrow("settings: boom");
   });
 
   it("fails by name when the run carries no pipeline, as a run from the Studio does", async () => {
-    const step = collectStep as unknown as Step;
+    const step = ingestStep as unknown as Step;
 
     await expect(step.execute({ inputData: today(), requestContext: new RequestContext() })).rejects.toThrow(
       "no pipeline in the run context",
@@ -112,17 +132,17 @@ describe("the edition steps", () => {
   });
 
   it("refuses a run for another day, because the steps read the real clock", async () => {
-    await expect(execute(collectStep, { date: "2020-01-01", mode: "live" })).rejects.toThrow("run is for 2020-01-01");
+    await expect(execute(ingestStep, { date: "2020-01-01", mode: "live" })).rejects.toThrow("run is for 2020-01-01");
   });
 
   it("tries a failed step again before giving up", () => {
-    expect((collectStep as unknown as Step).retries).toBe(STEP_RETRIES);
+    expect((ingestStep as unknown as Step).retries).toBe(STEP_RETRIES);
   });
 });
 
 describe("the edition workflow", () => {
   it("runs the three steps of the generation, in order", () => {
-    expect(Object.keys(editionWorkflow.steps)).toEqual(["collect", "write", "build"]);
+    expect(Object.keys(editionWorkflow.steps)).toEqual(["ingest", "write", "build"]);
   });
 });
 

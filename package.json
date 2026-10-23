@@ -13,7 +13,7 @@
     "format:check": "prettier --check \"apps/*/src/**/*.{ts,tsx,css}\" \"apps/*/*.{ts,mjs,mts,json}\" \"deploy/**/*.{yml,yaml}\" \".github/**/*.yml\""
   },
   "devDependencies": {
-    "prettier": "^3.9.8",
-    "turbo": "^2.11.3"
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.7"
   }
 }

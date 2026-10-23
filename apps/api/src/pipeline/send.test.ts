@@ -259,11 +259,22 @@ describe("countPending", () => {
 });
 
 describe("closeEdition", () => {
-  it("closes the edition as sent, with the time it went out", async () => {
-    const update = vi.fn().mockResolvedValue({});
-    await Effect.runPromise(closeEdition(fakePrisma({ edition: { update } }), { editionId: "e1", now }));
+  it("closes the edition as sent, drops the text it was written from and the fichas nobody chose, in one go", async () => {
+    const record = (op: string) => vi.fn((args: unknown) => ({ op, args }));
+    const ops: unknown[] = [];
+    const prisma = fakePrisma({
+      article: { updateMany: record("article.updateMany"), deleteMany: record("article.deleteMany") },
+      edition: { update: record("edition.update") },
+      $transaction: vi.fn(async (list: unknown[]) => ops.push(...list)),
+    });
 
-    expect(update).toHaveBeenCalledWith({ where: { id: "e1" }, data: { status: "sent", sentAt: now } });
+    await Effect.runPromise(closeEdition(prisma, { editionId: "e1", now }));
+
+    expect(ops).toEqual([
+      { op: "article.updateMany", args: { where: { editionId: "e1" }, data: { extractedText: null } } },
+      { op: "article.deleteMany", args: { where: { editionId: null, createdAt: { lt: now } } } },
+      { op: "edition.update", args: { where: { id: "e1" }, data: { status: "sent", sentAt: now } } },
+    ]);
   });
 });
 

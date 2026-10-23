@@ -1,17 +1,31 @@
 import type { MastraModelConfig } from "@mastra/core/llm";
-import { PROFILE } from "../pipeline/profile";
+import { RequestContext } from "@mastra/core/request-context";
 
-// One model per agent, overridable by MODEL_<AGENT>. Claude through the Anthropic API;
-// Mastra's model router reads ANTHROPIC_API_KEY. Fallback providers come later.
-// The default comes from the environment's profile: production writes the edition people read, the
-// other three are testing the pipeline and do it on a cheaper model.
-const defaults = {
-  editor: PROFILE.model,
-};
+// One Claude model per step of the edition, through the Anthropic API (Mastra's router reads
+// ANTHROPIC_API_KEY). Haiku on both by default, in every environment: the selection reads twenty
+// fichas and answers with a list, the writing reads one page and answers with three hundred
+// characters — neither needs more, and the two are the whole cost of a run. MODEL_SELECT and
+// MODEL_WRITE change one step without the other. Fallback providers come later.
+export const MODEL_STEPS = ["select", "write"] as const;
+export type ModelStep = (typeof MODEL_STEPS)[number];
 
-export type AgentName = keyof typeof defaults;
+export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
-export function modelFor(agent: AgentName): MastraModelConfig {
-  const id = process.env[`MODEL_${agent.toUpperCase()}`] ?? defaults[agent];
-  return `anthropic/${id}` as MastraModelConfig;
+export function modelId(step: ModelStep): string {
+  return process.env[`MODEL_${step.toUpperCase()}`] ?? DEFAULT_MODEL;
+}
+
+// The Editor is one agent with two steps, so its model is decided per call: the pipeline puts the
+// step in the request context and the agent reads it there. A call with no step — the Studio's —
+// writes.
+export type ModelContext = { step: ModelStep };
+
+export function modelContext(step: ModelStep): RequestContext<ModelContext> {
+  const context = new RequestContext<ModelContext>();
+  context.set("step", step);
+  return context;
+}
+
+export function modelOf({ requestContext }: { requestContext: RequestContext<ModelContext> }): MastraModelConfig {
+  return `anthropic/${modelId(requestContext.get("step") ?? "write")}` as MastraModelConfig;
 }

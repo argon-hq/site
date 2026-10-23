@@ -49,24 +49,34 @@ const failureOf = (row: EditionRow, rows: ArticleRow[]) =>
   Effect.runPromise(Effect.either(toEditionInput(row, rows, ctx)));
 
 describe("editionContext", () => {
-  it("maps the identity settings, derives the image base from the site and keeps the unsubscribe URL per recipient", async () => {
-    const settings = {
-      sender: { name: "Argon", address: "news@example.com", postalAddress: "Passo Fundo, RS" },
-      privacy_policy_url: "https://example.com/privacy",
-      social: { site: "https://example.com" },
-    };
-    const context = editionContext(settings, {
-      assetsOrigin: WEB_ORIGIN,
-      unsubscribeUrl: "https://example.com/unsubscribe?token=abc",
-    });
+  const origins = { web: WEB_ORIGIN, api: "https://api.example.com", assets: WEB_ORIGIN };
+  const sender = { name: "Argon", address: "news@example.com", postalAddress: "Passo Fundo, RS" };
+
+  it("keeps the sender, derives every URL from the origins and keeps the unsubscribe URL per recipient", async () => {
+    const linkedin = "https://www.linkedin.com/company/argon";
+    const context = editionContext(
+      { sender, social: { linkedin } },
+      { origins, unsubscribeUrl: "https://example.com/unsubscribe?token=abc" },
+    );
 
     expect(context).toEqual({
-      sender: settings.sender,
-      social: settings.social,
-      privacyPolicyUrl: "https://example.com/privacy",
-      assetBaseUrl: "https://example.com/email",
+      sender,
+      social: { site: WEB_ORIGIN, linkedin, instagram: WEB_ORIGIN, youtube: WEB_ORIGIN },
+      privacyPolicyUrl: `${WEB_ORIGIN}/privacy`,
+      assetBaseUrl: `${WEB_ORIGIN}/email`,
       unsubscribeUrl: "https://example.com/unsubscribe?token=abc",
     });
+  });
+
+  it("points every link at the environment it runs in, whatever the settings hold", async () => {
+    const prod = { web: "https://argon.example", api: "https://api.argon.example", assets: "https://argon.example" };
+    const context = editionContext(
+      { sender, social: {} },
+      { origins: prod, unsubscribeUrl: "https://argon.example/u" },
+    );
+
+    expect(context.privacyPolicyUrl).toBe("https://argon.example/privacy");
+    expect(Object.values(context.social)).toEqual(Array(4).fill("https://argon.example"));
   });
 });
 

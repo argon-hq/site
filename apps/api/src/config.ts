@@ -45,6 +45,11 @@ const schema = z
     MAIL_TRANSPORT: z.enum(["smtp", "resend"]).default("smtp"),
     SMTP_URL: z.string().url().default("smtp://localhost:1025"),
     RESEND_API_KEY: z.string().optional(),
+    // The address every e-mail leaves from. Per environment, because each sends from a domain the
+    // provider has verified for it: prod from its own, dev and lab from the dev one. The name and the
+    // postal address are the business's and stay in the settings; only the address moves with the
+    // environment, so a fresh database cannot make prod mail from dev's domain.
+    MAIL_FROM: z.email().optional(),
   })
   // The key is only required by the provider that uses it.
   .refine((c) => c.MAIL_TRANSPORT !== "resend" || Boolean(c.RESEND_API_KEY), {
@@ -55,7 +60,13 @@ const schema = z
   .refine((c) => c.NODE_ENV !== "production" || c.ARGON_ENV !== undefined, {
     message: "ARGON_ENV is required in production",
     path: ["ARGON_ENV"],
-  });
+  })
+  // Mailpit accepts any sender, so a development machine needs none; a container has to name its own.
+  .refine((c) => c.NODE_ENV !== "production" || c.MAIL_FROM !== undefined, {
+    message: "MAIL_FROM is required in production",
+    path: ["MAIL_FROM"],
+  })
+  .transform((c) => ({ ...c, MAIL_FROM: c.MAIL_FROM ?? "newsletter@argon.localhost" }));
 
 export type Config = z.infer<typeof schema>;
 

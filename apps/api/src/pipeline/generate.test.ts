@@ -1,4 +1,5 @@
 import type { Agent } from "@mastra/core/agent";
+import { RequestContext } from "@mastra/core/request-context";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { generateStructured, NothingToShape } from "./generate";
@@ -19,7 +20,7 @@ const working = {
   text: "Li duas notícias: a e b.",
   usage: { inputTokens: 100, outputTokens: 10 },
   steps: [{}, {}, {}],
-  toolCalls: [{ payload: { toolName: "skill" } }, { payload: { toolName: "web_search" } }],
+  toolCalls: [{ payload: { toolName: "skill" } }, { payload: { toolName: "read_page" } }],
 };
 const shaping = { object: { items: ["a", "b"] }, usage: { inputTokens: 40, outputTokens: 5 } };
 
@@ -49,6 +50,17 @@ describe("generateStructured", () => {
     expect(calls[1]?.prompt).toContain(working.text);
   });
 
+  it("carries the request context into both halves, so a step's model is the step's on each", async () => {
+    const { agent, calls } = fakeAgent([working, shaping]);
+    const requestContext = new RequestContext<{ step: string }>();
+    requestContext.set("step", "select");
+
+    await generateStructured(agent, "selecione", { schema, requestContext });
+
+    expect(calls[0]?.options.requestContext).toBe(requestContext);
+    expect(calls[1]?.options.requestContext).toBe(requestContext);
+  });
+
   it("returns the shaped object and charges for both halves", async () => {
     const { agent } = fakeAgent([working, shaping]);
 
@@ -64,7 +76,7 @@ describe("generateStructured", () => {
     const result = await generateStructured(agent, "colete", { schema });
 
     expect(result.steps).toBe(3);
-    expect(result.toolCalls).toEqual(["skill", "web_search"]);
+    expect(result.toolCalls).toEqual(["skill", "read_page"]);
   });
 
   it("fails loudly when the second call answers without an object", async () => {

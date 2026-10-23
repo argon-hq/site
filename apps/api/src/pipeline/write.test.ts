@@ -1,20 +1,37 @@
 import type { LoggerService } from "@nestjs/common";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Struct } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/client";
-import { BODY_MAX, SUBJECT_MAX, type WrittenItem } from "../mastra/schemas/edition";
+import {
+  BODY_MIN,
+  BODY_TARGET,
+  BODY_WORDS,
+  HEADLINE_MAX,
+  SUBJECT_MAX,
+  TITLE_MAX,
+  type WrittenItem,
+} from "../mastra/schemas/edition";
 import {
   belowMinimum,
   headerPrompt,
   itemPrompt,
   ItemFailed,
   openEdition,
+  overlap,
   saveEdition,
-  selectCandidates,
+  fillEdition,
+  hydrate,
+  releaseFichas,
+  selectFichas,
+  withReadBudget,
+  skipEdition,
   sumUsage,
+  writeHeader,
   writeItem,
   type Candidate,
+  type Ficha,
   type Generate,
+  type ItemResult,
 } from "./write";
 
 const silent: LoggerService = { log: () => {}, warn: () => {}, error: () => {} };
@@ -25,6 +42,9 @@ const candidate: Candidate = {
   sourceName: "Valor Econômico",
   originalTitle: "Copom mantém a Selic em 12%",
   extractedText: "O Copom manteve a taxa básica de juros em 12% ao ano.",
+  codeScore: 7,
+  verdict: null,
+  textFrom: { url: "https://valor.globo.com/empresas/noticia/x.ghtml", sourceName: "Valor Econômico", via: "page" },
 };
 
 const item: WrittenItem = {
@@ -54,12 +74,12 @@ describe("writeItem", () => {
   });
 
   it("gives the second attempt the reason the first was rejected", async () => {
-    const { generate, prompts } = generator("body: 214 caracteres, máximo 190", item);
+    const { generate, prompts } = generator("body: 290 caracteres, máximo 272", item);
     const result = await Effect.runPromise(writeItem(candidate, generate, silent));
 
     expect(result.outcome).toBe("written");
     expect(prompts).toHaveLength(2);
-    expect(prompts[1]).toContain("214 caracteres");
+    expect(prompts[1]).toContain("290 caracteres");
   });
 
   it("drops the article after two attempts instead of failing the step", async () => {
@@ -71,18 +91,79 @@ describe("writeItem", () => {
   });
 });
 
+describe("writeItem's score", () => {
+  it("is the model's once the triage has spoken, and the code's before", async () => {
+    const before = await Effect.runPromise(writeItem(candidate, generator(item).generate, silent));
+    expect(before).toMatchObject({ outcome: "written", score: 7 });
+    const verdict = { id: "a1", focus: "core_business" as const, impact: 4, score: 4, reason: "r" };
+    const after = await Effect.runPromise(writeItem({ ...candidate, verdict }, generator(item).generate, silent));
+    expect(after).toMatchObject({ outcome: "written", score: 4 });
+  });
+});
+
+describe("writeHeader", () => {
+  const lead: WrittenItem = { ...item, headline: "Amazon negocia compra da startup Decart por US$ 7 bilhões" };
+  const header = (subject: string) => ({ title: "Quem ganha com a corrida dos vídeos por IA", subject });
+  const answering = (...subjects: string[]) => {
+    const prompts: string[] = [];
+    const generate = (prompt: string) => {
+      prompts.push(prompt);
+      return Effect.succeed({ object: header(subjects[prompts.length - 1] ?? "") });
+    };
+    return { generate, prompts };
+  };
+
+  it("sends back a subject that copies the lead headline, and keeps the one in other words", async () => {
+    const { generate, prompts } = answering(
+      "Amazon negocia compra de startup de IA por US$ 7 bilhões",
+      "Amazon quer pagar US$ 7 bilhões por startup de vídeo com IA",
+    );
+    const result = await Effect.runPromise(writeHeader([lead], generate, silent));
+
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain("subject repeats the lead headline");
+    expect(result.object.subject).toBe("Amazon quer pagar US$ 7 bilhões por startup de vídeo com IA");
+  });
+
+  it("fails the header when the subject copies the headline twice", async () => {
+    const copy = "Amazon negocia compra da startup Decart por US$ 7 bilhões";
+    const exit = await Effect.runPromiseExit(writeHeader([lead], answering(copy, copy).generate, silent));
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+});
+
+describe("overlap", () => {
+  it("measures shared words, ignoring accents, case, punctuation and short words", () => {
+    expect(overlap("Crédito SOBE 12%", "credito sobe 12")).toBe(1);
+    expect(
+      overlap("Investidores freiam startups de IA", "Firmus desiste de IPO; investidores questionam"),
+    ).toBeLessThan(0.3);
+    expect(overlap("", "")).toBe(0);
+  });
+});
+
 describe("prompts", () => {
   it("carries the limits from the code and names the skill", () => {
     const prompt = itemPrompt(candidate);
     expect(prompt).toContain('skill "write"');
-    expect(prompt).toContain(String(BODY_MAX));
+    expect(prompt).toContain(String(BODY_MIN));
+    expect(prompt).toContain(String(BODY_TARGET));
+    expect(prompt).toContain(String(HEADLINE_MAX));
+    expect(prompt).toContain(`no máximo ${BODY_WORDS} palavras`);
     expect(prompt).toContain("economy");
     expect(prompt).toContain(candidate.extractedText);
   });
 
-  it("gives the header the written items in edition order", () => {
+  it("puts the limits after the article, the last thing the model reads", () => {
+    const prompt = itemPrompt(candidate);
+    expect(prompt.indexOf("--- fim ---")).toBeLessThan(prompt.indexOf(`no máximo ${BODY_WORDS} palavras`));
+  });
+
+  it("gives the header the written items in edition order, the lead story first", () => {
     const prompt = headerPrompt([item, { ...item, headline: "Segunda manchete" }]);
     expect(prompt).toContain(String(SUBJECT_MAX));
+    expect(prompt).toContain(String(TITLE_MAX));
+    expect(prompt).toContain("principal");
     expect(prompt.indexOf("Copom")).toBeLessThan(prompt.indexOf("Segunda manchete"));
   });
 });
@@ -131,27 +212,180 @@ describe("belowMinimum", () => {
   });
 });
 
-describe("selectCandidates", () => {
-  it("asks for what is inside the window, above the cutoff and free or already in this edition", async () => {
-    const queries: Array<{ where: unknown; take: number }> = [];
-    const findMany = vi.fn(async (args: { where: unknown; take: number }) => {
+describe("selectFichas", () => {
+  it("asks for the fichas of the window, free or already in this edition, best score first, as many as told", async () => {
+    const queries: Array<{ where: unknown; orderBy: unknown; take: number }> = [];
+    const row = Struct.omit(candidate, "textFrom");
+    const member = { url: "https://x.test/m", sourceName: "Outro", title: "Mesmo fato", textKind: "summary" };
+    const findMany = vi.fn(async (args: { where: unknown; orderBy: unknown; take: number }) => {
       queries.push(args);
       return [
-        { ...candidate },
-        { id: "a2", canonicalUrl: "https://exame.com/y", sourceName: "Exame", originalTitle: "t", extractedText: null },
+        { ...row, textKind: "full", groupMembers: [member] },
+        { ...row, id: "a2", textKind: "none", groupMembers: "not json we wrote" },
       ];
     });
     const prisma = { article: { findMany } } as unknown as PrismaClient;
     const since = new Date("2026-09-21T08:00:00Z");
 
-    const result = await Effect.runPromise(selectCandidates(prisma, { editionId: "e1", since, cutoff: 3, max: 6 }));
+    const result = await Effect.runPromise(selectFichas(prisma, { editionId: "e1", since, take: 12 }));
 
-    // The article whose text was already cleared by the retention is not writable.
-    expect(result).toEqual([candidate]);
+    // The members column comes back parsed; one that does not parse is a ficha with no members.
+    expect(result).toEqual([
+      { ...row, textKind: "full", members: [member], verdict: null },
+      { ...row, id: "a2", textKind: "none", members: [], verdict: null },
+    ]);
     expect(queries[0]).toMatchObject({
-      where: { OR: [{ editionId: null }, { editionId: "e1" }], createdAt: { gte: since }, score: { gte: 3 } },
-      take: 6,
+      where: { OR: [{ editionId: null }, { editionId: "e1" }], createdAt: { gte: since }, codeScore: { not: null } },
+      orderBy: [{ codeScore: "desc" }, { publishedAt: "desc" }],
+      take: 12,
     });
+  });
+});
+
+describe("hydrate", () => {
+  const row = Struct.omit(candidate, "textFrom");
+  const ficha = (over: Partial<Ficha>): Ficha => ({ ...row, textKind: "summary", members: [], ...over });
+  const page = (text: string) => (url: string) =>
+    Effect.succeed({ canonicalUrl: url, originalTitle: "t", extractedText: text, siteName: null, publishedAt: null });
+  const closed = () => Effect.fail({ _tag: "FetchFailed", reason: "HTTP 403" });
+  const members = [
+    { url: "https://folha.test/a", sourceName: "Folha", title: "Mesmo fato", textKind: "summary" as const },
+    { url: "https://exame.test/a", sourceName: "Exame", title: "Mesmo fato", textKind: "none" as const },
+  ];
+
+  it("writes from the feed when it carried the whole article, without reading the page", async () => {
+    const read = vi.fn(page("página"));
+    const result = await Effect.runPromise(hydrate(ficha({ textKind: "full", extractedText: "feed" }), read, silent));
+    expect(result?.extractedText).toBe("feed");
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("reads the page when the feed had a lead or nothing", async () => {
+    const result = await Effect.runPromise(hydrate(ficha({ extractedText: "lead" }), page("página inteira"), silent));
+    expect(result?.extractedText).toBe("página inteira");
+    expect(result?.textFrom).toEqual({ url: candidate.canonicalUrl, sourceName: "Valor Econômico", via: "page" });
+  });
+
+  it("reads the next member of the group when the representative's page is closed, and says so", async () => {
+    const log = vi.fn();
+    const read = vi.fn((url: string) => (url === candidate.canonicalUrl ? closed() : page("texto da Folha")(url)));
+    const result = await Effect.runPromise(
+      hydrate(ficha({ extractedText: "lead", members }), read, { ...silent, log }),
+    );
+    expect(result?.extractedText).toBe("texto da Folha");
+    expect(result?.textFrom).toEqual({ url: "https://folha.test/a", sourceName: "Folha", via: "member" });
+    expect(result?.canonicalUrl).toBe(candidate.canonicalUrl); // the edition still links the ficha
+    expect(read.mock.calls.map(([url]) => url)).toEqual([candidate.canonicalUrl, "https://folha.test/a"]);
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ msg: "text read from a member" }));
+    expect(itemPrompt(result!)).toContain("Fonte: Folha");
+  });
+
+  it("tries every member before the feed's lead", async () => {
+    const read = vi.fn(closed);
+    const result = await Effect.runPromise(hydrate(ficha({ extractedText: "lead", members }), read, silent));
+    expect(result?.extractedText).toBe("lead");
+    expect(result?.textFrom.via).toBe("feed");
+    expect(read).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops opening pages once the run's budget is spent, and falls back to the feed", async () => {
+    const pages = vi.fn(page("página"));
+    const { read, spent } = await Effect.runPromise(withReadBudget(pages, 1));
+    const first = await Effect.runPromise(hydrate(ficha({ extractedText: "lead 1", members }), read, silent));
+    const second = await Effect.runPromise(hydrate(ficha({ extractedText: "lead 2", members }), read, silent));
+    expect(first?.extractedText).toBe("página");
+    expect(second?.extractedText).toBe("lead 2");
+    expect(pages).toHaveBeenCalledTimes(1); // the second ficha opened nothing, members included
+    expect(await Effect.runPromise(spent)).toBe(1);
+  });
+
+  it("falls back to the feed's lead when the page is closed, and leaves out a ficha with no text at all", async () => {
+    const warn = vi.fn();
+    const logger = { ...silent, warn };
+    expect((await Effect.runPromise(hydrate(ficha({ extractedText: "lead" }), closed, logger)))?.extractedText).toBe(
+      "lead",
+    );
+    expect(
+      await Effect.runPromise(hydrate(ficha({ textKind: "none", extractedText: null }), closed, logger)),
+    ).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.objectContaining({ msg: "page read failed", fallback: "none" }));
+  });
+});
+
+describe("fillEdition", () => {
+  const pool = (n: number): Ficha[] =>
+    Array.from({ length: n }, (_, i) => ({
+      ...candidate,
+      id: `f${i}`,
+      canonicalUrl: `https://x.test/${i}`,
+      textKind: "full",
+      members: [],
+    }));
+  const asCandidate = (ficha: Ficha): Effect.Effect<Candidate | null> =>
+    Effect.succeed({ ...ficha, extractedText: ficha.extractedText ?? "", textFrom: candidate.textFrom });
+  const writes = (rejected: string[]) => {
+    const asked: string[] = [];
+    const write = (c: Candidate) =>
+      Effect.sync(() => {
+        asked.push(c.id);
+        return rejected.includes(c.id)
+          ? ({ outcome: "rejected", url: c.canonicalUrl, reason: "body too long" } satisfies ItemResult)
+          : ({
+              outcome: "written",
+              id: c.id,
+              url: c.canonicalUrl,
+              item,
+              score: c.codeScore,
+              usage: null,
+            } satisfies ItemResult);
+      });
+    return { asked, write };
+  };
+  const writtenIds = (items: ItemResult[]) => items.flatMap((i) => (i.outcome === "written" ? [i.id] : []));
+
+  it("writes only as many as the edition takes when every one passes", async () => {
+    const { asked, write } = writes([]);
+    const { items, tried } = await Effect.runPromise(fillEdition(pool(6), 3, asCandidate, write));
+    expect(writtenIds(items)).toEqual(["f0", "f1", "f2"]);
+    expect(asked).toEqual(["f0", "f1", "f2"]);
+    expect(tried).toBe(3);
+  });
+
+  it("puts the next ficha in the place of one rejected twice", async () => {
+    const { asked, write } = writes(["f0", "f2"]);
+    const { items, tried } = await Effect.runPromise(fillEdition(pool(6), 3, asCandidate, write));
+    expect(writtenIds(items)).toEqual(["f1", "f3", "f4"]);
+    expect(asked).toEqual(["f0", "f1", "f2", "f3", "f4"]);
+    expect(tried).toBe(5);
+  });
+
+  it("skips a ficha with no text, and stops when the pool runs out", async () => {
+    const { write } = writes(["f1"]);
+    const noText = (ficha: Ficha) => (ficha.id === "f0" ? Effect.succeed(null) : asCandidate(ficha));
+    const { items, tried } = await Effect.runPromise(fillEdition(pool(3), 3, noText, write));
+    expect(writtenIds(items)).toEqual(["f2"]);
+    expect(tried).toBe(3);
+  });
+});
+
+describe("closing a day", () => {
+  it("skips the edition and releases the fichas nobody chose, in one transaction", async () => {
+    const calls: unknown[] = [];
+    const record = (op: string) => vi.fn((args: unknown) => ({ op, args }));
+    const prisma = {
+      article: { deleteMany: record("article.deleteMany") },
+      edition: { update: record("edition.update") },
+      $transaction: vi.fn(async (ops: unknown[]) => calls.push(...ops)),
+    } as unknown as PrismaClient;
+    const now = new Date("2026-09-30T08:40:00Z");
+
+    await Effect.runPromise(skipEdition(prisma, "e1", now));
+
+    expect(calls).toEqual([
+      { op: "article.deleteMany", args: { where: { editionId: null, createdAt: { lt: now } } } },
+      { op: "edition.update", args: { where: { id: "e1" }, data: { status: "skipped" } } },
+    ]);
+    expect(releaseFichas).toBeTypeOf("function");
   });
 });
 
@@ -169,7 +403,7 @@ describe("saveEdition", () => {
       saveEdition(prisma, {
         editionId: "e1",
         header: { title: "Manhã", subject: "Selic parada" },
-        written: [{ id: "a1", item }],
+        written: [{ id: "a1", item, score: 7 }],
       }),
     );
 
@@ -182,7 +416,7 @@ describe("saveEdition", () => {
         op: "article.update",
         args: {
           where: { id: "a1" },
-          data: { editionId: "e1", category: "economy", headline: item.headline, body: item.body },
+          data: { editionId: "e1", category: "economy", headline: item.headline, body: item.body, score: 7 },
         },
       },
       {
