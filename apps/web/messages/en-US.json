@@ -93,6 +93,45 @@
       "expiry": "The link is valid for 48 hours. Can't find it? Check your spam or promotions folder."
     }
   },
+  "events": {
+    "metaTitle": "Upcoming events",
+    "metaDescription": "A selection of business events in Southern Brazil, in Brazil and around the world, with dates checked against the organizers' own pages.",
+    "kicker": "Calendar",
+    "heading": "Upcoming business events",
+    "lead": "So you do not find out after it is over: a selection of events in Southern Brazil, in Brazil and around the world, with dates checked against the organizers' own pages.",
+    "mockNotice": "Sample page. The full calendar and the e-mail alerts are still being built.",
+    "notifyText": "Subscribe to the newsletter and we will let you know when new dates join the calendar.",
+    "notifyCta": "Notify me",
+    "free": "Free",
+    "opensInNewTab": "opens in a new tab",
+    "scopes": {
+      "region": "In the South",
+      "brazil": "In Brazil",
+      "world": "Around the world"
+    },
+    "items": {
+      "feira-empreendedores": {
+        "city": "Curitiba, PR",
+        "description": "Talks, workshops and a showcase of small businesses and handmade products from Curitiba and its region."
+      },
+      "tecnopuc-experience": {
+        "city": "Porto Alegre, RS",
+        "description": "Innovation and entrepreneurship festival of the PUCRS science park. The 22nd is open to everyone."
+      },
+      "web-summit": {
+        "city": "Lisbon, Portugal",
+        "description": "One of the largest technology and startup conferences in the world."
+      },
+      "slush": {
+        "city": "Helsinki, Finland",
+        "description": "A meeting of startup founders and investors."
+      },
+      "brasil-global-summit": {
+        "city": "Brasília, DF",
+        "description": "Debates on innovation, technology, the economy and business. Registration is on the website."
+      }
+    }
+  },
   "privacy": {
     "metaTitle": "Privacy policy",
     "heading": "Privacy policy",
