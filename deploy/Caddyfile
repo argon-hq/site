@@ -1,4 +1,9 @@
 # TLS automático (Let's Encrypt). Ao trocar de domínio, só os nomes dos sites mudam.
+#
+# Domínio antigo (*.argon.eduardofockink.com), até 02/02/2027: os hosts da API seguem respondendo,
+# porque os e-mails já enviados levam links de confirmação e de descadastro para eles, e o
+# descadastro de um clique é um POST que o provedor de e-mail pode não seguir num redirecionamento.
+# Os hosts do site só redirecionam. Depois dessa data, sai tudo (ARGN-10).
 
 # Every site imports this. Referrer-Policy uses `?` so the stricter `no-referrer` the site already
 # sends wins; the others overwrite whatever the app said. 1 MB is far above the largest legitimate
@@ -62,7 +67,7 @@
 	@open expression `({method} == "GET" && {path} == "/health") || ({method} == "POST" && {path} == "/subscriber/unsubscribe/one-click")`
 }
 
-argon.eduardofockink.com {
+argonbusiness.com {
 	import secure
 	log {
 		output stdout
@@ -71,7 +76,7 @@ argon.eduardofockink.com {
 	reverse_proxy web-prod:3000
 }
 
-api.argon.eduardofockink.com {
+api.argonbusiness.com, api.argon.eduardofockink.com {
 	import secure
 	log {
 		output stdout
@@ -80,7 +85,7 @@ api.argon.eduardofockink.com {
 	reverse_proxy api-prod:3001
 }
 
-dev.argon.eduardofockink.com {
+dev.argonbusiness.com {
 	import secure
 	# Mastra Studio: the API serves the static bundle under /studio, and the Mastra routes answer
 	# under /mastra on this same host, so the browser calls them same-origin — no CORS. The login
@@ -92,7 +97,7 @@ dev.argon.eduardofockink.com {
 	}
 }
 
-api.dev.argon.eduardofockink.com {
+api.dev.argonbusiness.com, api.dev.argon.eduardofockink.com {
 	import secure
 	import open_api_routes
 	handle @open {
@@ -120,7 +125,7 @@ api.dev.argon.eduardofockink.com {
 	}
 }
 
-lab.argon.eduardofockink.com {
+lab.argonbusiness.com {
 	import secure
 	log {
 		output file /var/log/caddy/lab.log
@@ -136,7 +141,7 @@ lab.argon.eduardofockink.com {
 	import lab_errors
 }
 
-api.lab.argon.eduardofockink.com {
+api.lab.argonbusiness.com, api.lab.argon.eduardofockink.com {
 	import secure
 	log {
 		output file /var/log/caddy/lab.log
@@ -150,4 +155,20 @@ api.lab.argon.eduardofockink.com {
 		reverse_proxy api-lab:3001
 	}
 	import lab_errors
+}
+
+www.argonbusiness.com {
+	redir https://argonbusiness.com{uri} 308
+}
+
+argon.eduardofockink.com {
+	redir https://argonbusiness.com{uri} 308
+}
+
+dev.argon.eduardofockink.com {
+	redir https://dev.argonbusiness.com{uri} 308
+}
+
+lab.argon.eduardofockink.com {
+	redir https://lab.argonbusiness.com{uri} 308
 }

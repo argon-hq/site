@@ -139,7 +139,7 @@ nada a configurar nas Settings do Studio. O navegador só reaproveitaria a senha
 abaixo do caminho em que ela foi pedida, e cada chamada do Studio a um caminho novo viraria outro
 pedido de senha; o cookie é o que resolve isso. O valor do cookie é um segredo próprio,
 `/argon/caddy/OPERATOR_SESSION`; trocá-lo desloga todo mundo. A senha em claro fica em
-`/argon/caddy/STUDIO_AUTH_PASSWORD`. Para o `curl`: `curl -u argon https://api.dev.argon.eduardofockink.com/...`.
+`/argon/caddy/STUDIO_AUTH_PASSWORD`. Para o `curl`: `curl -u argon https://api.dev.argonbusiness.com/...`.
 
 O `deploy.sh` grava em `env/caddy.env`, além dos três parâmetros de `/argon/caddy/`, o
 `INTERNAL_API_SECRET` de dev e de lab (`DEV_INTERNAL_API_SECRET`, `LAB_INTERNAL_API_SECRET`), que é o
@@ -180,9 +180,11 @@ são absolutos e entram nos links de todo e-mail — o site serve a página de d
 endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a API não sobe.
 
 `MAIL_FROM` é o endereço que assina todo e-mail, num domínio verificado no Resend para aquele
-ambiente: `newsletter@argon.eduardofockink.com` em prod, `newsletter@dev.argon.eduardofockink.com`
-em dev e lab. Sem ela a API não sobe. Nome e endereço postal do remetente ficam na tabela de
-configurações; o link da política e o do site saem de `WEB_ORIGIN`.
+ambiente: `newsletter@argonbusiness.com` em prod, `newsletter@dev.argon.eduardofockink.com`
+em dev e lab. Sem ela a API não sobe. O dev fica no domínio antigo porque o plano do Resend não
+aceita mais um domínio; muda para `dev.argonbusiness.com` quando `argon.eduardofockink.com` sair
+do Resend. Nome e endereço postal do remetente ficam na tabela de configurações; o link da
+política e o do site saem de `WEB_ORIGIN`.
 
 As imagens do e-mail não têm parâmetro: a API as busca no bucket público, no prefixo do próprio
 ambiente (`ARGON_ENV`, que o `deploy.sh` escreve), e o deploy copia `apps/web/public` para lá antes
@@ -257,7 +259,7 @@ deploys separados.
 | Backup             | Bucket S3 `ARGON_BACKUP_BUCKET` em `/opt/argon/.env`, timer `argon-backup`                                                                                                                                                                               |
 | ECR                | `argon/web`, `argon/api`                                                                                                                                                                                                                                 |
 | Papel do GitHub    | `argon-github-deploy` (OIDC, repositório argon-hq/site)                                                                                                                                                                                                  |
-| DNS                | `argon.eduardofockink.com`, `dev.argon.eduardofockink.com`, `lab.argon.eduardofockink.com`, `api.argon.eduardofockink.com`, `api.dev.argon.eduardofockink.com`, `api.lab.argon.eduardofockink.com` (zona na conta 663702377780, provisória até a ARG-68) |
+| DNS                | `argonbusiness.com` (e `www`), `dev.`, `lab.`, `api.`, `api.dev.`, `api.lab.`, zona na Cloudflare, sem proxy. Os nomes antigos `*.argon.eduardofockink.com` (zona na conta 663702377780) seguem até 02/02/2027 |
 | Segredos no GitHub | `AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`, `AWS_ALERTS_TOPIC_ARN`                                                                                                                                                                                         |
 | Orçamento          | `argon-mensal`, US$ 30, avisos em 80% e 100%                                                                                                                                                                                                             |
 
@@ -361,7 +363,7 @@ aws cloudwatch put-metric-alarm --profile argon-new --region sa-east-1 \
 
 Ambiente para publicar uma branch em desenvolvimento sem esperar merge. É um só, sobrescrito a cada uso, com banco `argon_lab`, separado de dev.
 
-Em Actions → Deploy → Run workflow: ambiente `lab` e o nome da branch a publicar. O compose, o Caddyfile e o deploy.sh vêm da branch em que o workflow roda (normalmente `dev`); o código vem da branch escolhida. Fica em `lab.argon.eduardofockink.com` e `api.lab.argon.eduardofockink.com`.
+Em Actions → Deploy → Run workflow: ambiente `lab` e o nome da branch a publicar. O compose, o Caddyfile e o deploy.sh vêm da branch em que o workflow roda (normalmente `dev`); o código vem da branch escolhida. Fica em `lab.argonbusiness.com` e `api.lab.argonbusiness.com`.
 
 ```bash
 gh workflow run deploy.yml --ref dev -f env=lab -f branch=feat/ARG-94-db-schema-prisma

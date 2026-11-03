@@ -4,5 +4,5 @@
  * image is the same for every environment.
  */
 export function siteOrigin(): string {
-  return process.env.WEB_ORIGIN ?? "https://argon.eduardofockink.com";
+  return process.env.WEB_ORIGIN ?? "https://argonbusiness.com";
 }
