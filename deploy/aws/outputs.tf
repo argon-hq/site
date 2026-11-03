@@ -28,11 +28,6 @@ output "alerts_topic_arn" {
   value       = aws_sns_topic.alerts.arn
 }
 
-output "api_health_check_id" {
-  description = "Route 53 health check on the production API."
-  value       = aws_route53_health_check.api.id
-}
-
 output "public_bucket" {
   description = "Bucket of the public files; the deploy workflow writes apps/web/public into <env>/."
   value       = aws_s3_bucket.public.bucket
