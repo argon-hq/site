@@ -37,8 +37,9 @@ params_to_env "/argon/$ENV_NAME/" "env/$ENV_NAME.env"
 # Quem publica sabe onde está publicando: a API lê isto para saber quanto uma rodada pode custar
 # (apps/api/src/pipeline/profile.ts). Escrito aqui, e não no Parameter Store, para não poder discordar.
 echo "ARGON_ENV=$ENV_NAME" >> "env/$ENV_NAME.env"
-# The site only needs to find the API: the model and mail keys never enter its container.
-grep -E '^(API_URL|INTERNAL_API_SECRET|ARGON_ENV)=' "env/$ENV_NAME.env" > "env/$ENV_NAME.web.env"
+# The site only needs to find the API and to know its own origin (metadata, sitemap, robots): the
+# model and mail keys never enter its container.
+grep -E '^(API_URL|INTERNAL_API_SECRET|ARGON_ENV|WEB_ORIGIN)=' "env/$ENV_NAME.env" > "env/$ENV_NAME.web.env"
 # The Postgres container reads its superuser password the same way. It is only consumed by initdb,
 # on the first boot of an empty volume: changing the parameter later does not change the password.
 params_to_env "/argon/postgres/" "env/postgres.env"
