@@ -76,8 +76,15 @@ if [ "$ENV_NAME" = lab ]; then touch logs/lab.log; fi
 # --wait turns a container in a crash loop into a failed deploy instead of an "ok" with a dead API.
 # Caddy has no healthcheck, so for it this only means running; the timeout covers a cold API boot.
 docker compose up -d --wait --wait-timeout 180 caddy $SERVICES
-# The Caddyfile is a bind mount: a changed file needs an explicit reload, or new hosts never get certificates.
-docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+# The Caddyfile is a bind mount of a single file, which pins the inode it was mounted with. `aws s3
+# sync` writes a new file in its place, so the container keeps reading the old one and a reload
+# changes nothing: when the two differ, Caddy is recreated to mount the new file (a second or two
+# without the proxy, every environment). Otherwise a reload is enough.
+if docker compose exec -T caddy cat /etc/caddy/Caddyfile | cmp -s - Caddyfile; then
+  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+else
+  docker compose up -d --wait --force-recreate caddy
+fi
 # Only now is this tag the one that is running. The one it replaces stays on disk (see the image
 # cleanup below) so a rollback to it does not wait for a pull.
 PREV_TAG="$(grep "^$KEY=" .env | cut -d= -f2)"
