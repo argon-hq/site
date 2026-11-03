@@ -10,10 +10,10 @@ window.MASTRA_TEMPLATES = '%%MASTRA_TEMPLATES%%';`;
 
 describe("renderStudioHtml", () => {
   it("points the Studio at the origin it was served from", () => {
-    const html = renderStudioHtml(template, new URL("https://dev.argon.eduardofockink.com/studio"));
+    const html = renderStudioHtml(template, new URL("https://dev.argonbusiness.com/studio"));
 
     expect(html).toContain(`window.MASTRA_SERVER_PROTOCOL = 'https'`);
-    expect(html).toContain(`window.MASTRA_SERVER_HOST = 'dev.argon.eduardofockink.com'`);
+    expect(html).toContain(`window.MASTRA_SERVER_HOST = 'dev.argonbusiness.com'`);
     expect(html).toContain(`window.MASTRA_SERVER_PORT = '443'`);
     expect(html).toContain(`window.MASTRA_API_PREFIX = '/mastra'`);
     expect(html).toContain(`<base href="/studio/" />`);

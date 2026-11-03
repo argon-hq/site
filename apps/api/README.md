@@ -213,8 +213,8 @@ a deployed environment are reached through the Studio this API serves itself, un
 
 | Environment | Address                                       |
 | ----------- | --------------------------------------------- |
-| dev         | <https://dev.argon.eduardofockink.com/studio> |
-| lab         | <https://lab.argon.eduardofockink.com/studio> |
+| dev         | <https://dev.argonbusiness.com/studio>          |
+| lab         | <https://lab.argonbusiness.com/studio>          |
 
 It is the site's host, not the API's, on purpose: Caddy sends `/studio` and `/mastra` of that host to
 the API container (`deploy/Caddyfile`), so the Studio and the routes it calls share one origin. A
@@ -258,7 +258,7 @@ broken images.
 Which is what `EmailAssets` says, at every boot, in one line per state:
 
 ```
-LOG   [EmailAssets] { msg: 'email assets ok', base: 'https://lab.argon.eduardofockink.com/email', count: 4 }
+LOG   [EmailAssets] { msg: 'email assets ok', base: 'https://lab.argonbusiness.com/email', count: 4 }
 ERROR [EmailAssets] { msg: 'email assets unreachable', base: '...', broken: [{ url: '.../logo.png', ok: false, detail: '404 text/html' }] }
 ```
 
