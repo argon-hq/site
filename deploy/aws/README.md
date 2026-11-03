@@ -17,10 +17,10 @@ de 24/09/2026.
 | `ecr.tf` | Repositórios `argon/web` e `argon/api`, com ciclo de vida de 10 imagens |
 | `s3.tf` | Bucket `argon-db-backups-382597877834`: acesso público bloqueado, SSE-S3, sem versionamento, dumps expiram em 30 dias |
 | `s3_public.tf` | Bucket `argon-public-382597877834`: leitura pública de objetos por política (sem listagem, sem ACL), SSE-S3, CORS de GET. O conteúdo é do root `public-assets/`, abaixo |
-| `sns.tf` | Tópico `argon-alerts` em `sa-east-1` e outro de mesmo nome em `us-east-1`, cada um com uma assinatura por e-mail |
+| `sns.tf` | Tópico `argon-alerts` em `sa-east-1`, com uma assinatura por e-mail |
 | `budget.tf` | Orçamento `argon-mensal`, US$ 30, avisos em 80% e 100% |
 | `logs.tf` | Grupos `/argon/<env>/web`, `/argon/<env>/api` e `/argon/postgres`, retenção de 30 dias |
-| `alarms.tf` | Filtros de métrica em `/argon/prod/api` e alarmes (abaixo), recuperação da instância, health check do Route 53 |
+| `alarms.tf` | Filtros de métrica em `/argon/prod/api` e alarmes (abaixo), recuperação da instância |
 | `parameters.tf` | Nomes e tipos dos parâmetros `/argon/<env>/*` e `/argon/postgres/*`. **Nunca os valores** |
 | `imports.tf` | Um bloco `import` para cada recurso que já existia, para o primeiro `plan` adotar em vez de criar |
 
@@ -33,9 +33,10 @@ O que **não existia** e o primeiro `apply` cria: os dois tópicos SNS e suas as
 
 ## O que não cobre
 
-- **DNS.** A zona `argon.eduardofockink.com` está na conta 663702377780 (perfil `default`),
-  provisória até a ARG-68. Os registros `A` que apontam para o IP elástico continuam à mão até
-  a zona mudar de conta; aí entram aqui.
+- **DNS.** A zona `argonbusiness.com` está na Cloudflare, onde o domínio foi registrado (o registrador
+  exige o DNS lá). Os registros `A` que apontam para o IP elástico e os do Resend são mantidos à
+  mão. Os nomes antigos, `*.argon.eduardofockink.com`, ficam na zona da conta 663702377780 até
+  02/02/2027.
 - **A stack do Compose.** Containers, Caddy, Postgres, timers e o conteúdo de `/opt/argon` são
   do `deploy.sh` e do workflow, não do Terraform. O `user_data` da instância aponta para
   `../bootstrap.sh` só para uma conta nova.
@@ -56,7 +57,6 @@ Todos publicam no tópico `argon-alerts` da sua região.
 | `argon-prod-edition-stuck` | log `edition stuck` (etapa 8) | um ou mais em 5 min |
 | `argon-prod-owner-alert-skipped` | log `owner alert skipped` (etapa 2) | um ou mais em 5 min |
 | `argon-ec2-system-check-failed` | `StatusCheckFailed_System` | 2 min seguidos; também pede a recuperação da instância |
-| `argon-prod-api-health` (us-east-1) | health check do Route 53 em `https://api.argon.eduardofockink.com/health` | 3 min seguidos de falha, ou sem dados |
 
 Os alarmes diários avaliam o dia UTC e, enquanto o dia corrente não tem ponto, usam o anterior:
 o alarme de uma execução perdida chega no dia UTC seguinte (por volta das 21h BRT) e some na

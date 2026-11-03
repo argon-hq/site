@@ -10,7 +10,7 @@ import { Agent, fetch as undiciFetch } from "undici";
 // socket actually connects to. A feed or a page can point anywhere; this is what keeps "anywhere"
 // from being the instance metadata.
 
-export const USER_AGENT = "ArgonNewsletterBot/0.1 (+https://argon.com.br)";
+export const USER_AGENT = "ArgonNewsletterBot/0.1 (+https://argonbusiness.com)";
 // How many redirects an address may take before it is given up on. Each hop is checked like the first.
 export const MAX_REDIRECTS = 3;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);

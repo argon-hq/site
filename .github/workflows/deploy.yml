@@ -204,8 +204,8 @@ jobs:
       - name: Smoke
         run: |
           case "$ENV_NAME" in
-            prod) HOST=api.argon.eduardofockink.com ;;
-            *) HOST="api.$ENV_NAME.argon.eduardofockink.com" ;;
+            prod) HOST=api.argonbusiness.com ;;
+            *) HOST="api.$ENV_NAME.argonbusiness.com" ;;
           esac
           curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$HOST/health"
       # A red run only reaches whoever is watching the Actions tab; the SNS topic reaches a phone.

@@ -14,18 +14,3 @@ resource "aws_sns_topic_subscription" "alerts_email" {
   protocol  = "email"
   endpoint  = var.alert_email
 }
-
-# CloudWatch only notifies topics in its own region, and the Route 53 alarm lives in us-east-1.
-resource "aws_sns_topic" "alerts_us_east_1" {
-  provider = aws.us_east_1
-
-  name = "argon-alerts"
-}
-
-resource "aws_sns_topic_subscription" "alerts_email_us_east_1" {
-  provider = aws.us_east_1
-
-  topic_arn = aws_sns_topic.alerts_us_east_1.arn
-  protocol  = "email"
-  endpoint  = var.alert_email
-}

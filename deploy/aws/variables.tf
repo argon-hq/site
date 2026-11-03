@@ -49,12 +49,6 @@ variable "github_oidc_subjects" {
   default     = ["repo:argon-hq@313578398/site@1366636241:*"]
 }
 
-variable "api_health_check_fqdn" {
-  description = "Host of the production API checked by Route 53."
-  type        = string
-  default     = "api.argon.eduardofockink.com"
-}
-
 variable "alert_email" {
   description = "Address subscribed to the alert topics. Each subscription must be confirmed by hand."
   type        = string
