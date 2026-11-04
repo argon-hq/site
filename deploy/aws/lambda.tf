@@ -304,7 +304,8 @@ resource "aws_scheduler_schedule" "keep_warm" {
 variable "lambda_jobs_enabled" {
   description = "Environments whose day's jobs EventBridge Scheduler runs (the rest are created disabled)."
   type        = list(string)
-  default     = []
+  # Prod since 04/11/2026, the day its EC2 clock went off (/argon/prod/SCHEDULER_ENABLED=false).
+  default = ["prod"]
 }
 
 locals {
