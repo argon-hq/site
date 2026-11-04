@@ -29,6 +29,10 @@ const schema = z
     // nothing changes.
     ORIGIN_VERIFY_SECRET: z.string().min(32).optional(),
 
+    // Where the nightly dump of production goes (src/pipeline/backup.ts). Only the production jobs
+    // function sets it; anywhere else the backup job refuses to run.
+    BACKUP_BUCKET: z.string().min(3).optional(),
+
     // Mastra Studio, served by this API under /studio (src/studio). Off by default: it is a working
     // tool for dev and lab, where looking at the agents is the point, and production has no reason to
     // answer anything there. The bundle it serves is public; the agents behind it are not.

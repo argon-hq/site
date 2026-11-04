@@ -9,6 +9,7 @@ import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
 import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
+import { BackupJob } from "./backup";
 import { JobsController } from "./jobs.controller";
 import { EditionWatch } from "./watch";
 
@@ -37,6 +38,8 @@ export class PipelineModule {
         // environment with neither has no timer at all: the run is still one POST /pipeline/run away.
         PipelineScheduler,
         RetentionScheduler,
+        // The configuration comes from forRoot, as the lock's URL does.
+        { provide: BackupJob, useFactory: (alert: OwnerAlert) => new BackupJob(config, alert), inject: [OwnerAlert] },
       ],
     };
   }

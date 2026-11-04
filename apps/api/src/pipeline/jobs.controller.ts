@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Post } from "@nestjs/common";
 import { z } from "zod";
 import { Public } from "../auth/public.decorator";
 import { ZodBody } from "../validation/zod-body.pipe";
+import { BackupJob } from "./backup";
 import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
 
@@ -10,7 +11,7 @@ import { PipelineScheduler } from "./scheduler";
 // on the EC2, and the Lambda Web Adapter hands any event that is not HTTP to POST /events. Each job
 // is the same method the clock calls, so a job run by a schedule and one run by the clock log,
 // alert and fail alike.
-export const JOBS = ["edition", "send", "watch", "retention", "sunday-edition", "sunday-send"] as const;
+export const JOBS = ["edition", "send", "watch", "retention", "sunday-edition", "sunday-send", "backup"] as const;
 export const jobBody = z.object({ job: z.enum(JOBS) });
 type JobBody = z.infer<typeof jobBody>;
 
@@ -22,6 +23,7 @@ export class JobsController {
   constructor(
     private readonly pipeline: PipelineScheduler,
     private readonly retention: RetentionScheduler,
+    private readonly backup: BackupJob,
   ) {}
 
   // The answer waits for the job: Lambda freezes the process once it is sent, so nothing may still
@@ -48,6 +50,10 @@ export class JobsController {
         break;
       case "sunday-send":
         this.pipeline.sundaySend();
+        break;
+      // Only on the production jobs function, the one that knows the bucket (src/pipeline/backup.ts).
+      case "backup":
+        await this.backup.run();
         break;
     }
     return { job, done: true };
