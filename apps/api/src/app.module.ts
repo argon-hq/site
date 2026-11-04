@@ -19,7 +19,9 @@ const config = loadConfig();
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
+    // The clock only exists where SCHEDULER_ENABLED is on. Without the module, the @Cron methods are
+    // plain methods: the Lambda calls them by name through the jobs route instead.
+    ...(config.SCHEDULER_ENABLED ? [ScheduleModule.forRoot()] : []),
     PrismaModule.forRoot(config.DATABASE_URL),
     SettingsModule,
     EmailModule.forRoot(config),

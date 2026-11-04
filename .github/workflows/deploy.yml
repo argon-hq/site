@@ -199,6 +199,22 @@ jobs:
           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
           [ "$STATUS" = Success ] || { echo "deploy: SSM command ended as $STATUS" >&2; exit 1; }
+      # The environment's Lambda functions (deploy/aws/lambda.tf) run the API image too: they move to
+      # the tag just deployed, after the instance, so both serve the same code. An environment
+      # without functions skips it.
+      - name: Funções Lambda
+        env:
+          TAG: ${{ steps.src.outputs.tag }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          for f in "argon-$ENV_NAME-api" "argon-$ENV_NAME-jobs"; do
+            if ! aws lambda get-function-configuration --function-name "$f" >/dev/null 2>&1; then
+              echo "$f does not exist, skipped"; continue
+            fi
+            aws lambda update-function-code --function-name "$f" --image-uri "$REGISTRY/argon/api:$TAG" \
+              --query '[FunctionName,LastUpdateStatus]' --output text
+            aws lambda wait function-updated --function-name "$f"
+          done
       # The container answering from inside the instance is not the same as the site answering from
       # the internet: this also covers Caddy, DNS and the certificate.
       - name: Smoke
