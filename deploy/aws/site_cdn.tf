@@ -14,8 +14,6 @@ variable "site_domains" {
   description = "Hostnames served by each environment's site distribution; the first is the canonical one. The others are redirected to it."
   type        = map(list(string))
   # One environment at a time: an environment joins when its site moves off the EC2.
-  # The old *.argon.eduardofockink.com site names are not carried over (decided on 04/11/2026):
-  # everything lives on argonbusiness.com. They redirect from Caddy until the EC2 goes.
   default = {
     lab  = ["lab.argonbusiness.com"]
     dev  = ["dev.argonbusiness.com"]
