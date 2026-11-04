@@ -16,7 +16,11 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
-# Ten images per repository, roughly the last ten deploys, is enough to roll back with.
+# Ten images per repository, roughly the last ten deploys, is enough to roll back with. The image
+# each environment runs keeps its environment's tag (prod, dev, lab; the deploy moves it), and the
+# first rule never expires those: a Lambda function pins the image it runs, and an image deleted
+# under it breaks the function, however long ago its environment was last deployed. Tags are
+# commit SHAs otherwise, hex only, so those three prefixes match nothing else.
 resource "aws_ecr_lifecycle_policy" "app" {
   for_each = aws_ecr_repository.app
 
@@ -26,6 +30,19 @@ resource "aws_ecr_lifecycle_policy" "app" {
     rules = [
       {
         rulePriority = 1
+        description  = "keep what each environment runs"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["prod", "dev", "lab"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 3
+        }
+        action = {
+          type = "expire"
+        }
+      },
+      {
+        rulePriority = 2
         description  = "keep last 10"
         selection = {
           tagStatus   = "any"

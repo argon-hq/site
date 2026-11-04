@@ -291,3 +291,65 @@ resource "aws_scheduler_schedule" "keep_warm" {
     }
   }
 }
+
+# ---- The day's jobs -------------------------------------------------------------------------
+# The same hours as the @Cron decorators (apps/api/src/pipeline/run.ts and retention.ts), in São
+# Paulo time, each invoking the jobs function with its name. A schedule is created for every
+# Lambda environment and only runs where lambda_jobs_enabled says so: on the day an environment
+# moves here, its EC2 clock goes off (SCHEDULER_ENABLED) and these go on, never both.
+
+variable "lambda_jobs_enabled" {
+  description = "Environments whose day's jobs EventBridge Scheduler runs (the rest are created disabled)."
+  type        = list(string)
+  default     = []
+}
+
+locals {
+  lambda_jobs = {
+    "retention"      = "cron(0 4 * * ? *)"
+    "edition"        = "cron(30 5 ? * MON-SAT *)"
+    "send"           = "cron(0 7 ? * MON-SAT *)"
+    "watch"          = "cron(0 8 ? * MON-SAT *)"
+    "sunday-edition" = "cron(30 5 ? * SUN *)"
+    "sunday-send"    = "cron(0 7 ? * SUN *)"
+  }
+
+  lambda_job_schedules = merge([
+    for env in var.lambda_environments : {
+      for job, cron in local.lambda_jobs : "${env}-${job}" => { env = env, job = job, cron = cron }
+    }
+  ]...)
+}
+
+resource "aws_scheduler_schedule" "jobs" {
+  for_each = local.lambda_job_schedules
+
+  name                         = "argon-${each.key}"
+  schedule_expression          = each.value.cron
+  schedule_expression_timezone = "America/Sao_Paulo"
+  state                        = contains(var.lambda_jobs_enabled, each.value.env) ? "ENABLED" : "DISABLED"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.argon["${each.value.env}-jobs"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ job = each.value.job })
+
+    # A job that failed has already alerted the owners; running it again is for a person to decide.
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+# The scheduler invokes asynchronously, and Lambda retries a failed asynchronous invocation twice by
+# default: a send cut by the timeout would start again on its own. Never here.
+resource "aws_lambda_function_event_invoke_config" "jobs" {
+  for_each = toset(var.lambda_environments)
+
+  function_name          = aws_lambda_function.argon["${each.key}-jobs"].function_name
+  maximum_retry_attempts = 0
+}
