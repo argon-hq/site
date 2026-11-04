@@ -1,14 +1,20 @@
 import { screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { confirm } from "@/actions/confirm";
+import { confirm } from "@/lib/subscriber";
 import { messages, renderWithIntl } from "@/test/render";
-import { ConfirmPanel } from "./confirm-panel";
+import { ConfirmFromLink, ConfirmPanel } from "./confirm-panel";
 
-const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
+const { replace, searchParams } = vi.hoisted(() => ({
+  replace: vi.fn(),
+  searchParams: { current: new URLSearchParams() },
+}));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
-vi.mock("@/actions/confirm", () => ({ confirm: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace }),
+  useSearchParams: () => searchParams.current,
+}));
+vi.mock("@/lib/subscriber", () => ({ confirm: vi.fn() }));
 
 const confirmMock = vi.mocked(confirm);
 const text = messages.confirm;
@@ -61,5 +67,36 @@ describe("ConfirmPanel", () => {
     renderWithIntl(<ConfirmPanel token={token} />);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/newsletter/confirmed"));
+  });
+});
+
+describe("ConfirmFromLink", () => {
+  beforeEach(() => {
+    confirmMock.mockReset();
+  });
+
+  it("confirms the first token of the link", async () => {
+    confirmMock.mockReturnValue(new Promise(() => {}));
+    searchParams.current = new URLSearchParams([
+      ["token", token],
+      ["token", "b".repeat(32)],
+    ]);
+
+    renderWithIntl(<ConfirmFromLink />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(text.confirming.heading);
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledWith(token));
+  });
+
+  it.each([
+    ["no token", ""],
+    ["a malformed token", "token=abc"],
+  ])("shows the invalid state for %s without calling the API", (_label, query) => {
+    searchParams.current = new URLSearchParams(query);
+
+    renderWithIntl(<ConfirmFromLink />);
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(text.invalid.heading);
+    expect(confirmMock).not.toHaveBeenCalled();
   });
 });

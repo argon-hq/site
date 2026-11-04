@@ -37,8 +37,10 @@ describe("one-click unsubscribe (RFC 8058)", () => {
     expect(headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
   });
 
-  it("needs no secret and is the only public route of the subscriber controller", () => {
-    expect(handlers.filter((name) => meta(IS_PUBLIC, name) === true)).toEqual(["oneClick"]);
+  it("needs no secret, like every route the static site calls from the browser", () => {
+    expect(handlers.filter((name) => meta(IS_PUBLIC, name) === true).sort()).toEqual(
+      ["confirm", "lookup", "oneClick", "signUp", "unsubscribe"].sort(),
+    );
   });
 
   it("is rate limited, being open to the internet", () => {
@@ -59,6 +61,15 @@ describe("one-click unsubscribe (RFC 8058)", () => {
     await expect(route.oneClick(undefined as unknown as string)).resolves.toEqual({ status: "ok" });
     expect(subscribers.unsubscribe).not.toHaveBeenCalled();
   });
+});
+
+describe("the public routes", () => {
+  it.each(["signUp", "confirm", "lookup", "unsubscribe", "oneClick"] as const)(
+    "%s is rate limited by the visitor's address, being open to the internet",
+    (name) => {
+      expect(meta(GUARDS_METADATA, name)).toEqual([SignupThrottleGuard]);
+    },
+  );
 });
 
 describe("routes that carry a token", () => {

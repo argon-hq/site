@@ -1,21 +1,20 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useTransition } from "react";
 import { FlagIcon } from "@/components/flag-icon";
 import { OptionMenu, type MenuOption } from "@/components/option-menu";
-import { isLocale, locales, type Locale } from "@/i18n/config";
-import { setUserLocale } from "@/i18n/locale";
+import { LOCALE_COOKIE, isLocale, locales, type Locale } from "@/i18n/config";
+import { writeCookie } from "@/lib/cookie";
 
 /**
- * O idioma vive em cookie, não na URL. Selecionar dispara a server action e o
- * Next re-renderiza a rota atual com as mensagens do novo idioma.
+ * O idioma vive em cookie, não no link: as URLs do site não têm prefixo, e o CloudFront
+ * escolhe a pasta do idioma (/pt-BR/, /en-US/) pelo cookie. Selecionar grava o cookie e
+ * recarrega a página, que volta no novo idioma.
  */
 export function LocaleSwitcher() {
   const t = useTranslations("localeSwitcher");
   const activeLocale = useLocale();
   const current: Locale = isLocale(activeLocale) ? activeLocale : locales[0];
-  const [isPending, startTransition] = useTransition();
 
   const options: MenuOption<Locale>[] = locales.map((locale) => ({
     value: locale,
@@ -30,14 +29,26 @@ export function LocaleSwitcher() {
       value={current}
       valueLabel={t(current)}
       options={options}
-      disabled={isPending}
-      onSelect={(locale) =>
-        startTransition(() => {
-          setUserLocale(locale);
-        })
-      }
+      onSelect={(locale) => {
+        writeCookie(LOCALE_COOKIE, locale);
+        switchLocation(window.location);
+      }}
     />
   );
+}
+
+/**
+ * Recarrega no idioma do cookie. Quem chegou por uma URL com prefixo (/en-US/...) iria parar
+ * no mesmo idioma de novo: o prefixo sai, e a borda decide pelo cookie.
+ */
+export function switchLocation(location: Pick<Location, "pathname" | "search" | "hash" | "assign" | "reload">) {
+  const [, first, ...rest] = location.pathname.split("/");
+
+  if (isLocale(first)) {
+    location.assign(`/${rest.join("/")}${location.search}${location.hash}`);
+  } else {
+    location.reload();
+  }
 }
 
 function Globe() {

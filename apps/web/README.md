@@ -29,11 +29,38 @@ vez. O README da raiz conta por que o site local é https.
 
 Para rodar só este pacote, sem passar pelo turbo: `pnpm -C apps/web dev`.
 
+## Site estático
+
+O `pnpm build` gera um site estático em `out/` (`output: "export"`), publicado no S3 atrás do
+CloudFront — não há servidor Node. Daí as regras abaixo:
+
+- **Uma pasta por idioma.** Toda rota vive sob `src/app/[locale]/` e é gerada para `pt-BR` e
+  `en-US`: `out/pt-BR/newsletter/index.html`, `out/en-US/newsletter/index.html`. Os links
+  internos não levam prefixo (`/newsletter`); o CloudFront reescreve a URL para a pasta do idioma
+  pelo cookie `locale`, e sem cookie para a do padrão. No `next dev` (e no build standalone),
+  rewrites no `next.config.ts` fazem o mesmo papel.
+- **Preferências em cookie do navegador.** O seletor de idioma grava `locale` e recarrega; o de
+  tema grava `theme` e troca o `data-theme` na hora. Nenhum servidor lê os cookies: o tema é
+  aplicado antes da pintura por um script inline no `<head>` (`src/theme/script.ts`).
+- **A API é chamada do navegador** (`src/lib/api.ts`), na origem de `NEXT_PUBLIC_API_ORIGIN`.
+- **Variáveis no build.** `NEXT_PUBLIC_API_ORIGIN` e `WEB_ORIGIN` são lidas no `next build` e
+  ficam no HTML e no bundle: cada ambiente tem o seu build.
+- **Headers de segurança na CDN.** O export não aplica `headers()`; a CSP e o `Referrer-Policy`
+  que o CloudFront deve mandar estão em `src/lib/security-headers.ts`.
+
+```bash
+WEB_ORIGIN=https://lab.argonbusiness.com NEXT_PUBLIC_API_ORIGIN=https://api.lab.argonbusiness.com \
+  pnpm -C apps/web build
+```
+
+O `Dockerfile` continua gerando a imagem Node, com `NEXT_OUTPUT=standalone`.
+
 ## Testes
 
 Unitários e de componente com Vitest + Testing Library, em `src/**/*.test.{ts,tsx}`, no jsdom.
 Os componentes são renderizados com as mensagens reais de `messages/pt-BR.json`, pelo helper em
-`src/test/render.tsx`, e as server actions são testadas com `@/lib/api` simulado.
+`src/test/render.tsx`, e as chamadas à API (`src/lib/subscriber.ts`) são testadas com `@/lib/api`
+simulado.
 
 ```bash
 pnpm -C apps/web test        # também roda no `pnpm test` da raiz, pelo turbo
@@ -41,8 +68,8 @@ pnpm -C apps/web test        # também roda no `pnpm test` da raiz, pelo turbo
 
 Ponta a ponta com Playwright, em `e2e/`. Fica fora do `pnpm test` porque depende do navegador
 instalado. O `playwright.config.ts` sobe o site sozinho, em http simples (`dev:http`), com
-`API_URL` apontando para uma porta fechada: server action não dá para interceptar do navegador,
-então o fluxo de cadastro é verificado até a mensagem de erro da API.
+`NEXT_PUBLIC_API_ORIGIN` apontando para uma porta fechada: o fluxo de cadastro é verificado até a
+mensagem de erro da API.
 
 ```bash
 pnpm -C apps/web exec playwright install chromium   # uma vez
@@ -80,18 +107,20 @@ messages/
 └── en-US.json
 src/
 ├── app/
-│   ├── (site)/           # páginas com cabeçalho e rodapé
-│   │   ├── layout.tsx
-│   │   ├── page.tsx              → /
-│   │   └── privacy/page.tsx      → /privacy
-│   ├── newsletter/page.tsx       → /newsletter (fora do grupo: tela cheia)
-│   ├── layout.tsx        # html/body, fontes, skip link e metadata base (Open Graph)
-│   ├── opengraph-image.tsx       # imagem do preview ao compartilhar o link
-│   ├── robots.ts / sitemap.ts    # gerados por requisição, com o WEB_ORIGIN do ambiente
+│   ├── [locale]/         # uma cópia de cada rota por idioma, no build
+│   │   ├── (site)/       # páginas com cabeçalho e rodapé
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx              → /
+│   │   │   └── privacy/page.tsx      → /privacy
+│   │   ├── newsletter/page.tsx       → /newsletter (fora do grupo: tela cheia)
+│   │   ├── layout.tsx    # html/body, fontes, script de tema, skip link e metadata base
+│   │   └── opengraph-image.tsx       # imagem do preview ao compartilhar o link
+│   ├── robots.ts / sitemap.ts        # gerados no build, com o WEB_ORIGIN do ambiente
 │   └── globals.css       # tokens de cor e tema do Tailwind
 ├── components/
 │   ├── back-button.tsx
 │   ├── brand-mark.tsx    # símbolo e nome ARGON
+│   ├── confirm-panel.tsx # lê o token no navegador e confirma
 │   ├── entry-path-tracker.tsx
 │   ├── flag-icon.tsx     # bandeiras em SVG inline
 │   ├── locale-switcher.tsx
@@ -99,26 +128,24 @@ src/
 │   ├── option-menu.tsx   # dropdown compartilhado pelos dois seletores
 │   ├── site-footer.tsx
 │   ├── site-header.tsx
-│   ├── unsubscribe-panel.tsx
+│   ├── unsubscribe-panel.tsx         # lê o token, consulta e cancela, no navegador
 │   ├── theme-switcher.tsx
 │   └── ui/               # PageHeading e PrimaryCta das telas cheias
 ├── i18n/
-│   ├── config.ts         # idiomas disponíveis e padrão
-│   ├── locale.ts         # server actions de leitura/escrita do cookie
-│   └── request.ts        # carrega as mensagens do idioma atual
+│   ├── config.ts         # idiomas disponíveis, padrão e nome do cookie
+│   └── request.ts        # carrega as mensagens do idioma do segmento [locale]
 ├── theme/
-│   ├── config.ts         # temas disponíveis e padrão
-│   └── theme.ts          # server actions de leitura/escrita do cookie
-├── actions/              # server actions; Zod valida a entrada antes de chamar a API
-│   ├── subscribe.ts      # cadastro
-│   ├── confirm.ts        # confirmação (POST, nunca no GET da página)
-│   └── unsubscribe.ts    # cancelamento (só o POST)
+│   ├── config.ts         # temas disponíveis, padrão e nome do cookie
+│   ├── script.ts         # aplica o tema do cookie antes da pintura (inline no <head>)
+│   └── store.ts          # lê e grava o tema no navegador, para o seletor
 ├── lib/
-│   ├── api.ts            # chamadas à API, sempre do servidor, com o segredo interno
+│   ├── api.ts            # chamadas à API, do navegador (NEXT_PUBLIC_API_ORIGIN)
+│   ├── cookie.ts         # leitura e escrita dos cookies de preferência
 │   ├── email.ts          # normalização e validação de formato
+│   ├── security-headers.ts           # CSP e Referrer-Policy que a CDN deve mandar
 │   ├── site.ts           # origem pública do site (WEB_ORIGIN)
-│   ├── token.ts          # esquema do token e normalização do query param
-│   └── subscription.ts   # consulta do token de cancelamento (leitura, fora de actions/)
+│   ├── subscriber.ts     # cadastro, confirmação, consulta e cancelamento; Zod valida antes
+│   └── token.ts          # esquema do token
 └── test/
     └── render.tsx        # render com as mensagens reais, para os testes de componente
 ```
@@ -126,12 +153,12 @@ src/
 ## Cadastro
 
 O `NewsletterForm` valida formato, normaliza o e-mail (minúsculas, sem espaço nas pontas) e tem
-honeypot. O envio passa pela server action `subscribe`, que chama `POST /subscriber` na API e
-grava o cadastro como pendente.
+honeypot. O envio chama `subscribe` (`src/lib/subscriber.ts`), que faz `POST /subscriber` na API,
+direto do navegador, e grava o cadastro como pendente.
 
-A chamada acontece no servidor: o `INTERNAL_API_SECRET` nunca vai para o navegador. A action
-também registra a prova de opt-in exigida pela LGPD — IP (primeiro valor do `x-forwarded-for`,
-que o Caddy preenche) e user-agent.
+A rota é pública na API, sem segredo, com CORS liberado só para a origem do site. A prova de
+opt-in exigida pela LGPD — IP e user-agent — a API tira da própria requisição: o navegador não a
+manda, porque qualquer um poderia forjá-la.
 
 O retorno é o mesmo para endereço novo, pendente ou já confirmado: a tela não revela quem está
 cadastrado. Cadastrar de novo em menos de um minuto não dispara outro e-mail — o link anterior
@@ -140,12 +167,12 @@ continua valendo.
 O honeypot é só a metade cliente da proteção: sozinho ele não barra nada, e a verificação
 precisa existir no servidor.
 
-Variáveis (veja `.env.example`, ambas só de servidor):
+Variáveis (veja `.env.example`, ambas lidas no build):
 
 | Variável | Para quê |
 | --- | --- |
-| `API_URL` | Base da API. Local: `http://localhost:3001`. Em produção, o serviço no compose. |
-| `INTERNAL_API_SECRET` | Header `x-internal-secret` exigido por toda rota da API. |
+| `NEXT_PUBLIC_API_ORIGIN` | Origem da API, chamada pelo navegador. Local (padrão): `http://localhost:3001`. Entra no `connect-src` da CSP. |
+| `WEB_ORIGIN` | Origem pública do site, para as URLs absolutas de Open Graph, sitemap e robots. |
 
 ## Confirmação
 
@@ -163,8 +190,12 @@ GET que cancelasse descadastraria a pessoa sozinho. O cancelamento sai no POST d
 A tela oferece "foi engano? reativar", que exige aceite novo da política — reativar é um
 cadastro novo, com consentimento novo, e cai na mesma tela de "confirme no seu e-mail".
 
-O `Referrer-Policy: no-referrer` da rota está no `next.config.ts`: o token viaja na URL e
-vazaria no Referer de qualquer link clicado a partir da página.
+O token viaja na URL e vazaria no Referer de qualquer link clicado a partir da página. Por isso
+a página leva `<meta name="referrer" content="no-referrer">`, e o CloudFront deve mandar também o
+header `Referrer-Policy: no-referrer` (valores em `src/lib/security-headers.ts`).
+
+A página é a mesma para todo token: o painel lê o link, consulta a API e mostra o estado
+("conferindo o link", o pedido de confirmação ou o link inválido), tudo no navegador.
 
 O cancelamento em um clique dos clientes de e-mail (RFC 8058) não passa por aqui — o cabeçalho
 `List-Unsubscribe` aponta direto para a API, que aceita o POST sem segredo porque quem envia é

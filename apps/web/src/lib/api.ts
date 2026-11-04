@@ -1,24 +1,29 @@
 /**
- * Chamadas à API, sempre do servidor: o `INTERNAL_API_SECRET` nunca chega ao navegador.
+ * Chamadas à API, direto do navegador: o site é estático, não há servidor no meio. Por isso
+ * não existe segredo aqui — as rotas que o site usa são públicas na API, com CORS liberado só
+ * para a origem do site.
  *
  * Erro nunca vira exceção — quem chama decide o que mostrar na tela.
  */
-type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number | null };
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number | null };
+
+/**
+ * Base da API. `NEXT_PUBLIC_` porque o valor é embutido no bundle no build: cada ambiente
+ * publicado tem o seu build. Sem a variável, a API local.
+ */
+export function apiOrigin(): string {
+  return process.env.NEXT_PUBLIC_API_ORIGIN || "http://localhost:3001";
+}
 
 export async function apiFetch<T>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
-  const apiUrl = process.env.API_URL;
-  const secret = process.env.INTERNAL_API_SECRET;
-
-  if (!apiUrl || !secret) {
-    console.error({ msg: "api: API_URL ou INTERNAL_API_SECRET ausente", path });
-    return { ok: false, status: null };
-  }
-
   try {
-    const response = await fetch(`${apiUrl}${path}`, {
+    const response = await fetch(`${apiOrigin()}${path}`, {
       method: init?.method ?? "GET",
-      headers: { "content-type": "application/json", "x-internal-secret": secret },
+      // Só com corpo: um GET sem content-type é uma requisição simples, sem preflight de CORS.
+      headers: init?.body === undefined ? undefined : { "content-type": "application/json" },
       body: init?.body === undefined ? undefined : JSON.stringify(init.body),
+      // A API não usa cookie nenhum, e os do site (idioma, tema) não têm por que ir até ela.
+      credentials: "omit",
       cache: "no-store",
     });
 
@@ -29,6 +34,7 @@ export async function apiFetch<T>(path: string, init?: { method?: string; body?:
 
     return { ok: true, data: (await response.json()) as T };
   } catch (error) {
+    // Rede fora, CORS recusado ou corpo que não é JSON: para a tela, é a mesma falha.
     console.error({ msg: "api: inacessível", path, error: String(error) });
     return { ok: false, status: null };
   }

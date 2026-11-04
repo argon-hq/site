@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
 import { siteOrigin } from "@/lib/site";
 
-// Rendered per request, not at build: the origin comes from the runtime
-// environment, and the same image serves dev, lab and prod.
-export const dynamic = "force-dynamic";
+// Written once, at build: the site is static, and each environment has its own
+// build, with its WEB_ORIGIN. The URLs carry no locale prefix — the CDN picks
+// the locale folder by cookie, and the default one without it.
+export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = siteOrigin();

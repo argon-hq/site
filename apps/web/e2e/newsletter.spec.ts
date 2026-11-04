@@ -24,7 +24,7 @@ test.describe("newsletter sign-up", () => {
     await submit.click();
     await expect(alert).toHaveText(text.errors.consent);
 
-    // The web server points API_URL at a closed port, so the action fails.
+    // The web server points the API origin at a closed port, so the call fails.
     await consent.check();
     await submit.click();
     await expect(alert).toHaveText(text.errors.unexpected);

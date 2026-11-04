@@ -1,13 +1,76 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
-import { subscribe } from "@/actions/subscribe";
-import { unsubscribe } from "@/actions/unsubscribe";
+import { useEffect, useId, useState } from "react";
 import { PageHeading } from "@/components/ui/page-heading";
+import { PrimaryCta } from "@/components/ui/primary-cta";
+import { lookupSubscription, subscribe, unsubscribe, type Subscription } from "@/lib/subscriber";
+import { tokenSchema } from "@/lib/token";
 
 type Stage = "confirm" | "cancelling" | "cancelled" | "already" | "reactivating" | "reactivated";
+
+/**
+ * O painel com o token do link. A página é estática, então a query só existe no navegador;
+ * quem usa este componente o envolve num <Suspense>, cujo fallback vai no HTML.
+ */
+export function UnsubscribeFromLink() {
+  // `?token=a&token=b`: vale o primeiro, o do link.
+  const parsed = tokenSchema.safeParse(useSearchParams().get("token"));
+  const token = parsed.success ? parsed.data : null;
+
+  // Guarda de qual token é a resposta: se a URL mudar, a anterior não vale mais.
+  const [lookup, setLookup] = useState<{ token: string; subscription: Subscription | null } | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let current = true;
+
+    // Só consulta. O cancelamento sai no POST do botão, dentro do painel.
+    lookupSubscription(token).then((subscription) => {
+      if (current) setLookup({ token, subscription });
+    });
+
+    return () => {
+      current = false;
+    };
+  }, [token]);
+
+  // A malformed token is an invalid link right away, without a round trip.
+  if (!token) return <InvalidLink />;
+  if (lookup?.token !== token) return <CheckingLink />;
+  if (!lookup.subscription) return <InvalidLink />;
+
+  const { email, status } = lookup.subscription;
+  return <UnsubscribePanel token={token} email={email} cancelled={status !== "confirmed" && status !== "pending"} />;
+}
+
+/** Enquanto a API responde — e, no HTML estático, enquanto o token não é lido. */
+export function CheckingLink() {
+  const t = useTranslations("unsubscribe.checking");
+
+  return (
+    <div role="status" className="flex flex-col gap-5">
+      <PageHeading>{t("heading")}</PageHeading>
+      <p className="max-w-xl text-lg text-muted text-pretty">{t("body")}</p>
+    </div>
+  );
+}
+
+function InvalidLink() {
+  const t = useTranslations("unsubscribe.invalid");
+
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeading>{t("heading")}</PageHeading>
+      <p className="max-w-xl text-lg text-muted text-pretty">{t("body")}</p>
+      <PrimaryCta href="/" className="w-fit">
+        {t("cta")}
+      </PrimaryCta>
+    </div>
+  );
+}
 
 export function UnsubscribePanel({ token, email, cancelled }: { token: string; email: string; cancelled: boolean }) {
   const t = useTranslations("unsubscribe");

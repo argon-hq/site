@@ -3,11 +3,9 @@ import { getTranslations } from "next-intl/server";
 import { BrandMark } from "@/components/brand-mark";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { getUserTheme } from "@/theme/theme";
 
 export async function SiteHeader() {
   const t = await getTranslations();
-  const theme = await getUserTheme();
 
   return (
     <header className="border-b border-border">
@@ -31,7 +29,7 @@ export async function SiteHeader() {
             {t("nav.events")}
           </Link>
           <div className="flex items-center gap-2">
-            <ThemeSwitcher theme={theme} />
+            <ThemeSwitcher />
             <LocaleSwitcher />
           </div>
         </nav>
