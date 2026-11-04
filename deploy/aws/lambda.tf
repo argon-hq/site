@@ -16,7 +16,7 @@
 variable "lambda_environments" {
   description = "Environments that have their API running as Lambda functions."
   type        = list(string)
-  default     = ["lab"]
+  default     = ["lab", "prod"]
 }
 
 variable "lambda_bootstrap_tag" {
