@@ -27,6 +27,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@aws-sdk/client-ssm": "^3.1161.0",
     "@mastra/core": "^1.74.0",
     "@mastra/editor": "^0.15.6",
     "@mastra/nestjs": "^0.2.33",

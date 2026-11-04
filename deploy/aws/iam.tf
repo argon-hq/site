@@ -239,6 +239,14 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["arn:aws:ecr:${var.region}:${var.account_id}:repository/argon/*"]
   }
 
+  # The API functions follow each deploy to the image it just pushed (deploy/aws/lambda.tf).
+  statement {
+    sid       = "AtualizaAsFuncoesDaApi"
+    effect    = "Allow"
+    actions   = ["lambda:UpdateFunctionCode", "lambda:GetFunction", "lambda:GetFunctionConfiguration"]
+    resources = ["arn:aws:lambda:${var.region}:${var.account_id}:function:argon-*"]
+  }
+
   # Only instances tagged Project=argon can receive the command.
   statement {
     effect  = "Allow"

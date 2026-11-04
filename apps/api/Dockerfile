@@ -49,7 +49,17 @@ COPY --from=build --chown=app:app /repo/apps/api/studio ./apps/api/studio
 # Prisma CLI + migrations: deploy.sh runs `prisma migrate deploy` from this image.
 COPY --from=build --chown=app:app /repo/apps/api/prisma ./apps/api/prisma
 COPY --from=build --chown=app:app /repo/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+# The same image runs as a Lambda function (deploy/aws/lambda.tf). The Lambda Web Adapter is an
+# extension that turns each invocation into an HTTP request to this server on port 3001, so the
+# API runs there unchanged; outside Lambda the directory is never read. The function overrides the
+# command with dist/lambda/main.js, which loads the configuration from the Parameter Store first.
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 USER app
 WORKDIR /repo/apps/api
+# Compiled code of every module the app loads, kept by Node (src/lambda/precompile.ts): a cold
+# start reads it instead of compiling again. Read-only on Lambda, where it still works; the EC2
+# containers may add to it.
+ENV NODE_COMPILE_CACHE=/repo/apps/api/.compile-cache
+RUN node dist/lambda/precompile.js
 EXPOSE 3001
 CMD ["node", "dist/main.js"]
