@@ -52,7 +52,7 @@ Todos publicam no tópico `argon-alerts` da sua região.
 | --- | --- | --- |
 | `argon-prod-schedule-not-fired` | log `schedule fired` | nenhum no dia (UTC). Falso positivo conhecido: de domingo à noite até segunda 5h30, porque não há edição de domingo |
 | `argon-prod-send-not-finished` | log `send finished` | nenhum no dia. Mesmo falso positivo |
-| `argon-backup-missing` | métrica `Argon/BackupOk`, publicada pelo `backup-db.sh` (etapa 14) | nenhuma no dia. O plano pedia 26 h; a janela de um alarme é limitada a um dia |
+| `argon-backup-missing` | métrica `Argon/BackupOk`, publicada pelo `backup-db.sh` (etapa 14; desde 04/11/2026, só prod, a partir do Neon) | nenhuma no dia. O plano pedia 26 h; a janela de um alarme é limitada a um dia |
 | `argon-prod-api-errors` | log `level = error` | um ou mais em 5 min |
 | `argon-prod-edition-stuck` | log `edition stuck` (etapa 8) | um ou mais em 5 min |
 | `argon-prod-owner-alert-skipped` | log `owner alert skipped` (etapa 2) | um ou mais em 5 min |

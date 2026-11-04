@@ -8,9 +8,9 @@ Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container
 - `compose.yml`, `Caddyfile`: ficam em `/opt/argon` na instância; o workflow de deploy os envia a cada execução.
 - `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera os envs a partir do Parameter Store, sobe o Postgres, reconcilia o banco do ambiente, sobe o resto e, só então, grava a tag em `.env`.
 - `provision-db.sh <env>`: cria papel, banco e extensão do ambiente no Postgres local. Idempotente, roda a cada deploy.
-- `backup-db.sh`: dump de todos os bancos para o S3. Chamado pelo timer `argon-backup`.
+- `backup-db.sh`: dump do banco de prod (Neon) para o S3. Chamado pelo timer `argon-backup`.
 - `lab-idle-stop.sh [minutos]`: para o lab depois de um tempo sem requisição. Chamado pelo timer `argon-lab-idle`.
-- `restore-drill.sh`: restaura o último dump de prod em `argon_lab`, conta os assinantes e esvazia o lab de novo. Chamado pelo timer `argon-restore-drill`, mensal.
+- `restore-drill.sh`: restaura o último dump de prod num Postgres descartável, conta os assinantes e apaga o container. Chamado pelo timer `argon-restore-drill`, mensal.
 - `reset-lab.sh [argon_lab|argon_dev]`: apaga e recria um banco descartável, vazio. Recusa qualquer outro nome.
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
@@ -282,39 +282,49 @@ postgresql://argon_dev:SENHA@postgres:5432/argon_dev
 
 ### Backup e restauração
 
-O timer `argon-backup` roda `backup-db.sh` às 3h30 (America/Sao_Paulo), antes da geração das 5h30. Cada banco vira um dump no formato custom em `s3://$ARGON_BACKUP_BUCKET/postgres/<banco>/<data>.dump`. A retenção é regra de ciclo de vida no bucket, não lógica no script.
+O timer `argon-backup` roda `backup-db.sh` às 3h30 (America/Sao_Paulo), antes da geração das 5h30.
+Só prod tem backup: o banco dele está no Neon, que no plano Free só restaura até 6 h para trás. O
+dump cobre o que isso não cobre — uma migration ou um `DELETE` errado percebido no dia seguinte, e o
+projeto no Neon deixar de existir. Dev e lab não têm backup: os dois se refazem a partir de prod ou do
+zero.
+
+O script lê a URL do mesmo `/argon/prod/DATABASE_URL` que a API usa, roda o `pg_dump` da imagem do
+Postgres 16 (a mesma versão do Neon) e grava o dump no formato custom em
+`s3://$ARGON_BACKUP_BUCKET/postgres/argon_prod/<data>.dump` — o prefixo de quando prod era o banco
+local. A retenção é regra de ciclo de vida no bucket, não lógica no script.
 
 Um backup que falha avisa: a unit tem `OnFailure=argon-alert@%n.service`, que publica o nome da
 unit no tópico SNS de alertas (`ARGON_ALERTS_TOPIC_ARN` em `/opt/argon/.env`). Um backup que nem
 roda não tem como avisar, então o script publica a métrica `Argon/BackupOk = 1` ao terminar, e um
 alarme no CloudWatch dispara quando ela some por 26 h (comandos em "Configuração manual na AWS").
 
-Restaurar um banco à mão, por cima do que existe:
+Para voltar prod a um momento das últimas 6 h, o caminho é o _instant restore_ do Neon (console,
+Branches → Restore), que não precisa de dump. Para voltar a um dump, por cima do que existe, com a
+URL direta da branch em `URL`:
 
 ```bash
-aws s3 cp s3://BUCKET/postgres/argon_dev/2026-09-23T06-30-00Z.dump - \
-  | docker compose exec -T postgres sh -c 'cat > /tmp/r.dump'
-docker compose exec -T postgres pg_restore -U postgres -d argon_dev --clean --if-exists /tmp/r.dump
+aws s3 cp s3://BUCKET/postgres/argon_prod/2026-11-04T06-30-00Z.dump r.dump
+docker run --rm -i -e URL pgvector/pgvector:pg16 \
+  sh -c 'cat > /tmp/r.dump && pg_restore --clean --if-exists --no-owner --no-privileges -d "$URL" /tmp/r.dump' < r.dump
 ```
 
 #### Ensaio de restauração
 
 Backup que ninguém restaurou é esperança. No dia 1 de cada mês, às 5h (America/Sao_Paulo), o timer
-`argon-restore-drill` roda `restore-drill.sh`: esvazia `argon_lab` com o `reset-lab.sh`, restaura
-nele o último dump de `argon_prod`, imprime `select count(*) from subscriber` no journal, esvazia o
-lab de novo — o lab não fica com a lista de assinantes de prod — e publica `Argon/RestoreDrillOk`.
-O lab fica parado até o próximo deploy, como depois do `lab-idle-stop.sh`. Falha vai para o SNS pela
-mesma `argon-alert@`.
+`argon-restore-drill` roda `restore-drill.sh`: sobe um Postgres 16 descartável, sem rede, restaura
+nele o último dump de `argon_prod`, imprime `select count(*) from subscriber` no journal, apaga o
+container — a lista de assinantes de prod não fica em lugar nenhum — e publica
+`Argon/RestoreDrillOk`. Falha vai para o SNS pela mesma `argon-alert@`.
 
 ```bash
 systemctl start argon-restore-drill.service && journalctl -u argon-restore-drill -n 5   # rodar agora
-/opt/argon/reset-lab.sh argon_lab     # só esvaziar o lab (ou argon_dev); prod é recusado pelo nome
 ```
 
-A extensão `vector` é criada pelo `provision-db.sh` como superusuário, e o restore pula as entradas
-de extensão do dump: pgvector não é uma extensão _trusted_, então o `CREATE EXTENSION` do próprio
-dump falharia rodando como `argon_lab`. O resto restaura como o papel do lab, que fica dono das
-tabelas como uma migration deixaria.
+O restore roda como `postgres`, com `--no-owner` e `--no-privileges`: o dump vem do Neon, que dá
+os objetos e as permissões a papéis que não existem no container. Para contar assinantes, basta.
+
+A instância só lê `postgres/argon_prod/` no bucket (`deploy/aws/iam.tf`). Até 04/11/2026 ela não
+podia nem listar o bucket, e o ensaio falhava sem nunca ter publicado a métrica.
 
 ## Instância
 
