@@ -179,11 +179,9 @@ são absolutos e entram nos links de todo e-mail — o site serve a página de d
 endpoint de um clique. `MAIL_TRANSPORT=resend` exige `RESEND_API_KEY`: sem ela a API não sobe.
 
 `MAIL_FROM` é o endereço que assina todo e-mail, num domínio verificado no Resend para aquele
-ambiente: `newsletter@argonbusiness.com` em prod, `newsletter@dev.argon.eduardofockink.com`
-em dev e lab. Sem ela a API não sobe. O dev fica no domínio antigo porque o plano do Resend não
-aceita mais um domínio; muda para `dev.argonbusiness.com` quando `argon.eduardofockink.com` sair
-do Resend. Nome e endereço postal do remetente ficam na tabela de configurações; o link da
-política e o do site saem de `WEB_ORIGIN`.
+ambiente: `newsletter@argonbusiness.com` em prod, `newsletter@dev.argonbusiness.com` em dev e
+lab. Sem ela a API não sobe. Nome e endereço postal do remetente ficam na tabela de configurações;
+o link da política e o do site saem de `WEB_ORIGIN`.
 
 As imagens do e-mail não têm parâmetro: a API as busca no bucket público, no prefixo do próprio
 ambiente (`ARGON_ENV`, que o `deploy.sh` escreve), e o deploy copia `apps/web/public` para lá antes
@@ -258,7 +256,7 @@ deploys separados.
 | Backup             | Bucket S3 `ARGON_BACKUP_BUCKET` em `/opt/argon/.env`, timer `argon-backup`                                                                                                                                                                               |
 | ECR                | `argon/web`, `argon/api`                                                                                                                                                                                                                                 |
 | Papel do GitHub    | `argon-github-deploy` (OIDC, repositório argon-hq/site)                                                                                                                                                                                                  |
-| DNS                | `argonbusiness.com` (e `www`), `dev.`, `lab.`, `api.`, `api.dev.`, `api.lab.`, zona na Cloudflare, sem proxy. Os nomes antigos `*.argon.eduardofockink.com` (zona na conta 663702377780) seguem até 02/02/2027 |
+| DNS                | `argonbusiness.com` (e `www`), `dev.`, `lab.`, `api.`, `api.dev.`, `api.lab.`, zona na Cloudflare, sem proxy                                                                                                                                             |
 | Segredos no GitHub | `AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`, `AWS_ALERTS_TOPIC_ARN`                                                                                                                                                                                         |
 | Orçamento          | `argon-mensal`, US$ 30, avisos em 80% e 100%                                                                                                                                                                                                             |
 

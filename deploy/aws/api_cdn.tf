@@ -8,11 +8,9 @@ variable "api_domains" {
   description = "API hostnames served by CloudFront, per environment. The first is the certificate's main name."
   type        = map(list(string))
   default = {
-    lab = ["api.lab.argonbusiness.com"]
-    dev = ["api.dev.argonbusiness.com"]
-    # The old name stays until 02/02/2027: e-mails already sent link their one-click unsubscribe to
-    # it. Its record lives in the Route 53 zone of account 663702377780.
-    prod = ["api.argonbusiness.com", "api.argon.eduardofockink.com"]
+    lab  = ["api.lab.argonbusiness.com"]
+    dev  = ["api.dev.argonbusiness.com"]
+    prod = ["api.argonbusiness.com"]
   }
 }
 

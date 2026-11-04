@@ -34,9 +34,8 @@ O que **não existia** e o primeiro `apply` cria: os dois tópicos SNS e suas as
 ## O que não cobre
 
 - **DNS.** A zona `argonbusiness.com` está na Cloudflare, onde o domínio foi registrado (o registrador
-  exige o DNS lá). Os registros `A` que apontam para o IP elástico e os do Resend são mantidos à
-  mão. Os nomes antigos, `*.argon.eduardofockink.com`, ficam na zona da conta 663702377780 até
-  02/02/2027.
+  exige o DNS lá). Os registros dos sites e da API (CNAME para cada CloudFront) e os do Resend
+  são mantidos à mão.
 - **A stack do Compose.** Containers, Caddy, timers e o conteúdo de `/opt/argon` são
   do `deploy.sh` e do workflow, não do Terraform. O `user_data` da instância aponta para
   `../bootstrap.sh` só para uma conta nova.
