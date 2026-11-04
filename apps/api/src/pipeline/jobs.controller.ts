@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Public } from "../auth/public.decorator";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { BackupJob } from "./backup";
+import { MigrateJob } from "./migrate";
 import { RestoreDrillJob } from "./restore-drill";
 import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
@@ -21,6 +22,7 @@ export const JOBS = [
   "sunday-send",
   "backup",
   "restore-drill",
+  "migrate",
 ] as const;
 export const jobBody = z.object({ job: z.enum(JOBS) });
 type JobBody = z.infer<typeof jobBody>;
@@ -35,6 +37,7 @@ export class JobsController {
     private readonly retention: RetentionScheduler,
     private readonly backup: BackupJob,
     private readonly drill: RestoreDrillJob,
+    private readonly migrate: MigrateJob,
   ) {}
 
   // The answer waits for the job: Lambda freezes the process once it is sent, so nothing may still
@@ -69,6 +72,11 @@ export class JobsController {
       // Monthly, on the same function and bucket (src/pipeline/restore-drill.ts).
       case "restore-drill":
         await this.drill.run();
+        break;
+      // Not scheduled: the deploy workflow runs it on every environment's jobs function before the
+      // API function moves to the new image (src/pipeline/migrate.ts). A failure is an error answer.
+      case "migrate":
+        await this.migrate.run();
         break;
     }
     return { job, done: true };

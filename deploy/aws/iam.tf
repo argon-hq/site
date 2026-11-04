@@ -256,6 +256,15 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["arn:aws:lambda:${var.region}:${var.account_id}:function:argon-*"]
   }
 
+  # The deploy runs the migrations through the jobs function before the API function moves
+  # (.github/workflows/deploy.yml, apps/api/src/pipeline/migrate.ts). Only the jobs functions.
+  statement {
+    sid       = "RodaAsMigrationsNaFuncaoDeJobs"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:aws:lambda:${var.region}:${var.account_id}:function:argon-*-jobs"]
+  }
+
   # Only instances tagged Project=argon can receive the command.
   statement {
     effect  = "Allow"
