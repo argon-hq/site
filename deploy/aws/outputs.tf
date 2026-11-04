@@ -1,13 +1,3 @@
-output "instance_id" {
-  description = "EC2 instance; goes into the AWS_INSTANCE_ID secret on GitHub."
-  value       = aws_instance.argon.id
-}
-
-output "public_ip" {
-  description = "Elastic IP the DNS records (in the other account) point to."
-  value       = aws_eip.argon.public_ip
-}
-
 output "deploy_role_arn" {
   description = "Role GitHub Actions assumes; goes into the AWS_DEPLOY_ROLE_ARN secret on GitHub."
   value       = aws_iam_role.github_deploy.arn
@@ -19,7 +9,7 @@ output "ecr_repository_urls" {
 }
 
 output "backup_bucket" {
-  description = "Bucket of the nightly dumps; goes into ARGON_BACKUP_BUCKET in /opt/argon/.env."
+  description = "Bucket of the nightly dumps the backup job writes and the restore drill reads."
   value       = aws_s3_bucket.backups.bucket
 }
 

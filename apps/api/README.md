@@ -72,9 +72,11 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   the minimum ends after the writing: there is no edition to build. The clock lives in Nest and not in
   `createWorkflow({ schedule })` — the declarative schedule only runs on the evented engine, whose pubsub is in memory
   and never started by `@mastra/nestjs` — so `scheduler.ts` fires the run at 5h30, Monday to Saturday, America/Sao_Paulo,
-  and only where `SCHEDULER_ENABLED` says so. The per-step routes stay, for debugging.
+  and only where `SCHEDULER_ENABLED` says so — a development machine that turns it on. In AWS the clock is off and
+  EventBridge Scheduler invokes the same methods on the jobs function by name (`jobs.controller.ts`,
+  `deploy/aws/lambda.tf`). The per-step routes stay, for debugging.
   Every step runs holding a Postgres advisory lock on the edition's day (`lock.ts`): the 5h30 workflow, a per-step
-  route fired by hand and a second container all contend on the database, not on a flag in memory, and a busy edition
+  route fired by hand and a second process all contend on the database, not on a flag in memory, and a busy edition
   answers 409. `watch.ts` looks at boot and at 8h for an edition left `generating` or `sending` for more than three
   hours — the one failure nothing else reports — logs `edition stuck` (a CloudWatch alarm watches that line) and mails
   the owners; `POST /pipeline/send { "date": "YYYY-MM-DD" }` is how such an edition is resumed after the calendar moved
@@ -85,7 +87,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   per confirmed subscriber as `pending`, and hands them to the provider in batches of 100 under the idempotency key
   `<edition>:<batch>`. The queue is whatever the database calls pending, so running again only picks up what is left; the
   edition closes as `sent` when nothing is pending. `scheduler.ts` fires it at 7h, the same days, behind the same
-  `SCHEDULER_ENABLED`. Two things to know about what it means: the key the provider dedupes on **expires after 24h**, so
+  `SCHEDULER_ENABLED` (in AWS, the `send` job). Two things to know about what it means: the key the provider dedupes on **expires after 24h**, so
   resuming the same morning is safe and resuming a two-day-old edition would deliver again; and without the delivery
   webhook (ARG-100's second half) `sent` means the provider accepted the message, not that anyone received it —
   `delivered`, the bounces and `complaint` are unreachable and `subscriber.soft_bounces` stays at zero.
@@ -117,7 +119,9 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   news instead of finding only seen links — they are on `.test` domains, so the lab edition's links do not open, and the
   text says in every article that it is invented.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason. `failureReason(cause)` is what both boundaries, the route and the workflow step, use to say what went wrong.
-- `src/subscriber/`: `POST /subscriber { email, consentIp?, consentUserAgent? }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
+- `src/subscriber/`: `POST /subscriber { email }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
+  The proof of opt-in (LGPD), address and user agent, is the request's own (`src/auth/internal-call.ts`): the static
+  site calls from the visitor's browser, and nothing in the body speaks for the visitor.
   The confirmation e-mail goes out in the same call. `POST /subscriber/confirm { token }` turns the one-time token into a
   confirmed subscription and issues the permanent unsubscribe token in the same write; the hash of the confirmation token
   is kept, so the same link clicked twice answers `already_confirmed` instead of looking broken.
@@ -129,8 +133,8 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures — and the controller runs it
   through `runEffect`, so a provider that is down answers 503 and a database that is down answers 500.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
-  `signup-throttle.guard.ts` rate-limits `POST /subscriber` and the public one-click unsubscribe by the visitor's address
-  (`consentIp` in the body, the socket address for the public route): ten a minute, in memory.
+  `signup-throttle.guard.ts` rate-limits every public subscriber route by the visitor's address (`req.ip`, which the
+  API function takes from `CloudFront-Viewer-Address`, `src/net/cloudfront.ts`): ten a minute, in memory.
 - `src/subscriber/urls.ts`: every address the subscriber reaches from an e-mail — the confirmation page, the unsubscribe
   page for the footer link, and the API endpoint the `List-Unsubscribe` header announces. The builders receive them ready
   (they build no URL), so this is where the format is decided. The origins are bound once in `SubscriberModule.forRoot`.
@@ -145,7 +149,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, images https and under the allowed base, stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext({ sender, social }, { origins, unsubscribeUrl })` builds the rest: the sender and the networks as given, the privacy policy and the site from the environment's `WEB_ORIGIN` (`privacyPolicyUrl`, `socialLinks` in `src/subscriber/urls.ts`), with the unsubscribe URL per subscriber. Nothing that names a host lives in the settings, so a fresh database cannot point one environment's e-mail at another. `assets.ts` derives the base of the images (the public bucket under the environment's prefix, or the site on a local machine, or `PUBLIC_ASSETS_ORIGIN`), and `EmailAssets` checks at boot that they are really served. Fixed strings live in `copy.ts`, the brand tokens (argon lilac, Manrope with Geist Mono, square corners) in `theme.ts`. Images in `web/public/email`: the header symbol and ARGON, the footer logo, and the social icons (`pnpm email:icons`, Font Awesome Free, CC BY 4.0). A social network with no URL in `social` points at the site.
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by the turbo task `generate` (`prisma generate`), which build, dev, lint, test and check-types depend on — the typed lint needs it too. Turbo runs it once per invocation, before the tasks that need it, and replays it from cache while `schema.prisma` and `prisma.config.ts` are unchanged: one writer, where a `pre*` hook on every script had parallel tasks writing the same folder at once. A script called straight in the package (`pnpm -C apps/api test`, the Dockerfile's build) skips turbo, so run `pnpm -C apps/api generate` first; `prisma migrate dev` regenerates on its own.
 - Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
-- `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. Inside the container: `docker compose run --rm --no-deps api-lab sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'`.
+- `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. From a machine, with the lab URL: `DATABASE_URL='<value of /argon/lab/DATABASE_URL>' pnpm -C apps/api exec prisma db execute --file prisma/seed-lab.sql`.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; what shapes
   the edition — `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
@@ -207,38 +211,26 @@ ficha         9      Agência Inventada   Diário Fictício  Copom mantém a Sel
 
 ## Studio
 
-`pnpm mastra:dev` is the Studio of a development machine, against the local database. The agents of
-a deployed environment are reached through the Studio this API serves itself, under `/studio`, where
-`STUDIO_ENABLED` is on — dev and lab, never prod:
+The Studio is a development machine's tool, against the local database. `pnpm mastra:dev` is the
+usual way in; with `STUDIO_ENABLED=true` in `.env`, this API serves the same Studio itself, at
+<http://localhost:3001/studio>. Every deployed function runs with `STUDIO_ENABLED=false`
+(`deploy/aws/lambda.tf`): no environment in AWS serves it.
 
-| Environment | Address                                       |
-| ----------- | --------------------------------------------- |
-| dev         | <https://dev.argonbusiness.com/studio>          |
-| lab         | <https://lab.argonbusiness.com/studio>          |
-
-It is the site's host, not the API's, on purpose: Caddy sends `/studio` and `/mastra` of that host to
-the API container (`deploy/Caddyfile`), so the Studio and the routes it calls share one origin. A
-browser cannot put `x-internal-secret` on a navigation, so the bundle under `/studio` is the one
-public thing here; everything under `/mastra` still answers 401 without the header.
-
-The first visit asks for the operator password once, at `/studio`, and that is all: the answer sets a
-session cookie (thirty days, this browser), and with it Caddy lets the Studio's calls under `/mastra`
-through and adds the environment's `x-internal-secret` itself (`deploy/Caddyfile`, the `studio`
-snippet). Nothing goes into the Studio's own Settings — the instance URL and the API prefix are already
-filled by the page (`src/studio/studio.html.ts`). Without the cookie, `/mastra` still takes the password
-(`curl -u argon ...`) and still gets the secret added.
+Served by the API, the Studio and the routes it calls share one origin — `/studio` and `/mastra` on
+the same host — so the browser calls the API same-origin. A browser cannot put `x-internal-secret` on
+a navigation, so the bundle under `/studio` is the one public thing here; everything under `/mastra`
+still answers 401 without the header. The instance URL and the API prefix are already filled by the
+page (`src/studio/studio.html.ts`); the secret, `INTERNAL_API_SECRET` from `.env`, goes into the
+Studio's Settings, as a header.
 
 One Mastra route answers without the secret where the Studio is served — `GET /mastra/auth/capabilities`,
 which the Studio asks before it renders anything and which tells whether Mastra's own auth is on
 (`{"enabled":false,"login":null}`). Without that exception the page is a dead error screen, Settings
 included, and there is nowhere to type the secret (`src/studio/studio.paths.ts`).
 
-```bash
-aws ssm get-parameter --name /argon/dev/INTERNAL_API_SECRET --with-decryption --region sa-east-1 --query Parameter.Value --output text
-```
-
-The static files come from the `mastra` CLI, a devDependency: the Dockerfile copies them out of
-`node_modules` in the build stage, because the runtime stage installs production dependencies only.
+The static files come from the `mastra` CLI, a devDependency, read straight out of `node_modules`
+(`src/studio/studio.service.ts`). The image installs production dependencies only and carries no
+bundle.
 
 ## E-mail
 
@@ -248,21 +240,21 @@ pnpm email:send [to]   # sends the fixture edition through the real transport; l
 pnpm email:icons       # regenerates the social PNGs into apps/web/public/email
 ```
 
-The images are served by the site, not by the API: the API has no static route and mail clients
-accept neither SVG nor relative paths. They live in `apps/web/public/email`, which the web image
-copies, and the base of their URLs is `WEB_ORIGIN` + `/email` — never a setting, so every
-environment points at the site deployed from the same tag as the API that wrote the HTML. Locally
-that means `pnpm dev` in `apps/web` and nothing else; a `WEB_ORIGIN` with no site behind it mails
-broken images.
+The API has no static route and mail clients accept neither SVG nor relative paths, so every image
+is an absolute URL (`src/email/assets.ts`). They live in `apps/web/public/email`. A deployed
+environment reads them from the public bucket, under its own prefix, which the deploy fills before
+it moves the functions (`deploy/aws/README.md`, "Arquivos públicos"); a local machine reads them from
+the site, `WEB_ORIGIN` + `/email`. Locally that means `pnpm dev` in `apps/web` and nothing else; a
+`WEB_ORIGIN` with no site behind it mails broken images. `PUBLIC_ASSETS_ORIGIN` overrides both.
 
 Which is what `EmailAssets` says, at every boot, in one line per state:
 
 ```
-LOG   [EmailAssets] { msg: 'email assets ok', base: 'https://lab.argonbusiness.com/email', count: 4 }
+LOG   [EmailAssets] { msg: 'email assets ok', base: 'https://argon-public-382597877834.s3.sa-east-1.amazonaws.com/lab/email', count: 6 }
 ERROR [EmailAssets] { msg: 'email assets unreachable', base: '...', broken: [{ url: '.../logo.png', ok: false, detail: '404 text/html' }] }
 ```
 
-A 404 answered by the site's own 404 page counts as broken: the check wants a 2xx _and_ an
+A 404 answered by a 404 page counts as broken: the check wants a 2xx _and_ an
 `image/*`. It never blocks the boot — an image out of the air is no reason to take the API down.
 
 ## Conventions
@@ -278,22 +270,23 @@ comment saying why, and a line in `schema.prisma` pointing at it.
 
 ```bash
 pnpm db:migrate --name <what_changed>   # edit schema.prisma first; writes and applies the SQL locally
-pnpm db:deploy     # applies pending migrations only (what deploy.sh runs in AWS)
+pnpm db:deploy     # applies pending migrations only (what the deploy's migrate job runs in AWS)
 pnpm db:reset      # drops the local database and replays everything, seed rows included
 pnpm db:studio     # browse the local database
 ```
 
-Migrations run before the new container starts and never run backwards, so every one has to be
+Migrations run before the API function moves to the new image and never run backwards, so every one has to be
 compatible with the code already running: expand first (a new column, a new table), contract later
 (drop the old one), in separate deploys.
 
-Retention runs inside the API, behind `SCHEDULER_ENABLED`, at 4h every day (`src/pipeline/retention.ts`):
+Retention runs at 4h every day (`src/pipeline/retention.ts`) — the `retention` job of the jobs function in AWS, the
+internal clock behind `SCHEDULER_ENABLED` on a machine that turns it on:
 the text of an article is cleared after 30 days, a seen link is forgotten after 30, and a cancelled
 subscriber is purged after 90, and a sign-up nobody confirmed is discarded 3 days after its link
 expired — in batches of a thousand, so a table that grew for months is trimmed without holding a
 lock. Bounced and blocked addresses stay, so they are never written to again.
 
-Every deploy runs `prisma migrate deploy` from the API image before starting the container, so dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database is the Postgres container on the instance (`deploy/README.md`). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
+Every deploy runs `prisma migrate deploy` from the API image, as the jobs function's `migrate` job (`src/pipeline/migrate.ts`), before the API function moves, so lab, dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database of each environment is a Neon branch (`deploy/README.md`, "Banco"). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
 ```bash
 curl -X POST http://localhost:3001/subscriber -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"email":"someone@example.com"}'

@@ -1,5 +1,5 @@
 # The site as static files (apps/web built with `output: "export"`) in a private bucket, served by
-# one CloudFront distribution per environment, in place of the web containers on the EC2.
+# one CloudFront distribution per environment.
 #
 # Each locale is a folder (/pt-BR/..., /en-US/...), and the URLs stay unprefixed, as they are in the
 # e-mails already sent: a CloudFront Function (site_router.js) picks the folder by the `locale`
@@ -13,7 +13,6 @@
 variable "site_domains" {
   description = "Hostnames served by each environment's site distribution; the first is the canonical one. The others are redirected to it."
   type        = map(list(string))
-  # One environment at a time: an environment joins when its site moves off the EC2.
   default = {
     lab  = ["lab.argonbusiness.com"]
     dev  = ["dev.argonbusiness.com"]

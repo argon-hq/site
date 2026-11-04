@@ -2,7 +2,7 @@
 // relative paths, so every image is an absolute URL, and the API has no static route of its own.
 //
 // Deployed environments read them from the public bucket, under their own prefix: the deploy
-// workflow copies apps/web/public there before it restarts the containers (deploy/aws/README.md,
+// workflow copies apps/web/public there before it moves the functions (deploy/aws/README.md,
 // "Arquivos públicos"), so the images an e-mail points at do not depend on the site being up nor
 // on its domain. A local machine has no bucket prefix of its own and reads them from the site.
 

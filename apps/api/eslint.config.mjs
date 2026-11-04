@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 // Type-aware rules: the ones that catch a promise left floating, an `any` slipping through a cast
 // and a condition that is always true — what a review reads for by hand otherwise.
 export default tseslint.config(
-  { ignores: ["dist/**", "out/**", ".mastra/**", "src/generated/**", "studio/**"] },
+  { ignores: ["dist/**", "out/**", ".mastra/**", "src/generated/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {

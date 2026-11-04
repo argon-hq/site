@@ -25,24 +25,26 @@ const schema = z
     JOBS_ENABLED: z.stringbool().default(false),
 
     // The secret CloudFront sends to the API function (src/net/cloudfront.ts). Set, a request
-    // without it is refused and the visitor's address comes from CloudFront; unset, as on the EC2,
-    // nothing changes.
+    // without it is refused and the visitor's address comes from CloudFront; unset, as on the jobs
+    // function and a development machine, nothing changes.
     ORIGIN_VERIFY_SECRET: z.string().min(32).optional(),
 
     // Where the nightly dump of production goes (src/pipeline/backup.ts). Only the production jobs
     // function sets it; anywhere else the backup job refuses to run.
     BACKUP_BUCKET: z.string().min(3).optional(),
 
-    // Mastra Studio, served by this API under /studio (src/studio). Off by default: it is a working
-    // tool for dev and lab, where looking at the agents is the point, and production has no reason to
-    // answer anything there. The bundle it serves is public; the agents behind it are not.
+    // Mastra Studio, served by this API under /studio (src/studio). Off by default and off on every
+    // deployed function: it is a development machine's tool, where looking at the agents is the
+    // point (`pnpm mastra:dev` is the usual way in). The bundle it serves is public; the agents
+    // behind it are not.
     STUDIO_ENABLED: z.stringbool().default(false),
 
     // Which environment this is. The value decides how much a run may cost — the model, how far the
     // agent may search and whether it runs at all or over a fixture (see pipeline/profile.ts). Nothing
     // reads it from here: the profile resolves it, and this entry is what refuses an unknown value and
     // what demands one in production, where falling back to the mocked profile would mail a fake
-    // edition to real subscribers. The deploy writes it, so it cannot disagree with where it landed.
+    // edition to real subscribers. The function's own environment sets it (deploy/aws/lambda.tf), so
+    // it cannot disagree with where it landed.
     ARGON_ENV: deploymentSchema.optional(),
 
     // Where the two halves answer from. They go into the links of every e-mail, so they are absolute

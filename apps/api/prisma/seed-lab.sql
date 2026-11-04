@@ -3,10 +3,9 @@
 -- on a fixed input, costing no tokens and not depending on what the sources published today.
 --
 -- Not a migration: it sits loose in prisma/, outside prisma/migrations/, so `migrate deploy` never
--- sees it. It runs by hand, inside the container:
+-- sees it. It runs by hand, from a machine, against the lab branch (/argon/lab/DATABASE_URL):
 --
---   docker compose run --rm --no-deps api-lab \
---     sh -c './node_modules/.bin/prisma db execute --file prisma/seed-lab.sql'
+--   DATABASE_URL='<lab URL>' pnpm -C apps/api exec prisma db execute --file prisma/seed-lab.sql
 --
 -- No `--schema`: Prisma 7 reads the datasource from prisma.config.ts and rejects the option.
 --

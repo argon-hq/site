@@ -25,7 +25,7 @@ Monorepo pnpm 11 + Turborepo, Node 22, TypeScript.
 ```
 apps/web     # @argon/web — Next.js 16, React 19, Tailwind 4, next-intl
 apps/api     # @argon/api — NestJS 11, Mastra, Prisma 7.10, Zod 4, Vitest
-deploy/      # compose.yml, Caddyfile, deploy.sh, bootstrap.sh
+deploy/      # documentação do deploy e o Terraform da conta AWS (aws/)
 ```
 
 Na raiz, o turbo roda em todos os pacotes:

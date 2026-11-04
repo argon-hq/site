@@ -7,30 +7,18 @@
 # managed here; delete it by hand.
 
 locals {
-  # The nine variables every environment expects (../README.md, "Variáveis").
+  # The variables every environment's functions load at boot (../README.md, "Variáveis"). The
+  # switches the EC2 read from here (SCHEDULER_ENABLED, STUDIO_ENABLED) are the functions' own
+  # environment now (lambda.tf), which wins over the Parameter Store.
   common_secure = ["ANTHROPIC_API_KEY", "DATABASE_URL", "INTERNAL_API_SECRET", "RESEND_API_KEY"]
-  common_plain  = ["API_ORIGIN", "API_URL", "MAIL_FROM", "MAIL_TRANSPORT", "WEB_ORIGIN"]
+  common_plain  = ["API_ORIGIN", "MAIL_FROM", "MAIL_TRANSPORT", "WEB_ORIGIN"]
 
-  # Optional ones, per environment, present where they were set. Every environment in
-  # local.environments (logs.tf) must have an entry, even an empty one.
-  extra_plain = {
-    prod = []
-    dev  = ["SCHEDULER_ENABLED", "STUDIO_ENABLED"]
-    lab  = ["STUDIO_ENABLED"]
-  }
-
-  environment_parameters = merge([
-    for env, extras in local.extra_plain : merge(
+  parameters = merge([
+    for env in local.environments : merge(
       { for name in local.common_secure : "/argon/${env}/${name}" => "SecureString" },
-      { for name in concat(local.common_plain, extras) : "/argon/${env}/${name}" => "String" },
+      { for name in local.common_plain : "/argon/${env}/${name}" => "String" },
     )
   ]...)
-
-  parameters = merge(local.environment_parameters, {
-    # Superuser password of the Postgres container that held the databases until 04/11/2026. Nothing
-    # reads it any more; it goes when the instance and its db-data volume do.
-    "/argon/postgres/POSTGRES_PASSWORD" = "SecureString"
-  })
 }
 
 resource "aws_ssm_parameter" "argon" {

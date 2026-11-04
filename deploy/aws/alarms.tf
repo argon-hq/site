@@ -73,8 +73,7 @@ resource "aws_cloudwatch_metric_alarm" "send_finished" {
   ok_actions          = local.alarm_actions
 }
 
-# backup-db.sh (step 14) ends with `put-metric-data --namespace Argon --metric-name BackupOk
-# --value 1`. The plan asked for "no datapoint in 26 h"; an alarm window is capped at one day,
+# The backup job (apps/api/src/pipeline/backup.ts) ends with the metric Argon/BackupOk = 1. The plan asked for "no datapoint in 26 h"; an alarm window is capped at one day,
 # so this is the same calendar-day heartbeat as above. The backup runs at 03:30 BRT.
 resource "aws_cloudwatch_metric_alarm" "backup_ok" {
   alarm_name          = "argon-backup-missing"
@@ -136,31 +135,4 @@ resource "aws_cloudwatch_metric_alarm" "owner_alert_skipped" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = local.alarm_actions
-}
-
-# ---- Instance -----------------------------------------------------------------------------
-
-# A failed system status check (hardware or hypervisor) moves the instance to healthy hardware,
-# keeping its id, volume, private address and Elastic IP. Docker and the timers come back on
-# boot; the Compose stack is `restart: unless-stopped`.
-resource "aws_cloudwatch_metric_alarm" "ec2_system_check" {
-  alarm_name          = "argon-ec2-system-check-failed"
-  alarm_description   = "System status check failed on the Argon instance; EC2 recovery was requested."
-  namespace           = "AWS/EC2"
-  metric_name         = "StatusCheckFailed_System"
-  statistic           = "Maximum"
-  period              = 60
-  evaluation_periods  = 2
-  threshold           = 1
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-
-  dimensions = {
-    InstanceId = aws_instance.argon.id
-  }
-
-  alarm_actions = concat(
-    ["arn:aws:automate:${var.region}:ec2:recover"],
-    local.alarm_actions,
-  )
-  ok_actions = local.alarm_actions
 }

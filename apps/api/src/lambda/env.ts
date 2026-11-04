@@ -1,8 +1,8 @@
 import { GetParametersByPathCommand, type Parameter, SSMClient } from "@aws-sdk/client-ssm";
 
-// What the API reads from the environment, in AWS, comes from the Parameter Store: on the EC2,
-// deploy.sh writes it to an env file; on Lambda there is no deploy step on the machine, so the
-// function reads /argon/<env>/ itself before the app is loaded. Same names, same values.
+// What the API reads from the environment, in AWS, comes from the Parameter Store: there is no
+// deploy step on the machine to write it anywhere, so the function reads /argon/<env>/ itself
+// before the app is loaded. Same names as the variables the app reads (src/config.ts).
 
 type Fetch = (path: string, nextToken?: string) => Promise<{ Parameters?: Parameter[]; NextToken?: string }>;
 
@@ -20,8 +20,9 @@ export async function parametersUnder(path: string, fetch: Fetch): Promise<Recor
   return values;
 }
 
-// The function's own variables win over the store: they are what makes a Lambda different from
-// the EC2 container of the same environment (no internal clock, no Studio, the jobs route on).
+// The function's own variables win over the store: they are what sets the two functions of one
+// environment apart from each other and from a development machine (no internal clock, no
+// Studio, the jobs route on the jobs function only; deploy/aws/lambda.tf).
 export function fillEnv(env: NodeJS.ProcessEnv, values: Record<string, string>): string[] {
   const filled: string[] = [];
   for (const [name, value] of Object.entries(values)) {

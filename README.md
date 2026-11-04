@@ -56,7 +56,7 @@ argon/
 ├── apps/
 │   ├── api/              # NestJS + Mastra: cadastro, geração, construção e envio das edições
 │   └── web/              # site institucional (Next.js): páginas, cadastro, confirmação, descadastro
-├── deploy/               # compose.yml, Caddyfile, scripts da instância e o Terraform (aws/)
+├── deploy/               # documentação do deploy e o Terraform da conta AWS (aws/)
 ├── scripts/              # ferramental do workspace (certificado local)
 ├── .github/workflows/    # CI e deploy
 ├── packages/             # código compartilhado entre apps (ainda vazio)
@@ -67,8 +67,8 @@ argon/
 ```
 
 Cada parte tem o seu README: [`apps/api`](apps/api/README.md) explica a esteira das edições e as
-rotas, [`apps/web`](apps/web/README.md) o site, e [`deploy`](deploy/README.md) a instância, o
-workflow, o rollback e o que se configura à mão. As convenções do time estão em
+rotas, [`apps/web`](apps/web/README.md) o site, e [`deploy`](deploy/README.md) a arquitetura na
+AWS, o workflow, o rollback e o que se configura à mão. As convenções do time estão em
 [`AGENTS.md`](AGENTS.md); a fonte delas são os documentos no OneDrive.
 
 `packages/` já está no glob do workspace: quando surgir código compartilhado, basta criar a

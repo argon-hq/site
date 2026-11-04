@@ -1,7 +1,7 @@
 /*
  * Headers de segurança do site. O build estático (`output: "export"`) não aplica `headers()`
  * do next.config: quem os põe nas respostas é o CloudFront (response headers policy), e os
- * valores de lá devem ser copiados daqui. O `next dev` e o build standalone aplicam estes
+ * valores de lá devem ser copiados daqui (deploy/aws/site_cdn.tf). O `next dev` aplica estes
  * mesmos valores pelo next.config, para o desenvolvimento esbarrar nas mesmas regras.
  *
  * Para o lab (API em https://api.lab.argonbusiness.com), a CSP fica:
