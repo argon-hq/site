@@ -80,7 +80,8 @@ data "aws_iam_policy_document" "lambda" {
   }
 }
 
-# The nightly dump: write under postgres/argon_prod/ and say it ran, nothing else of the bucket.
+# The nightly dump writes under postgres/argon_prod/, and the monthly restore drill lists and reads
+# it back (apps/api/src/pipeline/restore-drill.ts). Both say they ran. Nothing else of the bucket.
 data "aws_iam_policy_document" "lambda_backup" {
   for_each = toset(var.lambda_backup_environments)
 
@@ -92,7 +93,27 @@ data "aws_iam_policy_document" "lambda_backup" {
   }
 
   statement {
-    sid       = "PublicaBackupOk"
+    sid       = "LeDumpsDeProdNoTesteDeRestauracao"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/postgres/argon_prod/*"]
+  }
+
+  statement {
+    sid       = "ListaDumpsDeProdNoTesteDeRestauracao"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.backups.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["postgres/argon_prod/*"]
+    }
+  }
+
+  statement {
+    sid       = "PublicaBackupOkERestoreDrillOk"
     effect    = "Allow"
     actions   = ["cloudwatch:PutMetricData"]
     resources = ["*"]
@@ -419,6 +440,33 @@ resource "aws_scheduler_schedule" "backup" {
     arn      = aws_lambda_function.argon["${each.key}-jobs"].arn
     role_arn = aws_iam_role.scheduler.arn
     input    = jsonencode({ job = "backup" })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+# ---- The monthly restore drill -----------------------------------------------------------------
+# The latest dump restored into a database of its own on the production Neon branch, its
+# subscribers counted, the database dropped (apps/api/src/pipeline/restore-drill.ts). On the 1st at
+# 5h São Paulo, after that night's backup, as the EC2's argon-restore-drill timer did.
+
+resource "aws_scheduler_schedule" "restore_drill" {
+  for_each = toset(var.lambda_backup_environments)
+
+  name                         = "argon-${each.key}-restore-drill"
+  schedule_expression          = "cron(0 5 1 * ? *)"
+  schedule_expression_timezone = "America/Sao_Paulo"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.argon["${each.key}-jobs"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ job = "restore-drill" })
 
     retry_policy {
       maximum_retry_attempts = 0

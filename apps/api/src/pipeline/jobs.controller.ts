@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Public } from "../auth/public.decorator";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { BackupJob } from "./backup";
+import { RestoreDrillJob } from "./restore-drill";
 import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
 
@@ -11,7 +12,16 @@ import { PipelineScheduler } from "./scheduler";
 // on the EC2, and the Lambda Web Adapter hands any event that is not HTTP to POST /events. Each job
 // is the same method the clock calls, so a job run by a schedule and one run by the clock log,
 // alert and fail alike.
-export const JOBS = ["edition", "send", "watch", "retention", "sunday-edition", "sunday-send", "backup"] as const;
+export const JOBS = [
+  "edition",
+  "send",
+  "watch",
+  "retention",
+  "sunday-edition",
+  "sunday-send",
+  "backup",
+  "restore-drill",
+] as const;
 export const jobBody = z.object({ job: z.enum(JOBS) });
 type JobBody = z.infer<typeof jobBody>;
 
@@ -24,6 +34,7 @@ export class JobsController {
     private readonly pipeline: PipelineScheduler,
     private readonly retention: RetentionScheduler,
     private readonly backup: BackupJob,
+    private readonly drill: RestoreDrillJob,
   ) {}
 
   // The answer waits for the job: Lambda freezes the process once it is sent, so nothing may still
@@ -54,6 +65,10 @@ export class JobsController {
       // Only on the production jobs function, the one that knows the bucket (src/pipeline/backup.ts).
       case "backup":
         await this.backup.run();
+        break;
+      // Monthly, on the same function and bucket (src/pipeline/restore-drill.ts).
+      case "restore-drill":
+        await this.drill.run();
         break;
     }
     return { job, done: true };
