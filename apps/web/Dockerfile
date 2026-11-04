@@ -16,7 +16,11 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install
 
 FROM deps AS build
 COPY apps/web apps/web
-ENV NEXT_TELEMETRY_DISABLED=1
+# The site is static by default (out/); this image is the Node server build of it. Both origins
+# are read at build time, so they are build args, not runtime env.
+ARG NEXT_PUBLIC_API_ORIGIN
+ARG WEB_ORIGIN
+ENV NEXT_TELEMETRY_DISABLED=1 NEXT_OUTPUT=standalone
 RUN pnpm --filter web build
 
 FROM node:22.23-alpine AS run

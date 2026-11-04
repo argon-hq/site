@@ -239,6 +239,36 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["arn:aws:ecr:${var.region}:${var.account_id}:repository/argon/*"]
   }
 
+  # The static site (deploy/aws/site_cdn.tf): read the two origins it is built with, sync the files
+  # to the site bucket and invalidate the distribution.
+  statement {
+    sid       = "LeAsOrigensDoSite"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [for env in ["prod", "dev", "lab"] : "arn:aws:ssm:${var.region}:${var.account_id}:parameter/argon/${env}/*_ORIGIN"]
+  }
+
+  statement {
+    sid       = "PublicaOSite"
+    effect    = "Allow"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.site.arn}/*"]
+  }
+
+  statement {
+    sid       = "ListaOSite"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.site.arn]
+  }
+
+  statement {
+    sid       = "InvalidaOSite"
+    effect    = "Allow"
+    actions   = ["cloudfront:ListDistributions", "cloudfront:CreateInvalidation"]
+    resources = ["*"]
+  }
+
   # The API functions follow each deploy to the image it just pushed (deploy/aws/lambda.tf).
   statement {
     sid       = "AtualizaAsFuncoesDaApi"

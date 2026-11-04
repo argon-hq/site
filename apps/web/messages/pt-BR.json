@@ -147,6 +147,10 @@
     "cancelling": "Cancelando...",
     "keep": "Quero continuar recebendo",
     "error": "Não foi possível cancelar agora. Tente de novo em instantes.",
+    "checking": {
+      "heading": "Conferindo o seu link...",
+      "body": "Só um instante."
+    },
     "invalid": {
       "heading": "Este link não vale mais",
       "body": "O link de cancelamento está incompleto ou é de uma inscrição que não existe mais. Se você ainda recebe a newsletter, use o link do rodapé da edição mais recente.",

@@ -20,6 +20,14 @@ async function bootstrap() {
   // On Lambda, CloudFront is in front instead (src/net/cloudfront.ts): only what came through it
   // passes, and the visitor's address is the one CloudFront wrote.
   if (config.ORIGIN_VERIFY_SECRET) app.use(cloudFrontOrigin(config.ORIGIN_VERIFY_SECRET));
+  // The static site calls the subscriber routes from the visitor's browser: its origin, and only
+  // its origin, may read the answers. No credentials travel — the routes need none.
+  app.enableCors({
+    origin: config.WEB_ORIGIN,
+    methods: ["GET", "POST"],
+    allowedHeaders: ["content-type"],
+    maxAge: 600,
+  });
   app.enableShutdownHooks();
   await app.listen(config.PORT, "0.0.0.0");
 }

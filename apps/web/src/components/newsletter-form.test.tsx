@@ -1,11 +1,11 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { subscribe } from "@/actions/subscribe";
+import { subscribe } from "@/lib/subscriber";
 import { messages, renderWithIntl } from "@/test/render";
 import { NewsletterForm } from "./newsletter-form";
 
-vi.mock("@/actions/subscribe", () => ({ subscribe: vi.fn() }));
+vi.mock("@/lib/subscriber", () => ({ subscribe: vi.fn() }));
 
 const subscribeMock = vi.mocked(subscribe);
 const text = messages.newsletter;

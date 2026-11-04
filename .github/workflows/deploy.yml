@@ -100,6 +100,14 @@ jobs:
       # Layer cache in the Actions cache, one scope per app: a push that only touches the code reuses
       # the pnpm install layers. provenance off keeps the ECR image a plain manifest, which the retag
       # below copies as is.
+      # The site's browser code calls the API directly, so its origin, and the site's own, are baked
+      # in at build time (apps/web/Dockerfile): the web image is built per environment.
+      - name: Origens do ambiente
+        id: origins
+        if: inputs.tag == ''
+        run: |
+          echo "web=$(aws ssm get-parameter --name "/argon/$ENV_NAME/WEB_ORIGIN" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
+          echo "api=$(aws ssm get-parameter --name "/argon/$ENV_NAME/API_ORIGIN" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
       - name: Build e push web
         if: inputs.tag == '' && contains(steps.changes.outputs.build, 'web')
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -109,6 +117,9 @@ jobs:
           platforms: linux/arm64
           push: true
           provenance: false
+          build-args: |
+            WEB_ORIGIN=${{ steps.origins.outputs.web }}
+            NEXT_PUBLIC_API_ORIGIN=${{ steps.origins.outputs.api }}
           tags: |
             ${{ steps.ecr.outputs.registry }}/argon/web:${{ steps.src.outputs.tag }}
             ${{ steps.ecr.outputs.registry }}/argon/web:${{ env.ENV_NAME }}
@@ -215,6 +226,47 @@ jobs:
               --query '[FunctionName,LastUpdateStatus]' --output text
             aws lambda wait function-updated --function-name "$f"
           done
+      # The static site (deploy/aws/site_cdn.tf): built with this environment's origins, synced to its
+      # folder in the site bucket, and the distribution invalidated. An environment whose distribution
+      # does not exist yet skips it, and keeps the web container on the EC2.
+      - name: Site estático, distribuição
+        id: site
+        if: inputs.tag == ''
+        run: |
+          ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='argon $ENV_NAME site'].Id | [0]" --output text)
+          [ "$ID" = None ] && ID=""
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          [ -n "$ID" ] || echo "no site distribution for $ENV_NAME, skipped"
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.site.outputs.id != ''
+        with:
+          package_json_file: ${{ steps.src.outputs.dir }}/package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.site.outputs.id != ''
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ${{ steps.src.outputs.dir }}/pnpm-lock.yaml
+      - name: Site estático
+        if: steps.site.outputs.id != ''
+        env:
+          SRC_DIR: ${{ steps.src.outputs.dir }}
+          DIST_ID: ${{ steps.site.outputs.id }}
+          WEB_ORIGIN: ${{ steps.origins.outputs.web }}
+          API_ORIGIN: ${{ steps.origins.outputs.api }}
+        run: |
+          # The origins are the environment's own, baked into the files: the sitemap, the metadata,
+          # and the API the browser calls.
+          BUCKET="argon-site-$(aws sts get-caller-identity --query Account --output text)"
+          cd "$SRC_DIR"
+          pnpm install --frozen-lockfile --filter web...
+          WEB_ORIGIN="$WEB_ORIGIN" NEXT_PUBLIC_API_ORIGIN="$API_ORIGIN" pnpm --filter web build
+          aws s3 sync apps/web/out "s3://$BUCKET/$ENV_NAME/" --delete --only-show-errors
+          # The Open Graph image has no extension, so sync stores it as octet-stream: a link preview
+          # needs image/png.
+          aws s3 cp apps/web/out "s3://$BUCKET/$ENV_NAME/" --recursive --exclude '*' --include '*/opengraph-image' \
+            --content-type image/png --metadata-directive REPLACE --only-show-errors
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths '/*' --query Invalidation.Id --output text
       # The container answering from inside the instance is not the same as the site answering from
       # the internet: this also covers Caddy, DNS and the certificate.
       - name: Smoke

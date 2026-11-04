@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { messages, renderWithIntl } from "@/test/render";
 import HomePage from "./page";
 
-vi.mock("@/actions/subscribe", () => ({ subscribe: vi.fn() }));
+vi.mock("@/lib/subscriber", () => ({ subscribe: vi.fn() }));
 
 const text = messages.home;
 

@@ -147,6 +147,10 @@
     "cancelling": "Unsubscribing...",
     "keep": "I want to keep receiving it",
     "error": "We couldn't unsubscribe you right now. Please try again in a moment.",
+    "checking": {
+      "heading": "Checking your link...",
+      "body": "One moment."
+    },
     "invalid": {
       "heading": "This link no longer works",
       "body": "The unsubscribe link is incomplete, or it belongs to a subscription that no longer exists. If you still receive the newsletter, use the link in the footer of the latest issue.",

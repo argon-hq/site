@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
-import { subscribe } from "@/actions/subscribe";
+import { subscribe } from "@/lib/subscriber";
 import { isValidEmail, normalizeEmail } from "@/lib/email";
 
 type Status = "idle" | "submitting" | "sent";
