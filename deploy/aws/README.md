@@ -37,7 +37,7 @@ O que **não existia** e o primeiro `apply` cria: os dois tópicos SNS e suas as
   exige o DNS lá). Os registros `A` que apontam para o IP elástico e os do Resend são mantidos à
   mão. Os nomes antigos, `*.argon.eduardofockink.com`, ficam na zona da conta 663702377780 até
   02/02/2027.
-- **A stack do Compose.** Containers, Caddy, Postgres, timers e o conteúdo de `/opt/argon` são
+- **A stack do Compose.** Containers, Caddy, timers e o conteúdo de `/opt/argon` são
   do `deploy.sh` e do workflow, não do Terraform. O `user_data` da instância aponta para
   `../bootstrap.sh` só para uma conta nova.
 - **Segredos do GitHub** (`AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`): copie dos `outputs`.
@@ -215,8 +215,7 @@ Numa conta nova, todos nascem assim e precisam de valor antes do primeiro deploy
   thumbprint, mas ele continua obrigatório no recurso. Se o GitHub trocar de CA, atualize aqui.
 - **IP elástico**: não rotaciona; o DNS na outra conta aponta para ele.
 - **Instância**: recriá-la (novo `ami` ou `user_data`) é uma decisão manual — tire o
-  `ignore_changes`, planeje, e lembre que o volume `db-data` do Postgres vai junto. Restaure do
-  backup na instância nova.
+  `ignore_changes` e planeje. O banco está no Neon, então nada se perde com a instância.
 
 ## Conta nova
 

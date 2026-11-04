@@ -180,7 +180,7 @@ jobs:
             aws s3 cp deploy/ "s3://$DEPLOY_BUCKET/deploy/$TAG/" --recursive --exclude '*' --include '*.sh' --include compose.yml --include Caddyfile --only-show-errors
             FETCH="aws s3 sync s3://$DEPLOY_BUCKET/deploy/$TAG/ /opt/argon/ --exclude '*' --include '*.sh' --include compose.yml --include Caddyfile --only-show-errors"
           else
-            FETCH=$(for f in compose.yml Caddyfile deploy.sh provision-db.sh backup-db.sh lab-idle-stop.sh restore-drill.sh reset-lab.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
+            FETCH=$(for f in compose.yml Caddyfile deploy.sh backup-db.sh lab-idle-stop.sh restore-drill.sh; do printf 'echo %s | base64 -d > /opt/argon/%s\n' "$(base64 -w0 deploy/$f)" "$f"; done)
           fi
           # SSM kills the script at the timeout; without it a deploy stuck on a pull would run forever.
           CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
