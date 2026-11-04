@@ -104,7 +104,7 @@ resource "aws_lambda_function" "argon" {
   }
 
   environment {
-    variables = {
+    variables = merge({
       ARGON_SSM_PATH    = "/argon/${each.value.env}/"
       ARGON_ENV         = each.value.env
       NODE_ENV          = "production"
@@ -116,7 +116,10 @@ resource "aws_lambda_function" "argon" {
       AWS_LWA_PORT                 = "3001"
       AWS_LWA_READINESS_CHECK_PATH = "/health/live"
       AWS_LWA_ASYNC_INIT           = "true"
-    }
+      },
+      # Only the API function sits behind CloudFront (apps/api/src/net/cloudfront.ts).
+      each.value.jobs ? {} : { ORIGIN_VERIFY_SECRET = random_password.origin_verify[each.value.env].result },
+    )
   }
 
   logging_config {

@@ -16,8 +16,48 @@ data "aws_cloudfront_cache_policy" "disabled" {
   name = "Managed-CachingDisabled"
 }
 
-data "aws_cloudfront_origin_request_policy" "all_but_host" {
-  name = "Managed-AllViewerExceptHostHeader"
+# What the API reads from a request, plus CloudFront-Viewer-Address, the visitor's address as
+# CloudFront saw it (apps/api/src/net/cloudfront.ts). A list rather than "every viewer header":
+# CloudFront's own headers only travel when named, and the managed policies that name them also
+# forward Host, which a function URL refuses. A header the API starts reading goes here too.
+resource "aws_cloudfront_origin_request_policy" "api" {
+  name    = "argon-api"
+  comment = "Argon API on Lambda: the headers it reads, and the visitor's address"
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = [
+        "accept",
+        "accept-language",
+        "access-control-request-headers",
+        "access-control-request-method",
+        "content-type",
+        "origin",
+        "user-agent",
+        "x-internal-secret",
+        "CloudFront-Viewer-Address",
+      ]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "all"
+  }
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+}
+
+# Proves to the API function that a request came through CloudFront. It lives in the Terraform
+# state and in the function's environment, not in the Parameter Store: the EC2 reads every
+# parameter of its environment and would start refusing what Caddy forwards.
+resource "random_password" "origin_verify" {
+  for_each = toset(var.lambda_environments)
+
+  length  = 48
+  special = false
 }
 
 resource "aws_acm_certificate" "api" {
@@ -59,6 +99,11 @@ resource "aws_cloudfront_distribution" "api" {
     origin_id   = "lambda"
     domain_name = trimsuffix(trimprefix(aws_lambda_function_url.api[each.key].function_url, "https://"), "/")
 
+    custom_header {
+      name  = "x-origin-verify"
+      value = random_password.origin_verify[each.key].result
+    }
+
     custom_origin_config {
       http_port              = 80
       https_port             = 443
@@ -76,7 +121,7 @@ resource "aws_cloudfront_distribution" "api" {
     cached_methods           = ["GET", "HEAD"]
     compress                 = true
     cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_but_host.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api.id
   }
 
   restrictions {
