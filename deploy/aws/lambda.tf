@@ -145,8 +145,10 @@ resource "aws_lambda_function_url" "api" {
   authorization_type = "NONE"
 }
 
-# An URL with no auth still needs a resource policy that lets anyone call it through the URL; the
-# console adds it by itself, Terraform does not. It covers the URL only, not a direct invocation.
+# A URL with no auth still needs a resource policy that lets anyone call it, and since October 2025
+# that takes two permissions: lambda:InvokeFunctionUrl, and lambda:InvokeFunction restricted to
+# calls that come through the URL (invoked_via_function_url, provider 6.28+). Neither allows a
+# direct invocation of the function.
 resource "aws_lambda_permission" "api_url" {
   for_each = toset(var.lambda_environments)
 
@@ -155,6 +157,16 @@ resource "aws_lambda_permission" "api_url" {
   function_name          = aws_lambda_function.argon["${each.key}-api"].function_name
   principal              = "*"
   function_url_auth_type = "NONE"
+}
+
+resource "aws_lambda_permission" "api_url_invoke" {
+  for_each = toset(var.lambda_environments)
+
+  statement_id             = "UrlPublicaInvoca"
+  action                   = "lambda:InvokeFunction"
+  function_name            = aws_lambda_function.argon["${each.key}-api"].function_name
+  principal                = "*"
+  invoked_via_function_url = true
 }
 
 # Lambda pulls the image with its own service principal, limited to the Argon functions.
