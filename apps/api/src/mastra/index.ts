@@ -26,5 +26,9 @@ export const mastra = new Mastra({
   // one JSON file per agent inside the repository, so a change to the prompt is reviewed in a PR and
   // deployed with everything else — instead of living in the database, where each environment could
   // end up with a different text and no history.
-  editor: new MastraEditor({ source: "code", codePath: mastraDir("editor") }),
+  //
+  // Mastra writes into that folder as it runs (it creates the folder and subfolders such as
+  // skills/), which a read-only image refuses: on Lambda, MASTRA_EDITOR_DIR points at a copy in /tmp
+  // (src/lambda/main.ts). Everywhere else it is the folder itself.
+  editor: new MastraEditor({ source: "code", codePath: process.env.MASTRA_EDITOR_DIR ?? mastraDir("editor") }),
 });
