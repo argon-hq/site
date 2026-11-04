@@ -22,7 +22,13 @@ docker rm -f "$NAME" >/dev/null 2>&1 || true
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
 docker run -d --name "$NAME" --network none -e POSTGRES_PASSWORD=drill pgvector/pgvector:pg16 >/dev/null
 pg() { docker exec -i "$NAME" "$@"; }
-for _ in $(seq 30); do pg pg_isready -U postgres -q && break; sleep 1; done
+# The image's entrypoint runs initdb with a temporary server, stops it and starts the real one:
+# pg_isready answers yes to the temporary one, and a createdb in between finds no socket (seen on
+# 04/11/2026). Ready means the init is over and the final server answers.
+for _ in $(seq 60); do
+  docker logs "$NAME" 2>&1 | grep -q 'PostgreSQL init process complete' && pg pg_isready -U postgres -q && break
+  sleep 1
+done
 pg createdb -U postgres drill
 
 aws s3 cp "s3://$BUCKET/$key" - --region "$REGION" --only-show-errors | pg sh -c 'cat > /tmp/drill.dump'
