@@ -1,11 +1,11 @@
-# The API image as Lambda functions, two per environment, in place of the EC2 containers:
+# The API image as Lambda functions, two per environment:
 #
 # - argon-<env>-api answers HTTP: the subscriber routes the site and the mail providers call, and
-#   the operator's routes. It has a function URL (CloudFront goes in front of it next).
+#   the operator's routes. It has a function URL, with CloudFront in front of it (api_cdn.tf).
 # - argon-<env>-jobs runs the day's jobs by name (src/pipeline/jobs.controller.ts). It has no URL:
 #   only an invocation IAM allows reaches it — EventBridge Scheduler, or an operator.
 #
-# Both run the same server as the EC2: the Lambda Web Adapter in the image (apps/api/Dockerfile)
+# Both run the same Nest server: the Lambda Web Adapter in the image (apps/api/Dockerfile)
 # turns each invocation into a request to it on port 3001, and dist/lambda/main.js reads
 # /argon/<env>/ from the Parameter Store before the app loads. The function's own variables below
 # win over the store: no internal clock, no Studio, and the jobs route only on the jobs function.
@@ -71,7 +71,7 @@ data "aws_iam_policy_document" "lambda" {
     ]
   }
 
-  # The API's log group, the one the EC2 container writes to and the metric filters read.
+  # The API's log group, the one the metric filters read (alarms.tf).
   statement {
     sid       = "EscreveNoGrupoDeLogsDaApi"
     effect    = "Allow"
@@ -354,8 +354,8 @@ resource "aws_scheduler_schedule" "keep_warm" {
 # ---- The day's jobs -------------------------------------------------------------------------
 # The same hours as the @Cron decorators (apps/api/src/pipeline/run.ts and retention.ts), in São
 # Paulo time, each invoking the jobs function with its name. A schedule is created for every
-# Lambda environment and only runs where lambda_jobs_enabled says so: on the day an environment
-# moves here, its EC2 clock goes off (SCHEDULER_ENABLED) and these go on, never both.
+# Lambda environment and only runs where lambda_jobs_enabled says so; lab and dev run theirs by
+# hand (POST /pipeline/run, or an invocation with the job's name).
 
 variable "lambda_jobs_enabled" {
   description = "Environments whose day's jobs EventBridge Scheduler runs (the rest are created disabled)."

@@ -1,20 +1,18 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
-import { fileURLToPath } from "node:url";
 import { LOCALE_COOKIE, defaultLocale, locales } from "./src/i18n/config";
 import { apiOrigin } from "./src/lib/api";
 import { REFERRER_POLICY, TOKEN_PAGES, contentSecurityPolicy } from "./src/lib/security-headers";
 
-// Site estático por padrão, para o S3 + CloudFront: `next build` grava tudo em out/. O
-// standalone (servidor Node) fica para quem pedir com NEXT_OUTPUT=standalone, como o Dockerfile.
-// O `next dev` roda sem export: com ele, o dev server recusa as páginas que chegam pelas
-// rewrites de idioma abaixo. O build continua sendo quem garante que tudo exporta.
+// Site estático, para o S3 + CloudFront: `next build` grava tudo em out/. O `next dev` roda sem
+// export: com ele, o dev server recusa as páginas que chegam pelas rewrites de idioma abaixo. O
+// build continua sendo quem garante que tudo exporta.
 const development = process.env.NODE_ENV === "development";
-const output = development ? undefined : process.env.NEXT_OUTPUT === "standalone" ? "standalone" : "export";
+const output = development ? undefined : "export";
 
 // Uma pasta por idioma (/pt-BR/, /en-US/) e links sem prefixo: no site publicado, o
-// CloudFront reescreve a URL para a pasta do cookie de idioma. Fora do build estático
-// (`next dev`, standalone) não há CloudFront, e estas regras fazem o mesmo papel.
+// CloudFront reescreve a URL para a pasta do cookie de idioma. No `next dev` não há CloudFront,
+// e estas regras fazem o mesmo papel.
 const unprefixed = `/:path((?!(?:${locales.join("|")})(?:/|$)).*)`;
 const localeRewrites = [
   ...locales
@@ -31,8 +29,6 @@ const nextConfig: NextConfig = {
   output,
   // Cada página vira <pasta>/index.html, que o S3 serve sem regra extra.
   trailingSlash: true,
-  // Rastreio do standalone: a raiz é o monorepo.
-  outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
   // O build estático ignora rewrites e headers (o Next só avisaria): lá quem faz isso é o
   // CloudFront, com os valores de src/lib/security-headers.ts.
   ...(output === "export"

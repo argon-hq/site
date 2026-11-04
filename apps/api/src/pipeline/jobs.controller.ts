@@ -10,9 +10,9 @@ import { PipelineScheduler } from "./scheduler";
 
 // The jobs of the day, by name, for the Lambda that runs them (deploy/aws/lambda.tf). EventBridge
 // Scheduler invokes that function with { "job": "<name>" } at the hours the @Cron decorators keep
-// on the EC2, and the Lambda Web Adapter hands any event that is not HTTP to POST /events. Each job
-// is the same method the clock calls, so a job run by a schedule and one run by the clock log,
-// alert and fail alike.
+// for the internal clock (SCHEDULER_ENABLED, off on every function), and the Lambda Web Adapter
+// hands any event that is not HTTP to POST /events. Each job is the same method the clock calls, so
+// a job run by a schedule and one run by the clock log, alert and fail alike.
 export const JOBS = [
   "edition",
   "send",

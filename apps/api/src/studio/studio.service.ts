@@ -3,17 +3,17 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { renderStudioHtml } from "./studio.html";
 
-// Where the static bundle is. In the image it is copied next to the code, because the `mastra` CLI
-// that carries it is a devDependency and never reaches the runtime stage; on a development machine
-// it is read straight out of node_modules.
+// Where the static bundle is: inside the `mastra` CLI, a devDependency, read straight out of
+// node_modules. The Studio is a development machine's tool; the image installs production
+// dependencies only and carries no bundle, so a deployed environment never serves it.
 function resolveBundle(): string | null {
-  const candidates = [join(process.cwd(), "studio")];
   try {
-    candidates.push(join(dirname(require.resolve("mastra/package.json")), "dist", "studio"));
+    const path = join(dirname(require.resolve("mastra/package.json")), "dist", "studio");
+    return existsSync(join(path, "index.html")) ? path : null;
   } catch {
-    // The CLI is not installed here, which is the normal case in the image.
+    // The CLI is not installed here, which is the case in the image.
+    return null;
   }
-  return candidates.find((path) => existsSync(join(path, "index.html"))) ?? null;
 }
 
 @Injectable()
@@ -25,7 +25,7 @@ export class StudioService {
 
   constructor() {
     if (this.bundle) this.logger.log(`Studio served from ${this.bundle}`);
-    else this.logger.warn("STUDIO_ENABLED is on but the Studio bundle is not in this image");
+    else this.logger.warn("STUDIO_ENABLED is on but the Studio bundle is not installed here");
   }
 
   get available(): boolean {

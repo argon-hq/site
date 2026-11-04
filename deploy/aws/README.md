@@ -1,61 +1,62 @@
 # Infraestrutura como código (ARG-116)
 
-Terraform da conta AWS do Argon (382597877834, `sa-east-1`). Descreve o que a tabela "Recursos
-criados" do `deploy/README.md` listava de memória, mais os alarmes das etapas 2, 8 e 14 da revisão
-de 24/09/2026.
+Terraform da conta AWS do Argon (382597877834, `sa-east-1`): as funções Lambda da API, os
+CloudFront da API e do site, os buckets, os papéis, os alarmes e o resto que o `deploy/README.md`
+descreve.
 
-> **Aplicado em 24/09/2026.** O primeiro `plan` importou 82 recursos, criou as duas assinaturas de
-> e-mail do SNS e só alterou tags e descrições; o `apply` que o seguiu deixou a conta igual ao código
-> (`terraform plan` responde "No changes"). O estado está no bucket `argon-terraform-state-382597877834`.
+> **Primeiro apply em 24/09/2026.** O primeiro `plan` importou o que já existia na conta (a
+> instância EC2 de então, os papéis, o ECR, o bucket de backup, o orçamento, os grupos de log e os
+> parâmetros), criou os tópicos e alarmes e só alterou tags e descrições. A instância e o que só
+> existia por ela (`ec2.tf`, o papel `argon-ec2`, os security groups, o alarme de status, o
+> repositório `argon/web`, os grupos de log do site e do Postgres) saíram do código em 04/11/2026. O
+> estado está no bucket `argon-terraform-state-382597877834`.
 
 ## O que cobre
 
 | Arquivo | Recursos |
 | --- | --- |
-| `ec2.tf` | Instância `i-00296133cc8e8093d` (t4g.small, AL2023 arm64, gp3 de 16 GB), IP elástico `54.94.89.230`, security groups `argon-web` e `argon-db` com suas regras, IMDSv2 obrigatório |
-| `iam.tf` | Papel `argon-ec2` (SSM, ECR pull, Parameter Store, logs, S3 dos dumps) e seu instance profile; provedor OIDC do GitHub e papel `argon-github-deploy`, que também escreve no bucket público e no prefixo `public-assets/` do bucket de estado e avisa o tópico de alertas quando um deploy falha |
-| `ecr.tf` | Repositórios `argon/web` e `argon/api`, com ciclo de vida de 10 imagens |
+| `lambda.tf` | As funções `argon-<env>-api` e `argon-<env>-jobs`, um papel por ambiente (`argon-lambda-<env>`: Parameter Store do ambiente, o grupo de log da API; em prod, os dumps), a URL da função de API, a política do ECR que deixa a Lambda puxar a imagem, o papel `argon-scheduler` e os agendamentos: keep-warm, jobs do dia, backup e ensaio de restauração |
+| `api_cdn.tf` | Por ambiente: distribuição CloudFront na frente da URL da função de API, sem cache, certificado do ACM (`us-east-1`), o segredo `x-origin-verify` (`random_password`) e a origin request policy `argon-api` |
+| `site_cdn.tf`, `site_router.js` | Bucket `argon-site-382597877834` (privado, lido por OAC), por ambiente: distribuição, certificado, CloudFront Function de idioma e `www`, response headers policy (CSP, `Referrer-Policy`) |
+| `iam.tf` | Provedor OIDC do GitHub e papel `argon-github-deploy`: push no ECR, as origens do site no Parameter Store, publicar o site e invalidar a distribuição, mover as funções e invocar o `migrate` nas de jobs, o bucket público e o prefixo `public-assets/` do bucket de estado, e avisar o tópico de alertas quando um deploy falha |
+| `ecr.tf` | Repositório `argon/api`: as imagens com a tag de um ambiente nunca expiram, e das outras ficam as dez últimas |
 | `s3.tf` | Bucket `argon-db-backups-382597877834`: acesso público bloqueado, SSE-S3, sem versionamento, dumps expiram em 30 dias |
 | `s3_public.tf` | Bucket `argon-public-382597877834`: leitura pública de objetos por política (sem listagem, sem ACL), SSE-S3, CORS de GET. O conteúdo é do root `public-assets/`, abaixo |
 | `sns.tf` | Tópico `argon-alerts` em `sa-east-1`, com uma assinatura por e-mail |
 | `budget.tf` | Orçamento `argon-mensal`, US$ 30, avisos em 80% e 100% |
-| `logs.tf` | Grupos `/argon/<env>/web`, `/argon/<env>/api` e `/argon/postgres`, retenção de 30 dias |
-| `alarms.tf` | Filtros de métrica em `/argon/prod/api` e alarmes (abaixo), recuperação da instância |
-| `parameters.tf` | Nomes e tipos dos parâmetros `/argon/<env>/*` e `/argon/postgres/*`. **Nunca os valores** |
-| `imports.tf` | Um bloco `import` para cada recurso que já existia, para o primeiro `plan` adotar em vez de criar |
-
-O que existia na conta em 24/09/2026 e é importado: instância, IP, os dois security groups e
-suas cinco regras, os dois papéis com políticas, o provedor OIDC, os dois repositórios ECR com
-ciclo de vida, o bucket com suas configurações, o orçamento, seis grupos de log e 28 parâmetros.
-
-O que **não existia** e o primeiro `apply` cria: os dois tópicos SNS e suas assinaturas, o grupo
-`/argon/prod/api`, os cinco filtros de métrica, os oito alarmes e o health check.
+| `logs.tf` | Grupos `/argon/<env>/api`, onde as duas funções de cada ambiente escrevem, retenção de 30 dias |
+| `alarms.tf` | Filtros de métrica em `/argon/prod/api` e alarmes (abaixo) |
+| `parameters.tf` | Nomes e tipos dos parâmetros `/argon/<env>/*`. **Nunca os valores** |
+| `backend.tf`, `providers.tf`, `versions.tf` | Estado no S3, o provedor em `sa-east-1` e o alias `us_east_1`, onde o CloudFront exige os certificados |
 
 ## O que não cobre
 
 - **DNS.** A zona `argonbusiness.com` está na Cloudflare, onde o domínio foi registrado (o registrador
-  exige o DNS lá). Os registros dos sites e da API (CNAME para cada CloudFront) e os do Resend
-  são mantidos à mão.
-- **A stack do Compose.** Containers, Caddy, timers e o conteúdo de `/opt/argon` são
-  do `deploy.sh` e do workflow, não do Terraform. O `user_data` da instância aponta para
-  `../bootstrap.sh` só para uma conta nova.
-- **Segredos do GitHub** (`AWS_DEPLOY_ROLE_ARN`, `AWS_INSTANCE_ID`): copie dos `outputs`.
-- **Valores dos parâmetros.** Ver "Parâmetros".
-- `/argon/rds/master_password`: sobra do RDS, não gerido. Apague à mão.
+  exige o DNS lá). Os registros dos sites e da API (CNAME para cada CloudFront, sem proxy), os de
+  validação dos certificados e os do Resend são mantidos à mão. O que criar sai dos `outputs`:
+  `api_cloudfront_domains`, `site_cloudfront`, `api_certificate_validation` e
+  `site_certificate_validation`. O `apply` espera até 30 minutos pela validação de cada certificado.
+- **O código das funções.** Cada função nasce com a imagem de `lambda_bootstrap_tag`, e o Terraform
+  ignora a imagem dali em diante (`ignore_changes = [image_uri]`): quem a move é o workflow de deploy.
+- **O banco.** O projeto `argon` no Neon e suas branches são do console do Neon.
+- **Segredos do GitHub** (`AWS_DEPLOY_ROLE_ARN`, `AWS_ALERTS_TOPIC_ARN`): copie dos `outputs`.
+- **Valores dos parâmetros.** Ver "Parâmetros". `/argon/<env>/UNSUBSCRIBE_TOKEN_SECRET` e
+  `/argon/neon/*` existem e não estão em `parameters.tf`.
+- `/argon/rds/master_password`: sobra do RDS, não gerido. Apague à mão. Os `/argon/caddy/*`, criados
+  à mão para o Caddy da instância, também ficaram sem uso.
 
 ## Alarmes
 
-Todos publicam no tópico `argon-alerts` da sua região.
+Todos publicam no tópico `argon-alerts`.
 
 | Alarme | Fonte | Dispara quando |
 | --- | --- | --- |
 | `argon-prod-schedule-not-fired` | log `schedule fired` | nenhum no dia (UTC). Falso positivo conhecido: de domingo à noite até segunda 5h30, porque não há edição de domingo |
 | `argon-prod-send-not-finished` | log `send finished` | nenhum no dia. Mesmo falso positivo |
-| `argon-backup-missing` | métrica `Argon/BackupOk`, publicada pelo `backup-db.sh` (etapa 14; desde 04/11/2026, só prod, a partir do Neon) | nenhuma no dia. O plano pedia 26 h; a janela de um alarme é limitada a um dia |
+| `argon-backup-missing` | métrica `Argon/BackupOk`, publicada pelo job `backup` da função `argon-prod-jobs` (etapa 14) | nenhuma no dia. O plano pedia 26 h; a janela de um alarme é limitada a um dia |
 | `argon-prod-api-errors` | log `level = error` | um ou mais em 5 min |
 | `argon-prod-edition-stuck` | log `edition stuck` (etapa 8) | um ou mais em 5 min |
 | `argon-prod-owner-alert-skipped` | log `owner alert skipped` (etapa 2) | um ou mais em 5 min |
-| `argon-ec2-system-check-failed` | `StatusCheckFailed_System` | 2 min seguidos; também pede a recuperação da instância |
 
 Os alarmes diários avaliam o dia UTC e, enquanto o dia corrente não tem ponto, usam o anterior:
 o alarme de uma execução perdida chega no dia UTC seguinte (por volta das 21h BRT) e some na
@@ -80,9 +81,9 @@ São dois roots, cada um no seu ritmo:
 - **Este root** cria o bucket, a política pública e a permissão do papel de deploy. Roda à mão,
   como o resto, e só muda quando o bucket muda.
 - **`public-assets/`** cria um objeto por arquivo da pasta. Quem roda é o workflow de deploy, em
-  todo deploy (exceto rollback por tag), antes de reiniciar os containers. O Terraform compara o MD5 de cada arquivo com o estado:
-  arquivo alterado é reenviado, arquivo novo é criado, arquivo apagado sai do bucket, o resto não é
-  tocado. O estado fica em `public-assets/<env>.tfstate`, no bucket de estado; o papel de deploy só
+  todo deploy (exceto rollback por tag), antes de mover as funções. O Terraform compara o MD5 de
+  cada arquivo com o estado: arquivo alterado é reenviado, arquivo novo é criado, arquivo apagado
+  sai do bucket, o resto não é tocado. O estado fica em `public-assets/<env>.tfstate`, no bucket de estado; o papel de deploy só
   enxerga esse prefixo, nunca o `site/terraform.tfstate`, que guarda valores de parâmetros.
 
 Para mudar a marca: troque o arquivo em `apps/web/public`, faça o commit e o push. Não há passo
@@ -142,49 +143,35 @@ aws s3api put-bucket-encryption --bucket argon-terraform-state-382597877834 \
 ao importar e a cada refresh, mesmo ignorando mudanças. Trate o bucket de estado como se fosse o
 Parameter Store — ninguém além de quem já pode ler os parâmetros deve ler o estado.
 
-## Primeiro plan e apply
+## Plan e apply
 
 ```bash
 cd deploy/aws
-terraform fmt -recursive          # o código nunca passou pelo fmt
+terraform fmt -recursive
 terraform init
 terraform validate
-terraform plan -out=first.tfplan
+terraform plan -var lambda_bootstrap_tag=prod -out=argon.tfplan
+terraform apply argon.tfplan
 ```
 
-O que o primeiro `plan` deve mostrar, e nada além disso:
+Todo `plan` pede `lambda_bootstrap_tag`: o precondition das funções recusa o vazio. Para as que já
+existem o valor não muda nada, porque a imagem está em `ignore_changes`; a tag de um ambiente
+(`prod`) serve.
 
-- **Import** de tudo que está em `imports.tf` (≈ 60 recursos).
-- **Create** dos tópicos SNS e assinaturas, do grupo `/argon/prod/api`, dos filtros, dos
-  alarmes e do health check.
-- **Update in-place** da instância: `http_put_response_hop_limit` de 2 para 1. Isso muda a
-  instância em execução. Os containers deixam de alcançar o IMDS, o que é o objetivo: nenhum
-  deles faz chamada à AWS (o driver `awslogs` roda no `dockerd`, no host). Se algum dia um
-  container precisar das credenciais da instância, o limite volta a 2 aqui, não no console.
-- **Update in-place** de tags: os grupos de log, os parâmetros, o bucket, o instance profile e
-  as regras dos security groups não tinham a tag `Project=argon`, que o provedor aplica a tudo
-  (`default_tags`).
+O critério é o de sempre: depois do `apply`, `terraform plan` responde "No changes". Diferenças
+pequenas que podem aparecer e são cosméticas (documentos JSON reordenados, campos computados):
+confira que o `apply` delas não altera comportamento, ou ajuste o código até o `plan` ficar limpo.
 
-Qualquer **replace** é sinal de erro no código, não da conta. Em especial a instância: `ami` e
-`user_data` estão em `ignore_changes` justamente para nunca a substituírem. Se aparecer, pare e
-corrija antes do `apply`.
-
-Diferenças pequenas que podem aparecer e são cosméticas (documentos JSON reordenados, campos
-computados): confira que o `apply` delas não altera comportamento, ou ajuste o código até o
-`plan` ficar limpo. Um `plan` limpo depois do primeiro `apply` é o critério de aceite da ARG-116.
-
-```bash
-terraform apply first.tfplan
-```
-
-Depois do primeiro `apply`, `imports.tf` pode ser apagado.
+Um **replace** de função, distribuição ou bucket é sinal de erro no código, não da conta: pare e
+corrija antes do `apply`. A imagem das funções está em `ignore_changes` para o Terraform nunca
+desfazer um deploy.
 
 ## Confirmar as assinaturas
 
-O SNS só entrega a um e-mail que confirmou a assinatura. O `apply` cria as duas assinaturas (uma
-por região) e a AWS manda um e-mail "AWS Notification - Subscription Confirmation" para cada;
-clique em *Confirm subscription* nos dois. O provedor espera alguns minutos pela confirmação
-durante o `apply`; se expirar, confirme e rode `terraform apply` de novo. Para conferir:
+O SNS só entrega a um e-mail que confirmou a assinatura. O `apply` cria a assinatura e a AWS manda
+um e-mail "AWS Notification - Subscription Confirmation"; clique em *Confirm subscription*. O
+provedor espera alguns minutos pela confirmação durante o `apply`; se expirar, confirme e rode
+`terraform apply` de novo. Para conferir:
 
 ```bash
 aws sns list-subscriptions-by-topic --topic-arn "$(terraform output -raw alerts_topic_arn)"
@@ -203,8 +190,9 @@ aws ssm put-parameter --region sa-east-1 --name /argon/prod/RESEND_API_KEY \
   --type SecureString --overwrite --value '<valor>'
 ```
 
-O valor chega aos containers no deploy seguinte. Um parâmetro **novo** entra primeiro em
-`parameters.tf` (o `apply` o cria com `CHANGE-ME`) e recebe o valor real pelo comando acima.
+As funções leem os parâmetros ao subir, então o valor chega a todas no deploy seguinte, que troca os
+ambientes de execução. Um parâmetro **novo** entra primeiro em `parameters.tf` (o `apply` o cria
+com `CHANGE-ME`) e recebe o valor real pelo comando acima.
 Numa conta nova, todos nascem assim e precisam de valor antes do primeiro deploy.
 
 ## Rotação
@@ -212,24 +200,29 @@ Numa conta nova, todos nascem assim e precisam de valor antes do primeiro deploy
 - **Parâmetros**: `put-parameter --overwrite` e um deploy.
 - **Thumbprint do OIDC** (`iam.tf`): a AWS hoje valida o certificado do GitHub sozinha e ignora o
   thumbprint, mas ele continua obrigatório no recurso. Se o GitHub trocar de CA, atualize aqui.
-- **IP elástico**: não rotaciona; o DNS na outra conta aponta para ele.
-- **Instância**: recriá-la (novo `ami` ou `user_data`) é uma decisão manual — tire o
-  `ignore_changes` e planeje. O banco está no Neon, então nada se perde com a instância.
+- **`x-origin-verify`** (`api_cdn.tf`): vive no estado e no ambiente da função de API.
+  `terraform apply -replace='random_password.origin_verify["<env>"]'` troca o valor, e o mesmo
+  `apply` atualiza a função e a distribuição; entre uma e outra, a API do ambiente responde 403.
 
 ## Conta nova
 
-Com a conta vazia: crie o bucket de estado ("Estado"), apague `imports.tf`, preencha o
-`terraform.tfvars`, `terraform apply`. Depois: valores dos parâmetros, `ARGON_BACKUP_BUCKET` em
-`/opt/argon/.env` na instância, segredos do GitHub a partir dos `outputs`, registros DNS na
-conta da zona, confirmação das assinaturas SNS. O `bootstrap.sh` roda como user data e deixa
-Docker, swap e timers prontos; o primeiro deploy pelo workflow sobe o resto.
+Com a conta vazia: crie o bucket de estado ("Estado") e preencha o `terraform.tfvars`. As funções
+precisam de uma imagem `argon/api` no ECR antes de existir — `lambda_bootstrap_tag` é obrigatório
+e o precondition recusa o vazio —, então o repositório vem primeiro:
+
+```bash
+terraform apply -target=aws_ecr_repository.app
+docker buildx build --platform linux/arm64 --provenance=false -f apps/api/Dockerfile \
+  -t 382597877834.dkr.ecr.sa-east-1.amazonaws.com/argon/api:<tag> --push .   # da raiz do monorepo
+terraform apply -var lambda_bootstrap_tag=<tag>
+```
+
+Depois: valores dos parâmetros (inclusive `UNSUBSCRIBE_TOKEN_SECRET`), registros DNS na Cloudflare a
+partir dos `outputs`, segredos do GitHub, confirmação da assinatura SNS e um deploy pelo workflow,
+que publica o site e os arquivos públicos.
 
 ## Riscos conhecidos
 
 - Os alarmes diários avaliam por dia UTC e avisam tarde (no dia seguinte); o domingo sem edição é
-  coberto pelos heartbeats que a API registra às 5h30 e às 7h (`src/pipeline/scheduler.ts`).
-- `/argon/prod/api` pode ter sido criado pelo `awslogs` entre a escrita deste código e o
-  primeiro `apply`. Se o `plan` tentar criá-lo e o `apply` falhar com "already exists", adicione
-  o import em `imports.tf`.
-- `argon-db` não tem nada atrás dele desde o fim do RDS. Foi mantido por existir; pode sair
-  junto com a última menção a RDS.
+  coberto pelos heartbeats que os jobs `sunday-edition` e `sunday-send` registram às 5h30 e às 7h
+  (`apps/api/src/pipeline/scheduler.ts`).

@@ -1,7 +1,7 @@
 # One repository per image. Tags are the commit SHA, so `latest` never matters here.
 
 resource "aws_ecr_repository" "app" {
-  for_each = toset(["web", "api"])
+  for_each = toset(["api"])
 
   name                 = "argon/${each.key}"
   image_tag_mutability = "MUTABLE"

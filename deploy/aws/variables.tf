@@ -10,24 +10,6 @@ variable "account_id" {
   default     = "382597877834"
 }
 
-variable "availability_zone" {
-  description = "AZ of the default subnet the instance is placed in."
-  type        = string
-  default     = "sa-east-1b"
-}
-
-variable "instance_type" {
-  description = "EC2 instance type. ARM (Graviton): the images and the AMI are arm64."
-  type        = string
-  default     = "t4g.small"
-}
-
-variable "root_volume_size" {
-  description = "Root volume size in GiB."
-  type        = number
-  default     = 16
-}
-
 variable "log_retention_days" {
   description = "Retention of every /argon/* log group."
   type        = number

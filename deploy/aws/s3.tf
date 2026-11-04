@@ -1,6 +1,9 @@
-# Nightly Postgres dumps land here (../backup-db.sh). Retention is a lifecycle rule on the
-# bucket, not logic in the script. There is no bucket policy: access comes from the instance
-# role alone.
+# The account Terraform runs against; the buckets refuse to be created anywhere else.
+data "aws_caller_identity" "current" {}
+
+# Nightly Postgres dumps land here (the backup job, lambda.tf), and the monthly restore drill reads
+# them back. Retention is a lifecycle rule on the bucket, not logic in the job. There is no bucket
+# policy: access comes from the production functions' role alone.
 
 resource "aws_s3_bucket" "backups" {
   bucket = "argon-db-backups-${var.account_id}"

@@ -12,7 +12,8 @@ import type { NextFunction, Request, Response } from "express";
 // - CloudFront-Viewer-Address: "<ip>:<port>" of the visitor, written by CloudFront itself. It
 //   becomes `req.ip`, which the rate limits count by, instead of whatever X-Forwarded-For says.
 //
-// Only mounted where ORIGIN_VERIFY_SECRET is set (the API function); the EC2 keeps Caddy's trust.
+// Only mounted where ORIGIN_VERIFY_SECRET is set: the API function. The jobs function has no URL and
+// a development machine nothing in front, so neither sets it.
 
 export const ORIGIN_HEADER = "x-origin-verify";
 const VIEWER_HEADER = "cloudfront-viewer-address";

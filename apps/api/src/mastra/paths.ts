@@ -7,7 +7,7 @@ import path from "node:path";
 //
 // `__dirname` cannot name them — the Studio runs an ESM bundle, where it does not exist, and the API
 // runs CommonJS, where `import.meta` does not — and the working directory cannot either: `nest
-// start` and the container sit at `apps/api`, but `mastra dev` sits at `src/mastra/public`. So the
+// start` and the image sit at `apps/api`, but `mastra dev` sits at `src/mastra/public`. So the
 // folder is found by climbing from wherever the process started until a directory carries the
 // Mastra tree. Where the sources are, they win: a skill or an override edited by hand is read
 // without a build, and the image, which ships no `src`, reads the compiled copy.

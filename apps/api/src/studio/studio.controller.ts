@@ -6,7 +6,8 @@ import { StudioService } from "./studio.service";
 // Mastra Studio, served by the API itself. Only the bundle is public: it carries no data, and every
 // call it makes lands on /mastra, where the internal secret is still required — the operator saves
 // it once in the Studio (Settings → instance URL, API prefix and headers) and the browser sends it
-// from there on. Registered only where STUDIO_ENABLED says so, so production serves nothing.
+// from there on. Registered only where STUDIO_ENABLED says so: a development machine that turns it
+// on. The deployed environments keep it off and serve nothing here.
 @Public()
 @Controller("studio")
 export class StudioController implements BeforeApplicationShutdown {
@@ -32,9 +33,9 @@ export class StudioController implements BeforeApplicationShutdown {
 
   // A stream that never ends is a socket that never closes, and the HTTP server does not finish
   // closing while one is open: without this, SIGTERM waits for every Studio tab anyone left open,
-  // and the deploy kills the container on the grace period instead of stopping it. It has to be
-  // this hook and not onApplicationShutdown, which Nest runs only after the server is closed —
-  // that is, after the very wait this exists to avoid.
+  // and the process is killed on the grace period instead of stopping. It has to be this hook and
+  // not onApplicationShutdown, which Nest runs only after the server is closed — that is, after the
+  // very wait this exists to avoid.
   beforeApplicationShutdown() {
     for (const stream of this.streams) stream.end();
     this.streams.clear();
@@ -64,7 +65,8 @@ export class StudioController implements BeforeApplicationShutdown {
     response.send(html);
   }
 
-  // The hop from Caddy to this container is plain http, so the browser's scheme comes in the header.
+  // Behind a proxy that ends TLS the hop to this server is plain http, so the browser's scheme comes
+  // in the header.
   private origin(request: Request): URL {
     const forwarded = request.headers["x-forwarded-proto"];
     const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;

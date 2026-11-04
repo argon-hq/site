@@ -11,7 +11,7 @@ import { editionWorkflow } from "./workflows/edition";
 // instead of becoming an empty connection string that only breaks at the first query.
 const config = loadConfig();
 
-// Workflow state and memory live in the Postgres container, schema "mastra", apart from the app
+// Workflow state and memory live in the environment's database, schema "mastra", apart from the app
 // tables. The pool is capped like Prisma's: see POOL_MAX for the arithmetic.
 export const mastra = new Mastra({
   agents: { editor },
