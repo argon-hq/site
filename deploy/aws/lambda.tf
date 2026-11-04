@@ -16,7 +16,7 @@
 variable "lambda_environments" {
   description = "Environments that have their API running as Lambda functions."
   type        = list(string)
-  default     = ["lab", "prod"]
+  default     = ["lab", "dev", "prod"]
 }
 
 variable "lambda_bootstrap_tag" {
@@ -80,6 +80,39 @@ data "aws_iam_policy_document" "lambda" {
   }
 }
 
+# The nightly dump: write under postgres/argon_prod/ and say it ran, nothing else of the bucket.
+data "aws_iam_policy_document" "lambda_backup" {
+  for_each = toset(var.lambda_backup_environments)
+
+  statement {
+    sid       = "EscreveDumpsDeProd"
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/postgres/argon_prod/*"]
+  }
+
+  statement {
+    sid       = "PublicaBackupOk"
+    effect    = "Allow"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["Argon"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_backup" {
+  for_each = toset(var.lambda_backup_environments)
+
+  name   = "argon-lambda-${each.key}-backup"
+  role   = aws_iam_role.lambda[each.key].name
+  policy = data.aws_iam_policy_document.lambda_backup[each.key].json
+}
+
 resource "aws_iam_role_policy" "lambda" {
   for_each = toset(var.lambda_environments)
 
@@ -119,6 +152,8 @@ resource "aws_lambda_function" "argon" {
       },
       # Only the API function sits behind CloudFront (apps/api/src/net/cloudfront.ts).
       each.value.jobs ? {} : { ORIGIN_VERIFY_SECRET = random_password.origin_verify[each.value.env].result },
+      # Only the production jobs function dumps the database (apps/api/src/pipeline/backup.ts).
+      each.value.jobs && contains(var.lambda_backup_environments, each.value.env) ? { BACKUP_BUCKET = aws_s3_bucket.backups.bucket } : {},
     )
   }
 
@@ -356,4 +391,37 @@ resource "aws_lambda_function_event_invoke_config" "jobs" {
 
   function_name          = aws_lambda_function.argon["${each.key}-jobs"].function_name
   maximum_retry_attempts = 0
+}
+
+# ---- The nightly backup -------------------------------------------------------------------------
+# The dump of production at 3h30 São Paulo, before the 5h30 generation, as deploy/backup-db.sh did
+# on the EC2 (whose timer goes off the day this goes on). Same key prefix and same BackupOk metric,
+# so the lifecycle rule, the restore drill and the argon-backup-missing alarm stay as they are.
+
+variable "lambda_backup_environments" {
+  description = "Environments whose jobs function dumps the database every night."
+  type        = list(string)
+  default     = ["prod"]
+}
+
+resource "aws_scheduler_schedule" "backup" {
+  for_each = toset(var.lambda_backup_environments)
+
+  name                         = "argon-${each.key}-backup"
+  schedule_expression          = "cron(30 3 * * ? *)"
+  schedule_expression_timezone = "America/Sao_Paulo"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.argon["${each.key}-jobs"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ job = "backup" })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { JobsController, jobBody } from "./jobs.controller";
+import type { BackupJob } from "./backup";
 import type { RetentionScheduler } from "./retention";
 import type { PipelineScheduler } from "./scheduler";
 
@@ -12,8 +13,13 @@ function controller() {
     sundaySend: vi.fn(),
   };
   const retention = { nightly: vi.fn(async () => undefined) };
-  const jobs = new JobsController(pipeline as unknown as PipelineScheduler, retention as unknown as RetentionScheduler);
-  return { jobs, pipeline, retention };
+  const backup = { run: vi.fn(async () => undefined) };
+  const jobs = new JobsController(
+    pipeline as unknown as PipelineScheduler,
+    retention as unknown as RetentionScheduler,
+    backup as unknown as BackupJob,
+  );
+  return { jobs, pipeline, retention, backup };
 }
 
 describe("the jobs route", () => {
@@ -34,6 +40,12 @@ describe("the jobs route", () => {
     await jobs.run({ job: "retention" });
     expect(retention.nightly).toHaveBeenCalledOnce();
     expect(pipeline.generate).not.toHaveBeenCalled();
+  });
+
+  it("runs the backup with the backup job", async () => {
+    const { jobs, backup } = controller();
+    await jobs.run({ job: "backup" });
+    expect(backup.run).toHaveBeenCalledOnce();
   });
 
   it("answers only after the job is over", async () => {
