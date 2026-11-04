@@ -9,7 +9,6 @@ Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container
 - `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera os envs a partir do Parameter Store, roda as migrations, sobe os serviços e, só então, grava a tag em `.env`.
 - `backup-db.sh`: dump do banco de prod (Neon) para o S3. Chamado pelo timer `argon-backup`.
 - `lab-idle-stop.sh [minutos]`: para o lab depois de um tempo sem requisição. Chamado pelo timer `argon-lab-idle`.
-- `restore-drill.sh`: restaura o último dump de prod num Postgres descartável, conta os assinantes e apaga o container. Chamado pelo timer `argon-restore-drill`, mensal.
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 
@@ -306,21 +305,28 @@ docker run --rm -i -e URL pgvector/pgvector:pg16 \
 
 #### Ensaio de restauração
 
-Backup que ninguém restaurou é esperança. No dia 1 de cada mês, às 5h (America/Sao_Paulo), o timer
-`argon-restore-drill` roda `restore-drill.sh`: sobe um Postgres 16 descartável, sem rede, restaura
-nele o último dump de `argon_prod`, imprime `select count(*) from subscriber` no journal, apaga o
-container — a lista de assinantes de prod não fica em lugar nenhum — e publica
-`Argon/RestoreDrillOk`. Falha vai para o SNS pela mesma `argon-alert@`.
+Backup que ninguém restaurou é esperança. No dia 1 de cada mês, às 5h (America/Sao_Paulo), o
+agendamento `argon-prod-restore-drill` invoca a função `argon-prod-jobs` com
+`{"job":"restore-drill"}` (`apps/api/src/pipeline/restore-drill.ts`). O job:
+
+1. restaura o último dump de `postgres/argon_prod/` num banco próprio, `argon_restore_drill`, no
+   mesmo branch de prod do Neon;
+2. registra `select count(*) from subscriber` no log `/argon/prod/api`;
+3. apaga o banco;
+4. publica `Argon/RestoreDrillOk`.
+
+A lista de assinantes não sai do servidor que já a guarda, e o ensaio restaura onde uma restauração
+de verdade cairia. Falha manda e-mail aos donos pelo mesmo alerta dos jobs. O banco é apagado antes e
+depois, então um ensaio que morreu no meio não trava o próximo.
 
 ```bash
-systemctl start argon-restore-drill.service && journalctl -u argon-restore-drill -n 5   # rodar agora
+aws lambda invoke --function-name argon-prod-jobs --region sa-east-1 \
+  --payload '{"job":"restore-drill"}' --cli-binary-format raw-in-base64-out /dev/stdout   # rodar agora
 ```
 
-O restore roda como `postgres`, com `--no-owner` e `--no-privileges`: o dump vem do Neon, que dá
-os objetos e as permissões a papéis que não existem no container. Para contar assinantes, basta.
-
-A instância só lê `postgres/argon_prod/` no bucket (`deploy/aws/iam.tf`). Até 04/11/2026 ela não
-podia nem listar o bucket, e o ensaio falhava sem nunca ter publicado a métrica.
+O restore roda com `--no-owner` e `--no-privileges`: o dump dá os objetos e as permissões a papéis do
+Neon, e o papel da aplicação recria tudo como seu. Para contar assinantes, basta. A função só lê e
+lista `postgres/argon_prod/` no bucket (`deploy/aws/lambda.tf`).
 
 ## Instância
 

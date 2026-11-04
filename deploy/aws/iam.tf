@@ -36,9 +36,8 @@ resource "aws_iam_role_policy_attachment" "ec2_ecr" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# backup-db.sh writes the dumps. restore-drill.sh finds the latest production dump and reads it
-# back, and only that one: it lists and reads postgres/argon_prod/, nothing else under postgres/.
-# The backup bucket also carries the deploy files under deploy/<tag>/ (AWS_DEPLOY_BUCKET in the
+# backup-db.sh writes the dumps. The restore drill reads them back from the production jobs
+# function now (deploy/aws/lambda.tf), not from here. The backup bucket also carries the deploy files under deploy/<tag>/ (AWS_DEPLOY_BUCKET in the
 # GitHub variables): the workflow writes them, the instance reads them back.
 data "aws_iam_policy_document" "ec2_backups" {
   statement {
@@ -46,26 +45,6 @@ data "aws_iam_policy_document" "ec2_backups" {
     effect    = "Allow"
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.backups.arn}/postgres/*"]
-  }
-
-  statement {
-    sid       = "LeDumpsDeProdNoTesteDeRestauracao"
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.backups.arn}/postgres/argon_prod/*"]
-  }
-
-  statement {
-    sid       = "ListaDumpsDeProdNoTesteDeRestauracao"
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.backups.arn]
-
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["postgres/argon_prod/*"]
-    }
   }
 
   statement {
