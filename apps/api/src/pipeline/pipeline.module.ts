@@ -11,6 +11,7 @@ import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
 import { BackupJob } from "./backup";
 import { JobsController } from "./jobs.controller";
+import { RestoreDrillJob } from "./restore-drill";
 import { EditionWatch } from "./watch";
 
 @Module({})
@@ -40,6 +41,11 @@ export class PipelineModule {
         RetentionScheduler,
         // The configuration comes from forRoot, as the lock's URL does.
         { provide: BackupJob, useFactory: (alert: OwnerAlert) => new BackupJob(config, alert), inject: [OwnerAlert] },
+        {
+          provide: RestoreDrillJob,
+          useFactory: (alert: OwnerAlert) => new RestoreDrillJob(config, alert),
+          inject: [OwnerAlert],
+        },
       ],
     };
   }

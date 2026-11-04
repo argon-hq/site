@@ -78,28 +78,6 @@ Persistent=true
 WantedBy=timers.target
 UNIT
 
-# Monthly proof that the backup restores: the latest prod dump into argon_lab, then a count of
-# subscribers, then the lab is emptied again. 05:00 America/Sao_Paulo on the 1st, after the backup.
-cat > /etc/systemd/system/argon-restore-drill.service <<'UNIT'
-[Unit]
-Description=Restore the latest production dump into the lab and count what came back
-After=docker.service
-Requires=docker.service
-OnFailure=argon-alert@%n.service
-[Service]
-Type=oneshot
-ExecStart=/opt/argon/restore-drill.sh
-UNIT
-cat > /etc/systemd/system/argon-restore-drill.timer <<'UNIT'
-[Unit]
-Description=Monthly Argon restore drill
-[Timer]
-OnCalendar=*-*-01 08:00:00 UTC
-Persistent=true
-[Install]
-WantedBy=timers.target
-UNIT
-
 # Para o lab depois de uma hora sem requisição. Ajuste com LAB_IDLE_MINUTES em /opt/argon/.env.
 cat > /etc/systemd/system/argon-lab-idle.service <<'UNIT'
 [Unit]
@@ -140,4 +118,4 @@ WantedBy=timers.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable --now argon-backup.timer argon-restore-drill.timer argon-lab-idle.timer argon-reboot.timer
+systemctl enable --now argon-backup.timer argon-lab-idle.timer argon-reboot.timer
