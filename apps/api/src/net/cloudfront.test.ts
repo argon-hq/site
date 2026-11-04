@@ -36,7 +36,8 @@ describe("a request to the API function", () => {
   });
 
   it("is refused without the secret, or with a wrong one", () => {
-    for (const headers of [{}, { "x-origin-verify": "wrong" }]) {
+    const cases: Record<string, string>[] = [{}, { "x-origin-verify": "wrong" }];
+    for (const headers of cases) {
       const { res, next } = call("/subscriber/unsubscribe/one-click", headers);
       expect(res.status).toHaveBeenCalledWith(403);
       expect(next).not.toHaveBeenCalled();
