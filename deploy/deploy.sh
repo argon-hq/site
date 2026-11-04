@@ -28,7 +28,7 @@ export "$KEY=$TAG"
 # Parâmetros /argon/<env>/NOME viram NOME="valor" no env do ambiente, com o valor entre aspas no
 # formato JSON: Compose lê "\n", "\"" e "\\" dentro de aspas duplas, então um valor com #, tab ou
 # aspas chega inteiro. Ele também expande `$nome` dentro do arquivo, e `$$` é o único jeito de
-# manter um $ literal (uma senha, um hash bcrypt). provision-db.sh desfaz os dois ao ler.
+# manter um $ literal (uma senha, um hash bcrypt). Quem lê esses arquivos fora do Compose desfaz os dois.
 params_to_env() {
   aws ssm get-parameters-by-path --path "$1" --with-decryption --region sa-east-1 --output json \
     | jq -r '.Parameters[] | "\(.Name | sub(".*/"; ""))=\(.Value | @json | gsub("\\$"; "$$"))"' > "$2"
@@ -40,10 +40,6 @@ echo "ARGON_ENV=$ENV_NAME" >> "env/$ENV_NAME.env"
 # The site only needs to find the API and to know its own origin (metadata, sitemap, robots): the
 # model and mail keys never enter its container.
 grep -E '^(API_URL|INTERNAL_API_SECRET|ARGON_ENV|WEB_ORIGIN)=' "env/$ENV_NAME.env" > "env/$ENV_NAME.web.env"
-# The Postgres container reads its superuser password the same way. It is only consumed by initdb,
-# on the first boot of an empty volume: changing the parameter later does not change the password.
-params_to_env "/argon/postgres/" "env/postgres.env"
-grep -q '^POSTGRES_PASSWORD=' env/postgres.env || { echo "deploy: /argon/postgres/POSTGRES_PASSWORD is missing" >&2; exit 1; }
 # Caddy's basic_auth for the Studio and the non-production API hosts, and the operator session
 # cookie. All three are required: Caddy refuses to load a basic_auth with an empty hash, which would
 # take every site down with it.
@@ -64,10 +60,6 @@ aws ecr get-login-password --region sa-east-1 | docker login --username AWS --pa
 SERVICES=""; for a in $APPS; do SERVICES="$SERVICES $a-$ENV_NAME"; done
 # No service list would mean every service, other environments' images included.
 [ -z "$SERVICES" ] || docker compose pull $SERVICES
-# The database comes up before anything that talks to it, and the role and schema of this
-# environment are reconciled while it is the only thing running.
-docker compose up -d --wait postgres
-./provision-db.sh "$ENV_NAME"
 # Migrations rodam a partir da imagem nova da API, antes de ela subir, quando a imagem traz o Prisma.
 case " $APPS " in *" api "*)
   docker compose run --rm --no-deps "api-$ENV_NAME" sh -c 'if [ -f prisma.config.ts ]; then exec ./node_modules/.bin/prisma migrate deploy; else echo "no migrations in this image"; fi' ;;
@@ -91,7 +83,7 @@ fi
 PREV_TAG="$(grep "^$KEY=" .env | cut -d= -f2)"
 sed -i "s|^$KEY=.*|$KEY=$TAG|" .env
 # Retenção de 30 dias nos logs do ambiente; o grupo é criado pelo driver awslogs no primeiro start.
-sleep 5; for g in $(for a in $APPS; do echo "/argon/$ENV_NAME/$a"; done) /argon/postgres /argon/caddy; do
+sleep 5; for g in $(for a in $APPS; do echo "/argon/$ENV_NAME/$a"; done) /argon/caddy; do
   aws logs put-retention-policy --region sa-east-1 --log-group-name "$g" --retention-in-days 30 || true
 done
 # Image retention is a set, not a time window. Every deploy tags an image with its commit, and the
@@ -100,7 +92,7 @@ done
 # failure — ten deploys in a day park 7 GB of api images before any of them ages out. What stays:
 # the tag each environment runs (.env, so an idle-stopped lab keeps its own) and the tag this
 # environment ran before, for a rollback that does not wait on a pull. Only our ECR images are
-# touched; caddy and postgres are never candidates.
+# touched; caddy and the Postgres image the backup runs pg_dump from are never candidates.
 keep=" $PREV_TAG $(grep -E '^(PROD|DEV|LAB)_TAG=' .env | cut -d= -f2 | tr '\n' ' ') "
 docker images --format '{{.Repository}}:{{.Tag}}' --filter 'reference=*/argon/*' | while read -r image; do
   case "$keep" in *" ${image##*:} "*) ;; *) docker rmi "$image" >/dev/null 2>&1 || true ;; esac

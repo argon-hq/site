@@ -2,7 +2,7 @@
 # User data da instância (Amazon Linux 2023, ARM). Instala Docker e o Compose, prepara /opt/argon.
 # Idempotent: it runs again on the existing instance to pick up a new timer or setting (deploy/README.md).
 set -euo pipefail
-# jq: deploy.sh and provision-db.sh quote and unquote env values with it. dnf-automatic applies
+# jq: deploy.sh quotes env values with it. dnf-automatic applies
 # security updates by itself; yum-utils brings `needs-restarting` for the Sunday reboot check.
 dnf install -y docker jq dnf-automatic yum-utils
 systemctl enable --now docker

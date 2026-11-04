@@ -1,17 +1,15 @@
 # Deploy
 
-Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container do site e um da API por ambiente, e um Postgres para todos eles. Imagens no ECR, segredos no Parameter Store, logs no CloudWatch. Detalhes no documento Stack.
+Uma instância EC2 (sa-east-1) com Docker Compose: Caddy na frente, um container do site e um da API por ambiente. O banco de cada ambiente é uma branch no Neon. Imagens no ECR, segredos no Parameter Store, logs no CloudWatch. Detalhes no documento Stack.
 
 - `bootstrap.sh`: user data da instância. Instala Docker, o Compose (versão e checksum fixos), `jq`,
   o swap, as atualizações automáticas e os timers. Idempotente: rode de novo para aplicar uma mudança
   nele à instância existente.
 - `compose.yml`, `Caddyfile`: ficam em `/opt/argon` na instância; o workflow de deploy os envia a cada execução.
-- `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera os envs a partir do Parameter Store, sobe o Postgres, reconcilia o banco do ambiente, sobe o resto e, só então, grava a tag em `.env`.
-- `provision-db.sh <env>`: cria papel, banco e extensão do ambiente no Postgres local. Idempotente, roda a cada deploy.
+- `deploy.sh <prod|dev|lab> <tag> [apps]`: puxa as imagens, regera os envs a partir do Parameter Store, roda as migrations, sobe os serviços e, só então, grava a tag em `.env`.
 - `backup-db.sh`: dump do banco de prod (Neon) para o S3. Chamado pelo timer `argon-backup`.
 - `lab-idle-stop.sh [minutos]`: para o lab depois de um tempo sem requisição. Chamado pelo timer `argon-lab-idle`.
 - `restore-drill.sh`: restaura o último dump de prod num Postgres descartável, conta os assinantes e apaga o container. Chamado pelo timer `argon-restore-drill`, mensal.
-- `reset-lab.sh [argon_lab|argon_dev]`: apaga e recria um banco descartável, vazio. Recusa qualquer outro nome.
 
 Ambientes: `dev` recebe push da branch `dev`; `prod`, da `main`.
 
@@ -53,7 +51,7 @@ confere o banco é o `curl` em `/health` do fim do deploy.
 Imagens na instância: ao fim de cada deploy ficam só a tag que cada ambiente está rodando (as três
 do `.env`, então um lab parado pela ociosidade mantém a dele) e a tag que o ambiente recém-publicado
 rodava antes, para um rollback sem esperar o pull. Todo o resto das imagens `argon/*` é removido;
-caddy e postgres nunca são candidatas. É um conjunto, não uma janela de tempo: guardar "as de hoje"
+o caddy e a imagem do Postgres, de onde o backup roda o `pg_dump`, nunca são candidatas. É um conjunto, não uma janela de tempo: guardar "as de hoje"
 deixava dez deploys num dia estacionarem 7 GB de imagens da API num disco de 16 GB, que foi o que
 o encheu em 23/09. A imagem da API sai da build com uma poda do que o runtime nunca executa
 (`apps/api/Dockerfile`, estágio `deps`); o `prisma migrate deploy` do deploy é o teste dela.
@@ -202,7 +200,7 @@ o site escuta 3000, a API 3001.
 O valor vai entre aspas no formato JSON (`jq @json`), então `#`, tab, aspas e quebra de linha chegam
 inteiros ao container. Compose expande `$nome` dentro do arquivo mesmo entre aspas; o `deploy.sh`
 dobra cada `$` (`$$`), que é como o Compose lê um `$` literal — importa para senhas e para o hash
-bcrypt do Caddy. O `provision-db.sh` desfaz as duas coisas ao ler a `DATABASE_URL`.
+bcrypt do Caddy. Quem lê esses arquivos fora do Compose desfaz as duas coisas.
 
 ```bash
 aws ssm put-parameter --profile argon-new --region sa-east-1 \
@@ -256,7 +254,7 @@ deploys separados.
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Instância EC2      | `i-00296133cc8e8093d` (t4g.small, 16 GB, IP elástico 54.94.89.230)                                                                                                                                                                                       |
 | Security groups    | `sg-0768581b67b050a67` (web), `sg-003868d936307df4b` (db)                                                                                                                                                                                                |
-| Banco              | Container `postgres` no compose, volume `db-data`. Senha do superusuário em `/argon/postgres/POSTGRES_PASSWORD`                                                                                                                                          |
+| Banco              | Neon, projeto `argon` (`summer-resonance-47838945`, `aws-sa-east-1`), branches `main` (prod), `dev` e `lab`. URLs em `/argon/<env>/DATABASE_URL`                                                                                                        |
 | Backup             | Bucket S3 `ARGON_BACKUP_BUCKET` em `/opt/argon/.env`, timer `argon-backup`                                                                                                                                                                               |
 | ECR                | `argon/web`, `argon/api`                                                                                                                                                                                                                                 |
 | Papel do GitHub    | `argon-github-deploy` (OIDC, repositório argon-hq/site)                                                                                                                                                                                                  |
@@ -268,17 +266,17 @@ Acesso à instância: `aws ssm start-session --target i-00296133cc8e8093d`. Sem 
 
 ## Banco
 
-Postgres 16 com pgvector, na própria instância, no lugar do RDS. O RDS custava US$ 29/mês — mais que a máquina que roda todos os containers — para servir um banco que só o desenvolvimento usa.
+Desde 04/11/2026, cada ambiente usa uma branch do projeto `argon` no Neon (Postgres 16, `aws-sa-east-1`,
+plano Free): `main` para prod, `dev` e `lab`. A computação de cada branch desliga sozinha depois de
+5 minutos sem consulta, e por isso o healthcheck da API usa `/health/live`, que não toca no banco.
 
-Um container para os três ambientes, cada um com seu papel e seu banco (`argon_prod`, `argon_dev`, `argon_lab`), como era no RDS. Sem porta publicada: só a rede do Compose alcança, e de um container para outro a autenticação é por senha (`scram-sha-256`).
+`/argon/<env>/DATABASE_URL` aponta para a URL **direta** da branch, sem o pooler: o pipeline trava a
+edição do dia com um advisory lock de sessão (`apps/api/src/pipeline/lock.ts`), e o pooler do Neon
+trabalha por transação. As URLs com e sem pooler de cada branch também ficam em
+`/argon/neon/{PROD,DEV,LAB}_{DIRECT,POOLED}_URL`.
 
-`DATABASE_URL` no Parameter Store continua sendo a fonte única das credenciais. O `provision-db.sh` lê de lá e reconcilia o papel e o banco a cada deploy — um volume novo se reconstrói sozinho no deploy seguinte. Um ambiente cuja URL ainda aponte para um host de RDS é pulado, então dá para migrar um ambiente de cada vez.
-
-O host é `postgres` e a conexão não usa TLS: ela não sai da rede do Compose, na mesma máquina.
-
-```
-postgresql://argon_dev:SENHA@postgres:5432/argon_dev
-```
+Até 04/11/2026 os três bancos ficavam num container `postgres` nesta instância. O container foi
+removido, mas o volume `argon_db-data` ficou, com os dados da véspera, até a EC2 sair.
 
 ### Backup e restauração
 
@@ -329,7 +327,7 @@ podia nem listar o bucket, e o ensaio falhava sem nunca ter publicado a métrica
 ## Instância
 
 O `compose.yml` limita `api-dev` e `api-lab` a 512 MB e `web-dev` e `web-lab` a 256 MB: uma rodada
-live num deles não pode levar a instância a matar o prod. `postgres`, `api-prod` e `web-prod` têm
+live num deles não pode levar a instância a matar o prod. `api-prod` e `web-prod` têm
 `oom_score_adj: -800`, os últimos que o kernel escolheria. Os containers de Node sobem com `init`
 (tini), para responder a `compose stop` sem esperar o kill. Todo `awslogs` é `non-blocking` com 4 MB
 de buffer: CloudWatch fora do ar derruba linhas de log, não a API.
