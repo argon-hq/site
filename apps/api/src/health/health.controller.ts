@@ -21,4 +21,14 @@ export class HealthController {
     }
     return { ok: true, database: true };
   }
+
+  // The process is up and answering, without touching the database. This is what the container
+  // healthcheck polls every 30 s: a query there would keep a serverless database (Neon) from ever
+  // suspending, which is most of what it costs. Whether the database is reachable stays with GET
+  // /health, which the deploy smoke test calls from outside once per deploy.
+  @Public()
+  @Get("live")
+  live() {
+    return { ok: true };
+  }
 }

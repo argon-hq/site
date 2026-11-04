@@ -3,11 +3,13 @@
 # Images are pinned to a minor: a `2-alpine` that becomes the next minor on a pull is a surprise on
 # the box that serves production. Bumping is a one-line PR. node is pinned the same way in the Dockerfiles.
 
-# `up --wait` in deploy.sh only fails on a broken container because of these. The API's /health
-# also proves the database is reachable (503 otherwise); the site just has to render its home page.
+# `up --wait` in deploy.sh only fails on a broken container because of these. The API answers on
+# /health/live, which does not query the database: polled every 30 s, a query would keep Neon from
+# suspending. The database is proven by the smoke test on /health after the deploy; the site just
+# has to render its home page.
 # Busybox wget comes with the alpine base image. start_period covers a cold Nest boot.
 x-api-healthcheck: &api-healthcheck
-  test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
+  test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health/live || exit 1"]
   interval: 30s
   timeout: 5s
   retries: 3
