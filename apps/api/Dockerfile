@@ -44,11 +44,6 @@ COPY --from=deps --chown=app:app /repo/node_modules ./node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=app:app /repo/apps/api/dist ./apps/api/dist
-# The folder the Studio writes the agent's overrides to (src/mastra/index.ts, codePath). The build
-# only copies the JSON files in it, and with none there is no folder: Mastra then creates it on the
-# first run, which works on the EC2 and fails on Lambda, whose image is read-only (ENOENT on mkdir,
-# seen on 04/11/2026). Present and empty, it is only read.
-RUN install -d -o app -g app ./apps/api/dist/mastra/editor
 # Static files of Mastra Studio, served under /studio when STUDIO_ENABLED is on.
 COPY --from=build --chown=app:app /repo/apps/api/studio ./apps/api/studio
 # Prisma CLI + migrations: deploy.sh runs `prisma migrate deploy` from this image.
