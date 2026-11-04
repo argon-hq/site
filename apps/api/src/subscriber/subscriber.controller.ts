@@ -1,6 +1,19 @@
-import { Body, Controller, Get, Header, HttpCode, NotFoundException, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  NotFoundException,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
+import type { Request } from "express";
 import { z } from "zod";
 import { runEffect } from "../effect/nest";
+import { visitorOf } from "../auth/internal-call";
 import { Public } from "../auth/public.decorator";
 import { SignupThrottleGuard } from "../auth/signup-throttle.guard";
 import { ZodBody } from "../validation/zod-body.pipe";
@@ -9,8 +22,9 @@ import { SubscriberService } from "./subscriber.service";
 const signUpBody = z.object({
   // Normalized before it is validated: an address pasted with spaces or in capitals is valid, not an error.
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
-  // Proof of opt-in (LGPD). A malformed address here is the proxy's problem, never the
-  // subscriber's: `catch` drops the value instead of failing the sign-up.
+  // Proof of opt-in (LGPD), sent only by the EC2 site's server action (with the internal secret):
+  // a browser's own address and user agent come from the request (src/auth/internal-call.ts). A
+  // malformed address here is the proxy's problem, never the subscriber's: `catch` drops it.
   consentIp: z.union([z.ipv4(), z.ipv6()]).optional().catch(undefined),
   consentUserAgent: z.string().max(500).optional(),
 });
@@ -27,22 +41,34 @@ const confirmBody = z.object({ token: unsubscribeToken });
 export class SubscriberController {
   constructor(private readonly subscribers: SubscriberService) {}
 
-  // POST /subscriber { email, consentIp?, consentUserAgent? } → pending subscriber. Internal secret required.
-  // The response never carries the token: it only reaches the subscriber through the confirmation e-mail.
-  // Rate limited by the visitor's address: see SignupThrottleGuard.
+  // The four routes the site calls are public: the static site calls them from the visitor's
+  // browser (CORS for the site's origin, src/main.ts), and every one is rate limited by the
+  // visitor's address (SignupThrottleGuard). The EC2 site still calls them with the internal secret
+  // until it goes; what the secret changes is only who the visitor is (src/auth/internal-call.ts).
+
+  // POST /subscriber { email } → pending subscriber. The response never carries the token: it only
+  // reaches the subscriber through the confirmation e-mail, and it is the same for a new, pending
+  // or confirmed address, so the page cannot tell who is on the list.
+  @Public()
   @Post()
   @HttpCode(200)
   @UseGuards(SignupThrottleGuard)
-  async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>) {
-    const result = await runEffect("sign-up", this.subscribers.signUp(body));
+  async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>, @Req() req: Request) {
+    const visitor = visitorOf(req, body);
+    const result = await runEffect(
+      "sign-up",
+      this.subscribers.signUp({ email: body.email, consentIp: visitor.ip, consentUserAgent: visitor.userAgent }),
+    );
     return { status: result.status };
   }
 
   // POST /subscriber/confirm { token } → confirms the subscription and issues the permanent
   // unsubscribe token. A POST, not a GET: the link scanners in e-mail clients follow every URL
   // they find, and the site's page is what turns the click into this call.
+  @Public()
   @Post("confirm")
   @HttpCode(200)
+  @UseGuards(SignupThrottleGuard)
   @Header("Referrer-Policy", "no-referrer")
   confirm(@Body(ZodBody(confirmBody)) body: z.infer<typeof confirmBody>) {
     return runEffect("confirm", this.subscribers.confirm(body.token));
@@ -51,7 +77,9 @@ export class SubscriberController {
   // GET /subscriber/unsubscribe?token=… → who the token belongs to, so the page can confirm
   // before cancelling. It never changes anything: the link scanners in e-mail clients follow
   // every URL they find, and a GET that cancelled would unsubscribe people on its own.
+  @Public()
   @Get("unsubscribe")
+  @UseGuards(SignupThrottleGuard)
   @Header("Referrer-Policy", "no-referrer")
   async lookup(@Query("token") token: string) {
     const parsed = unsubscribeToken.safeParse(token);
@@ -62,10 +90,11 @@ export class SubscriberController {
     return subscriber;
   }
 
-  // POST /subscriber/unsubscribe { token } → cancels. Internal secret required: this is the route
-  // the site's page calls.
+  // POST /subscriber/unsubscribe { token } → cancels: the route the site's page calls.
+  @Public()
   @Post("unsubscribe")
   @HttpCode(200)
+  @UseGuards(SignupThrottleGuard)
   @Header("Referrer-Policy", "no-referrer")
   unsubscribe(@Body(ZodBody(unsubscribeBody)) body: z.infer<typeof unsubscribeBody>) {
     return runEffect("unsubscribe", this.subscribers.unsubscribe(body.token));

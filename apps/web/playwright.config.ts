@@ -20,11 +20,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      // Server actions cannot be intercepted from the browser, so the flows
-      // that need the API point it at a port nothing listens on: every call
-      // fails fast and the page shows its error state.
-      API_URL: "http://127.0.0.1:9",
-      INTERNAL_API_SECRET: "e2e",
+      // The browser calls the API directly. A port nothing listens on makes
+      // every call fail fast, so the page shows its error state; a test that
+      // needs an answer can stub it with page.route.
+      NEXT_PUBLIC_API_ORIGIN: "http://127.0.0.1:9",
     },
   },
 });

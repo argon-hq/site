@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 import { siteOrigin } from "@/lib/site";
 
-// Same reason as the sitemap: the origin is only known at runtime.
-export const dynamic = "force-dynamic";
+// Same reason as the sitemap: written at build, with that environment's origin.
+export const dynamic = "force-static";
 
 export default function robots(): MetadataRoute.Robots {
   return {

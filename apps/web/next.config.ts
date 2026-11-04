@@ -1,48 +1,60 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { fileURLToPath } from "node:url";
+import { LOCALE_COOKIE, defaultLocale, locales } from "./src/i18n/config";
+import { apiOrigin } from "./src/lib/api";
+import { REFERRER_POLICY, TOKEN_PAGES, contentSecurityPolicy } from "./src/lib/security-headers";
 
-// Everything is same-origin: next/font self-hosts the fonts, the API is only
-// reached from the server, and no third-party script is loaded. Inline scripts
-// and styles stay allowed because Next itself emits them (hydration data,
-// style tags). Development adds eval for the bundler's source maps.
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  process.env.NODE_ENV === "development"
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+// Site estático por padrão, para o S3 + CloudFront: `next build` grava tudo em out/. O
+// standalone (servidor Node) fica para quem pedir com NEXT_OUTPUT=standalone, como o Dockerfile.
+// O `next dev` roda sem export: com ele, o dev server recusa as páginas que chegam pelas
+// rewrites de idioma abaixo. O build continua sendo quem garante que tudo exporta.
+const development = process.env.NODE_ENV === "development";
+const output = development ? undefined : process.env.NEXT_OUTPUT === "standalone" ? "standalone" : "export";
+
+// Uma pasta por idioma (/pt-BR/, /en-US/) e links sem prefixo: no site publicado, o
+// CloudFront reescreve a URL para a pasta do cookie de idioma. Fora do build estático
+// (`next dev`, standalone) não há CloudFront, e estas regras fazem o mesmo papel.
+const unprefixed = `/:path((?!(?:${locales.join("|")})(?:/|$)).*)`;
+const localeRewrites = [
+  ...locales
+    .filter((locale) => locale !== defaultLocale)
+    .map((locale) => ({
+      source: unprefixed,
+      has: [{ type: "cookie" as const, key: LOCALE_COOKIE, value: locale }],
+      destination: `/${locale}/:path`,
+    })),
+  { source: unprefixed, destination: `/${defaultLocale}/:path` },
+];
 
 const nextConfig: NextConfig = {
-  // Saída standalone para o container; a raiz de rastreio é o monorepo.
-  output: "standalone",
+  output,
+  // Cada página vira <pasta>/index.html, que o S3 serve sem regra extra.
+  trailingSlash: true,
+  // Rastreio do standalone: a raiz é o monorepo.
   outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
-  headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [{ key: "Content-Security-Policy", value: contentSecurityPolicy }],
-      },
-      {
-        // O token de cancelamento viaja na URL; sem isto ele vaza no Referer de
-        // qualquer link que a pessoa clicar a partir da página.
-        source: "/newsletter/unsubscribe",
-        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
-      },
-      {
-        // Mesmo motivo: o token de confirmação viaja na URL.
-        source: "/newsletter/confirm",
-        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
-      },
-    ];
-  },
+  // O build estático ignora rewrites e headers (o Next só avisaria): lá quem faz isso é o
+  // CloudFront, com os valores de src/lib/security-headers.ts.
+  ...(output === "export"
+    ? {}
+    : {
+        rewrites: async () => localeRewrites,
+        headers: async () => [
+          {
+            source: "/(.*)",
+            headers: [
+              {
+                key: "Content-Security-Policy",
+                value: contentSecurityPolicy(apiOrigin(), { development }),
+              },
+            ],
+          },
+          ...TOKEN_PAGES.map((page) => ({
+            source: page,
+            headers: [{ key: "Referrer-Policy", value: REFERRER_POLICY }],
+          })),
+        ],
+      }),
 };
 
 const withNextIntl = createNextIntlPlugin();

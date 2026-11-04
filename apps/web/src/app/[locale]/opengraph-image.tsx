@@ -1,9 +1,20 @@
 import { ImageResponse } from "next/og";
-import messages from "../../messages/pt-BR.json";
+import { locales } from "@/i18n/config";
+import messages from "../../../messages/pt-BR.json";
 
 // Static at build time: the card is the same for every locale and environment,
-// so it uses the product language rather than the visitor's cookie.
+// so it uses the product language rather than the page's locale. It sits under
+// [locale] only because an image file reaches the routes below it, and every
+// page lives there; the export writes one copy per locale folder.
 const { name, tagline } = messages.brand;
+
+// The static export only writes route files that say so, and an image route
+// does not inherit the layout's locales.
+export const dynamic = "force-static";
+
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
 
 export const alt = `${name} — ${tagline}`;
 export const size = { width: 1200, height: 630 };

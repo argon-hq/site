@@ -1,10 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useSyncExternalStore } from "react";
 import { OptionMenu, type MenuOption } from "@/components/option-menu";
-import { themes, type Theme } from "@/theme/config";
-import { setUserTheme } from "@/theme/theme";
+import { defaultTheme, themes, type Theme } from "@/theme/config";
+import { readTheme, saveTheme, subscribeTheme } from "@/theme/store";
 
 const ICONS: Record<Theme, () => React.ReactElement> = {
   system: Monitor,
@@ -12,31 +12,19 @@ const ICONS: Record<Theme, () => React.ReactElement> = {
   dark: Moon,
 };
 
-export function ThemeSwitcher({ theme }: { theme: Theme }) {
+/** No HTML estático, o padrão; no navegador, o que está no cookie. */
+const getServerTheme = () => defaultTheme;
+
+export function ThemeSwitcher() {
   const t = useTranslations("theme");
-  const [current, setCurrent] = useState<Theme>(theme);
-  const [isPending, startTransition] = useTransition();
+  // O documento já chega com o tema certo, pelo script do <head>; aqui só o ícone e o
+  // item marcado acompanham o cookie, depois da hidratação.
+  const current = useSyncExternalStore(subscribeTheme, readTheme, getServerTheme);
 
   const options: MenuOption<Theme>[] = themes.map((value) => {
     const Icon = ICONS[value];
     return { value, label: t(value), icon: <Icon /> };
   });
-
-  function handleSelect(next: Theme) {
-    setCurrent(next);
-    // Aplica no documento na hora: a troca e instantanea e nao espera o
-    // round-trip. A server action so persiste a escolha no cookie.
-    const root = document.documentElement;
-    if (next === "system") {
-      root.removeAttribute("data-theme");
-    } else {
-      root.setAttribute("data-theme", next);
-    }
-
-    startTransition(() => {
-      setUserTheme(next);
-    });
-  }
 
   const TriggerIcon = ICONS[current];
 
@@ -47,8 +35,7 @@ export function ThemeSwitcher({ theme }: { theme: Theme }) {
       value={current}
       valueLabel={t(current)}
       options={options}
-      disabled={isPending}
-      onSelect={handleSelect}
+      onSelect={saveTheme}
     />
   );
 }
