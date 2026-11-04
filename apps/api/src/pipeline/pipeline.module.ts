@@ -9,6 +9,7 @@ import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
 import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
+import { JobsController } from "./jobs.controller";
 import { EditionWatch } from "./watch";
 
 @Module({})
@@ -19,7 +20,8 @@ export class PipelineModule {
   static forRoot(config: Config): DynamicModule {
     return {
       module: PipelineModule,
-      controllers: [PipelineController],
+      // The jobs route is only mounted on the Lambda that runs the jobs (JOBS_ENABLED).
+      controllers: [PipelineController, ...(config.JOBS_ENABLED ? [JobsController] : [])],
       providers: [
         { provide: ORIGINS, useValue: originsFrom(config) },
         // The sending step derives each subscriber's unsubscribe token itself, as the confirmation does.
@@ -30,9 +32,11 @@ export class PipelineModule {
         // The lock opens a connection of its own, outside the pool, so it takes the URL directly.
         { provide: EditionLock, useFactory: () => new EditionLock(config.DATABASE_URL) },
         EditionWatch,
-        // The clock is only wired where it should tick. An environment with it off has no timer at
-        // all, instead of a timer nobody wanted: the run is still one POST /pipeline/run away.
-        ...(config.SCHEDULER_ENABLED ? [PipelineScheduler, RetentionScheduler] : []),
+        // The methods of the day's jobs. They only tick where SCHEDULER_ENABLED loads the
+        // ScheduleModule (app.module.ts); elsewhere nothing calls them but the jobs route, and an
+        // environment with neither has no timer at all: the run is still one POST /pipeline/run away.
+        PipelineScheduler,
+        RetentionScheduler,
       ],
     };
   }

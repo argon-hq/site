@@ -19,6 +19,11 @@ const schema = z
     // runs the API for a while never wakes the agents up on its own; the run stays one POST away.
     SCHEDULER_ENABLED: z.stringbool().default(false),
 
+    // The jobs route, POST /events (src/pipeline/jobs.controller.ts): the day's jobs run by name, for
+    // the Lambda function EventBridge Scheduler invokes in place of the internal clock. Public, so
+    // only that function, which has no URL, turns it on.
+    JOBS_ENABLED: z.stringbool().default(false),
+
     // Mastra Studio, served by this API under /studio (src/studio). Off by default: it is a working
     // tool for dev and lab, where looking at the agents is the point, and production has no reason to
     // answer anything there. The bundle it serves is public; the agents behind it are not.
