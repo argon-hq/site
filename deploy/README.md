@@ -45,9 +45,10 @@ tópico SNS de alertas (segredo `AWS_ALERTS_TOPIC_ARN`); sem o segredo, só regi
 Na instância, o `deploy.sh` recusa ambiente que não seja `prod`, `dev` ou `lab` e segura um `flock`
 em `/opt/argon/.deploy.lock`: prod e dev têm grupos de concorrência separados no GitHub, então dois
 deploys podem chegar juntos, e os dois mexem no `.env`, no Caddy e no prune. O segundo espera. O
-`up -d --wait` só devolve "ok" quando todo container passou no healthcheck — `/health` na API, que
-também confere o banco, e `/` no site; um container em crash loop derruba o deploy em vez de
-fingir sucesso.
+`up -d --wait` só devolve "ok" quando todo container passou no healthcheck — `/health/live` na API e
+`/` no site; um container em crash loop derruba o deploy em vez de fingir sucesso. O healthcheck da
+API não consulta o banco: a cada 30 s, uma consulta impediria o Neon de desligar a computação. Quem
+confere o banco é o `curl` em `/health` do fim do deploy.
 
 Imagens na instância: ao fim de cada deploy ficam só a tag que cada ambiente está rodando (as três
 do `.env`, então um lab parado pela ociosidade mantém a dele) e a tag que o ambiente recém-publicado
