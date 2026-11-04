@@ -56,5 +56,10 @@ COPY --from=build --chown=app:app /repo/apps/api/prisma.config.ts ./apps/api/pri
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 USER app
 WORKDIR /repo/apps/api
+# Compiled code of every module the app loads, kept by Node (src/lambda/precompile.ts): a cold
+# start reads it instead of compiling again. Read-only on Lambda, where it still works; the EC2
+# containers may add to it.
+ENV NODE_COMPILE_CACHE=/repo/apps/api/.compile-cache
+RUN node dist/lambda/precompile.js
 EXPOSE 3001
 CMD ["node", "dist/main.js"]

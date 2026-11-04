@@ -198,3 +198,96 @@ output "lambda_api_urls" {
   description = "Function URL of each environment's API function."
   value       = { for env, url in aws_lambda_function_url.api : env => url.function_url }
 }
+
+# ---- Keep-warm ------------------------------------------------------------------------------
+# A cold start of the API function takes 3.5–5 s, almost all of it Node loading the app (Mastra,
+# Effect, react-email, Nest); the first subscriber after a quiet hour would wait that long. Every
+# 5 minutes EventBridge Scheduler sends the function a GET /health/live, shaped like a function URL
+# request so the adapter routes it as HTTP. That route does not touch the database, so Neon still
+# suspends. About 8,600 invocations a month of a few milliseconds each, inside the free tier.
+
+data "aws_iam_policy_document" "scheduler_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [var.account_id]
+    }
+  }
+}
+
+resource "aws_iam_role" "scheduler" {
+  name               = "argon-scheduler"
+  description        = "EventBridge Scheduler: invokes the Argon Lambda functions"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_trust.json
+}
+
+data "aws_iam_policy_document" "scheduler" {
+  statement {
+    sid       = "InvocaAsFuncoesDoArgon"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [for f in aws_lambda_function.argon : f.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler" {
+  name   = "argon-scheduler"
+  role   = aws_iam_role.scheduler.name
+  policy = data.aws_iam_policy_document.scheduler.json
+}
+
+resource "aws_scheduler_schedule" "keep_warm" {
+  for_each = toset(var.lambda_environments)
+
+  name                = "argon-${each.key}-api-keep-warm"
+  schedule_expression = "rate(5 minutes)"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.argon["${each.key}-api"].arn
+    role_arn = aws_iam_role.scheduler.arn
+
+    input = jsonencode({
+      version        = "2.0"
+      routeKey       = "$default"
+      rawPath        = "/health/live"
+      rawQueryString = ""
+      headers        = { "user-agent" = "argon-keep-warm" }
+      requestContext = {
+        accountId    = "anonymous"
+        apiId        = "keep-warm"
+        domainName   = "keep-warm"
+        domainPrefix = "keep-warm"
+        http = {
+          method    = "GET"
+          path      = "/health/live"
+          protocol  = "HTTP/1.1"
+          sourceIp  = "127.0.0.1"
+          userAgent = "argon-keep-warm"
+        }
+        requestId = "keep-warm"
+        routeKey  = "$default"
+        stage     = "$default"
+        time      = "01/Jan/2026:00:00:00 +0000"
+        timeEpoch = 0
+      }
+      isBase64Encoded = false
+    })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
