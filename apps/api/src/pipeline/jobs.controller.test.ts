@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { JobsController, jobBody } from "./jobs.controller";
 import type { BackupJob } from "./backup";
+import type { MigrateJob } from "./migrate";
 import type { RestoreDrillJob } from "./restore-drill";
 import type { RetentionScheduler } from "./retention";
 import type { PipelineScheduler } from "./scheduler";
@@ -16,13 +17,15 @@ function controller() {
   const retention = { nightly: vi.fn(async () => undefined) };
   const backup = { run: vi.fn(async () => undefined) };
   const drill = { run: vi.fn(async () => undefined) };
+  const migrate = { run: vi.fn(async () => undefined) };
   const jobs = new JobsController(
     pipeline as unknown as PipelineScheduler,
     retention as unknown as RetentionScheduler,
     backup as unknown as BackupJob,
     drill as unknown as RestoreDrillJob,
+    migrate as unknown as MigrateJob,
   );
-  return { jobs, pipeline, retention, backup, drill };
+  return { jobs, pipeline, retention, backup, drill, migrate };
 }
 
 describe("the jobs route", () => {
@@ -56,6 +59,14 @@ describe("the jobs route", () => {
     await jobs.run({ job: "restore-drill" });
     expect(drill.run).toHaveBeenCalledOnce();
     expect(backup.run).not.toHaveBeenCalled();
+  });
+
+  it("runs the migrations with the migrate job, and fails when they fail", async () => {
+    const { jobs, migrate } = controller();
+    await expect(jobs.run({ job: "migrate" })).resolves.toEqual({ job: "migrate", done: true });
+    expect(migrate.run).toHaveBeenCalledOnce();
+    migrate.run.mockRejectedValueOnce(new Error("P3009"));
+    await expect(jobs.run({ job: "migrate" })).rejects.toThrow("P3009");
   });
 
   it("answers only after the job is over", async () => {

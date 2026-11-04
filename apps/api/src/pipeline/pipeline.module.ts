@@ -11,6 +11,7 @@ import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
 import { BackupJob } from "./backup";
 import { JobsController } from "./jobs.controller";
+import { MigrateJob } from "./migrate";
 import { RestoreDrillJob } from "./restore-drill";
 import { EditionWatch } from "./watch";
 
@@ -39,6 +40,7 @@ export class PipelineModule {
         // environment with neither has no timer at all: the run is still one POST /pipeline/run away.
         PipelineScheduler,
         RetentionScheduler,
+        MigrateJob,
         // The configuration comes from forRoot, as the lock's URL does.
         { provide: BackupJob, useFactory: (alert: OwnerAlert) => new BackupJob(config, alert), inject: [OwnerAlert] },
         {
