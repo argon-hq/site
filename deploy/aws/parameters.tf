@@ -27,7 +27,8 @@ locals {
   ]...)
 
   parameters = merge(local.environment_parameters, {
-    # Superuser password of the Postgres container; provision-db.sh reads it on every deploy.
+    # Superuser password of the Postgres container that held the databases until 04/11/2026. Nothing
+    # reads it any more; it goes when the instance and its db-data volume do.
     "/argon/postgres/POSTGRES_PASSWORD" = "SecureString"
   })
 }
