@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Restores the latest production dump into argon_lab and counts the subscribers it brought back: a
-# backup nobody has restored is a hope, not a backup. The lab is the only target, and it is emptied
-# again at the end — it must not keep the production subscriber list. Run by the argon-restore-drill
-# timer, monthly. Usage: restore-drill.sh
+# Restores the latest production dump into a throwaway Postgres and counts the subscribers it
+# brought back: a backup nobody has restored is a hope, not a backup. The server is a container that
+# lives only for the drill, on no network, so the production subscriber list never lands anywhere
+# that outlives it. Run by the argon-restore-drill timer, monthly. Usage: restore-drill.sh
 set -euo pipefail
 cd /opt/argon
 # shellcheck disable=SC1091
@@ -11,24 +11,26 @@ BUCKET="${ARGON_BACKUP_BUCKET:-}"
 [ -n "$BUCKET" ] || { echo "restore drill: ARGON_BACKUP_BUCKET is not set" >&2; exit 1; }
 REGION=sa-east-1
 SOURCE=argon_prod
-TARGET=argon_lab
+NAME=argon-restore-drill
 
 key=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "postgres/$SOURCE/" --region "$REGION" \
   --query 'sort_by(Contents, &LastModified)[-1].Key' --output text)
 [ -n "$key" ] && [ "$key" != None ] || { echo "restore drill: no dump under postgres/$SOURCE/" >&2; exit 1; }
 
-# Start from the empty database provision-db.sh makes: role, database, extension, nothing else.
-./reset-lab.sh "$TARGET"
-pg() { docker compose exec -T postgres "$@"; }
-aws s3 cp "s3://$BUCKET/$key" - --region "$REGION" --only-show-errors | pg sh -c 'cat > /tmp/drill.dump'
-# pgvector is not a trusted extension, so the dump's own CREATE EXTENSION would fail as argon_lab;
-# the reset already created it as the superuser. Everything else restores as the lab role, over the
-# container's socket, so the tables end up owned by it — as a migration would have left them.
-pg sh -c "pg_restore -l /tmp/drill.dump | grep -vE ' (EXTENSION|COMMENT - EXTENSION) ' > /tmp/drill.list"
-pg pg_restore -U "$TARGET" -d "$TARGET" --no-owner --no-privileges --exit-on-error -L /tmp/drill.list /tmp/drill.dump
-count=$(pg psql -v ON_ERROR_STOP=1 -tAX -U postgres -d "$TARGET" -c 'select count(*) from subscriber')
-pg rm -f /tmp/drill.dump /tmp/drill.list
-echo "restore drill: $key -> $TARGET, $count subscribers"
+# Same image as production's Postgres major. A leftover from a drill that died is removed first.
+docker rm -f "$NAME" >/dev/null 2>&1 || true
+trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+docker run -d --name "$NAME" --network none -e POSTGRES_PASSWORD=drill pgvector/pgvector:pg16 >/dev/null
+pg() { docker exec -i "$NAME" "$@"; }
+for _ in $(seq 30); do pg pg_isready -U postgres -q && break; sleep 1; done
+pg createdb -U postgres drill
 
-./reset-lab.sh "$TARGET"
+aws s3 cp "s3://$BUCKET/$key" - --region "$REGION" --only-show-errors | pg sh -c 'cat > /tmp/drill.dump'
+# The dump comes from Neon, which owns objects with its own roles and grants to them: those roles do
+# not exist here. --no-owner and --no-privileges restore everything as postgres, which is all a count
+# needs. Extensions are created by the restore, as the superuser.
+pg pg_restore -U postgres -d drill --no-owner --no-privileges --exit-on-error /tmp/drill.dump
+count=$(pg psql -v ON_ERROR_STOP=1 -tAX -U postgres -d drill -c 'select count(*) from subscriber')
+echo "restore drill: $key -> throwaway Postgres, $count subscribers"
+
 aws cloudwatch put-metric-data --region "$REGION" --namespace Argon --metric-name RestoreDrillOk --value 1
