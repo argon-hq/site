@@ -39,7 +39,8 @@ RUN rm -rf node_modules/.pnpm/@electric-sql+pglite* node_modules/.pnpm/typescrip
 FROM node:22.23-alpine AS run
 ENV NODE_ENV=production PORT=3001
 WORKDIR /repo
-RUN addgroup -S app && adduser -S app -G app
+# pg_dump for the nightly backup job (src/pipeline/backup.ts), the major the database runs (16).
+RUN addgroup -S app && adduser -S app -G app && apk add --no-cache postgresql16-client
 COPY --from=deps --chown=app:app /repo/node_modules ./node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps --chown=app:app /repo/apps/api/package.json ./apps/api/package.json
