@@ -1,6 +1,8 @@
 # api
 
-NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues and sending. Source of truth for decisions: the Architecture and Stack documents on OneDrive.
+NestJS with Mastra: sign-up, the agents that write the edition, the e-mail builder and the sending.
+In AWS it runs as two Lambda functions per environment, the API and the jobs (`deploy/README.md`).
+Source of truth for decisions: the Architecture and Stack documents on OneDrive.
 
 ## Layout
 
@@ -77,7 +79,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   `deploy/aws/lambda.tf`). The per-step routes stay, for debugging.
   Every step runs holding a Postgres advisory lock on the edition's day (`lock.ts`): the 5h30 workflow, a per-step
   route fired by hand and a second process all contend on the database, not on a flag in memory, and a busy edition
-  answers 409. `watch.ts` looks at boot and at 8h for an edition left `generating` or `sending` for more than three
+  answers 409. `watch.ts` looks at 8h — and, on a long-running process (`SCHEDULER_ENABLED`), also at boot — for an edition left `generating` or `sending` for more than three
   hours — the one failure nothing else reports — logs `edition stuck` (a CloudWatch alarm watches that line) and mails
   the owners; `POST /pipeline/send { "date": "YYYY-MM-DD" }` is how such an edition is resumed after the calendar moved
   on. `retention.ts` trims the tables nightly (see Database).
@@ -118,6 +120,14 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
   proves is the pipeline. The fixture's links (`src/ingest/fixtures/`) carry the day's date so each run ingests fresh
   news instead of finding only seen links — they are on `.test` domains, so the lab edition's links do not open, and the
   text says in every article that it is invented.
+- `src/pipeline/jobs.controller.ts`: the jobs by name, on the jobs function only (`JOBS_ENABLED`).
+  EventBridge Scheduler invokes it with `{"job": "<name>"}` and the Lambda Web Adapter hands that to
+  `POST /events`: `edition`, `send`, `watch`, `retention`, `sunday-edition` and `sunday-send` are the
+  methods the internal clock calls; `backup` (`backup.ts`) dumps production to S3,
+  `restore-drill` (`restore-drill.ts`) restores the latest dump into a throwaway database once a
+  month, and `migrate` (`migrate.ts`) is what the deploy runs before the API function moves. The
+  route is public because the adapter posts without the secret; the function has no URL, so only an
+  invocation IAM allowed gets there.
 - `src/effect/`: `runEffect(step, effect)` is the Nest boundary — controllers hand it an effect and typed failures come back as a 500 carrying the step and the reason. `failureReason(cause)` is what both boundaries, the route and the workflow step, use to say what went wrong.
 - `src/subscriber/`: `POST /subscriber { email }` records the sign-up as `pending` with a fresh confirmation token (48h, only the hash is stored). Idempotent by e-mail: a confirmed address is left untouched, a bounced or blocked one is ignored, a cancelled one is reopened, and a pending one confirmed less than a minute ago is left alone (`throttled`) so the link already sent keeps working.
   The proof of opt-in (LGPD), address and user agent, is the request's own (`src/auth/internal-call.ts`): the static
@@ -149,7 +159,7 @@ NestJS with Mastra. Runs the newsletter agents and, later, sign-up, cron, queues
 - `src/email/`: deterministic e-mail builder. `buildEdition(input)` returns `{ subject, html, text }` from structured content, no LLM, no I/O; `validateEdition` is the mechanical check (parseable HTML, no script, images https and under the allowed base, stylesheet on the allowlist, every item link present in both formats, unsubscribe and postal address present, size and length limits). `toEditionInput` adapts `edition` + `article` rows; `editionContext({ sender, social }, { origins, unsubscribeUrl })` builds the rest: the sender and the networks as given, the privacy policy and the site from the environment's `WEB_ORIGIN` (`privacyPolicyUrl`, `socialLinks` in `src/subscriber/urls.ts`), with the unsubscribe URL per subscriber. Nothing that names a host lives in the settings, so a fresh database cannot point one environment's e-mail at another. `assets.ts` derives the base of the images (the public bucket under the environment's prefix, or the site on a local machine, or `PUBLIC_ASSETS_ORIGIN`), and `EmailAssets` checks at boot that they are really served. Fixed strings live in `copy.ts`, the brand tokens (argon lilac, Manrope with Geist Mono, square corners) in `theme.ts`. Images in `web/public/email`: the header symbol and ARGON, the footer logo, and the social icons (`pnpm email:icons`, Font Awesome Free, CC BY 4.0). A social network with no URL in `social` points at the site.
 - `src/prisma/`: global `PrismaModule`; inject `PrismaService` anywhere. Client generated into `src/generated/prisma` (ignored by git) by the turbo task `generate` (`prisma generate`), which build, dev, lint, test and check-types depend on — the typed lint needs it too. Turbo runs it once per invocation, before the tasks that need it, and replays it from cache while `schema.prisma` and `prisma.config.ts` are unchanged: one writer, where a `pre*` hook on every script had parallel tasks writing the same folder at once. A script called straight in the package (`pnpm -C apps/api test`, the Dockerfile's build) skips turbo, so run `pnpm -C apps/api generate` first; `prisma migrate dev` regenerates on its own.
 - Local TLS: `validateEdition` only accepts https links, so `WEB_ORIGIN` is https even in development and the site has to answer it — a link the local site could not open would be worse than no link. `pnpm certs` makes a certificate authority of its own and a localhost certificate with openssl, and `pnpm dev` serves them. The API stays http: it never appears in the validated HTML, and a private authority in front of it would only break the call the site makes (Next does not pass `NODE_EXTRA_CA_CERTS` to the process that runs the server).
-- `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. From a machine, with the lab URL: `DATABASE_URL='<value of /argon/lab/DATABASE_URL>' pnpm -C apps/api exec prisma db execute --file prisma/seed-lab.sql`.
+- `prisma/seed-lab.sql`: three articles already written, put into the day's edition, so the steps after writing can be validated in the lab without paying for a collection and a writing run, and on a fixed input. Not a migration — it sits outside `prisma/migrations/`, so `migrate deploy` never sees it — and it refuses any database that is not a test one: on Neon, any branch but lab's and dev's (every branch names its database `argon`); locally, any database but `argon_lab` or `argon_dev`. Running it again leaves the same state: whatever was attached to the day's edition and is not from the fixture is detached. From a machine, with the lab URL: `DATABASE_URL='<value of /argon/lab/DATABASE_URL>' pnpm -C apps/api exec prisma db execute --file prisma/seed-lab.sql`.
 - `src/settings/`: `settings.schema.ts` is the single source of truth for setting names, types and defaults; what shapes
   the edition — `min_articles`, `max_articles` — defaults from the environment's profile, so no row is
   needed for lab and a development machine to accept a weaker edition. A row still wins: it is how one environment says
@@ -189,7 +199,8 @@ command, the answer being the counts per address.
 
 ```bash
 curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"mock"}'
-curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"live","dryRun":true}'curl http://localhost:3001/sources -H "x-internal-secret: $INTERNAL_API_SECRET"
+curl -X POST http://localhost:3001/pipeline/ingest -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"mode":"live","dryRun":true}'
+curl http://localhost:3001/sources -H "x-internal-secret: $INTERNAL_API_SECRET"
 curl -X PATCH http://localhost:3001/sources/exame.com -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"active":false}'
 ```
 
@@ -288,16 +299,18 @@ lock. Bounced and blocked addresses stay, so they are never written to again.
 
 Every deploy runs `prisma migrate deploy` from the API image, as the jobs function's `migrate` job (`src/pipeline/migrate.ts`), before the API function moves, so lab, dev and prod are migrated by the pipeline; never edit a deployed schema by hand. The database of each environment is a Neon branch (`deploy/README.md`, "Banco"). Mastra keeps its own tables in the `mastra` schema, outside Prisma.
 
+The subscriber routes are public, as the site calls them from the browser:
+
 ```bash
-curl -X POST http://localhost:3001/subscriber -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"email":"someone@example.com"}'
+curl -X POST http://localhost:3001/subscriber -H "content-type: application/json" -d '{"email":"someone@example.com"}'
 ```
 
 ```bash
-curl -X POST http://localhost:3001/subscriber/confirm -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"token":"<confirmation token, from the e-mail>"}'
+curl -X POST http://localhost:3001/subscriber/confirm -H "content-type: application/json" -d '{"token":"<confirmation token, from the e-mail>"}'
 ```
 
 ```bash
-curl -X POST http://localhost:3001/subscriber/unsubscribe -H "x-internal-secret: $INTERNAL_API_SECRET" -H "content-type: application/json" -d '{"token":"<unsubscribe token>"}'
+curl -X POST http://localhost:3001/subscriber/unsubscribe -H "content-type: application/json" -d '{"token":"<unsubscribe token>"}'
 ```
 
 ```bash
