@@ -7,12 +7,16 @@ pasta `Argon/Newsletter` do OneDrive; quando houver divergência, o documento ma
 
 ## 1. O produto
 
-- **Site** (`apps/web`): páginas institucionais, cadastro, confirmação, descadastro e arquivo das
-  edições. Só mostra páginas e manda formulário para a API.
-- **API** (`apps/api`): processo Nest permanente. Cadastro, geração da edição pelos agentes,
-  construção do e-mail, envio e recebimento dos avisos do provedor. Agendador interno: geração às
-  5h30, envio às 7h, `America/Sao_Paulo`.
-- **Banco**: assinantes, notícias, edições, entregas e configurações.
+- **Site** (`apps/web`): páginas institucionais, cadastro, confirmação e descadastro. Site estático
+  (`next build` com `output: "export"`) no S3 atrás do CloudFront; os formulários chamam a API
+  direto do navegador.
+- **API** (`apps/api`): NestJS em duas funções Lambda por ambiente, a de API (HTTP, atrás do
+  CloudFront) e a de jobs. Cadastro, geração da edição pelos agentes, construção do e-mail e envio.
+  O EventBridge Scheduler dispara os jobs pelo nome, em `America/Sao_Paulo`: geração às 5h30, envio
+  às 7h e verificação às 8h, de segunda a sábado; retenção às 4h; em prod, backup às 3h30 e ensaio
+  de restauração no dia 1 do mês (`deploy/README.md`).
+- **Banco**: Postgres no Neon, uma branch por ambiente. Assinantes, notícias, edições, entregas e
+  configurações.
 
 Princípio central: **os agentes decidem, o código impõe as regras**. Limites, janelas, fontes
 permitidas e validações ficam em código; o agente escolhe dentro delas. A construção do e-mail é
@@ -35,7 +39,9 @@ pnpm dev; pnpm build; pnpm lint; pnpm check-types; pnpm test
 ```
 
 Em um pacote só: `pnpm -C apps/api <script>`. Na API: `db:up` sobe o Postgres local,
-`db:migrate` cria migration, `mastra:dev` abre o Studio, `email:preview` renderiza o e-mail.
+`db:migrate` cria migration, `db:pull` copia o conteúdo de uma branch do Neon para o banco local,
+`email:preview` renderiza o e-mail. O Studio é o da própria API, em `http://localhost:3001/studio`,
+com `STUDIO_ENABLED=true`.
 
 O cliente Prisma é gerado em `apps/api/src/generated/prisma`, fora do git, pela tarefa `generate`
 do turbo, da qual build, dev, lint, test e check-types dependem: roda uma vez por execução e só
@@ -55,22 +61,33 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
 - Serviços recebem dependências por **injeção** — `EmailService`, provedor de modelos, banco.
 - Logs pelo Logger do Nest, em JSON, indexados pelo CloudWatch. Custo em tokens e resultado da
   revisão vão para o log, não para o banco.
-- Públicas são só `/health`, `/health/live` e `POST /subscriber/unsubscribe/one-click`, que o
-  servidor do cliente de e-mail chama sozinho, e, onde `STUDIO_ENABLED` está ligado, os estáticos
-  do Studio em `/studio` mais `GET /mastra/auth/capabilities`, que o Studio precisa antes de
-  desenhar a tela.
-  Todas as outras, inclusive as rotas do Mastra, exigem `x-internal-secret` — o Studio manda o
-  segredo que o operador guarda nele, no navegador. A chave de metadata do `@Public` é um
+- Públicas, sem `x-internal-secret`:
+  - `/health` e `/health/live`;
+  - as rotas do site em `/subscriber` (cadastro, confirmação, consulta e cancelamento), com limite
+    por IP e CORS só para a origem do site;
+  - `POST /subscriber/unsubscribe/one-click`, que o servidor do cliente de e-mail chama sozinho;
+  - `POST /events`, por onde o Lambda Web Adapter entrega os jobs, montada só na função de jobs,
+    que não tem URL;
+  - onde `STUDIO_ENABLED` está ligado (só numa máquina local), os estáticos do Studio em `/studio`
+    e `GET /mastra/auth/capabilities`, que o Studio precisa antes de desenhar a tela.
+
+  Todas as outras exigem `x-internal-secret`. As rotas do Mastra, em `/mastra`, só existem onde
+  `STUDIO_ENABLED` está ligado, numa máquina local; lá o Studio manda o segredo que o operador
+  guarda nele, no navegador. O texto do agente mora só no código (`prompts/`, `skills/`): a aba
+  Editor do Studio grava em `apps/api/.mastra-editor/`, fora do git, e serve só para testar. A
+  chave de metadata do `@Public` é um
   `Symbol`, não uma string: o `@mastra/nestjs` marca o `/health`, o `/ready` e o `/info` dele com
   a chave `"isPublic"`, e uma string de mesmo nome abriria essas rotas junto.
+
 - Segredos no ambiente (Parameter Store em `/argon/<env>/`), nunca no repositório nem na tabela
   de configurações.
 - Documentação de biblioteca pelo **context7**.
 
 ## 4. Git
 
-- Branch `<tipo>/ARG-<n>-<descricao>`, com `feat`, `fix`, `docs`, `chore`, `refactor`.
-  Ex.: `feat/ARG-76-email-builder`.
+- Branch `<tipo>/ARGN-<n>-<descricao>`, com `feat`, `fix`, `docs`, `chore`, `refactor`.
+  Ex.: `feat/ARGN-155-serverless`. As chaves `ARG-<n>` em commits e comentários antigos são do
+  projeto anterior do Jira, renomeado em 22/10/2026.
 - Commits em conventional commits, em inglês, enxutos, no máximo 20 palavras.
 - PR para `dev`, em português, com a chave do Jira no título. Um card, uma branch, um PR.
   Trabalho sem card é exceção, e o PR diz por quê.
@@ -83,8 +100,9 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
   publicação.
 - Push em `dev` faz deploy no ambiente dev; push em `main`, em prod. O ambiente `lab` é publicado
   à mão, em Actions → Deploy → Run workflow, escolhendo a branch.
-- Migration versionada no repositório e aplicada pelo deploy (`prisma migrate deploy`). Nada de
-  alterar banco à mão. O que o schema não expressa (check constraints, gatilhos, valores iniciais)
+- Migration versionada no repositório e aplicada pelo deploy: o job `migrate` da função de jobs
+  roda o `prisma migrate deploy` antes de a função de API trocar de imagem. Nada de alterar banco à
+  mão. O que o schema não expressa (check constraints, gatilhos, valores iniciais)
   vive no SQL da migration.
 
 ## 6. Documentos e cards
@@ -100,3 +118,14 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
 - Propor o texto de documento e de card **antes** de escrever, e esperar a revisão.
 - Commit local. Push e PR só quando pedidos.
 - Planos de tarefa ficam fora do repositório, em `~/dev/Argon/plans/`.
+
+<!-- BEGIN:turborepo-agent-rules -->
+
+# This is NOT the Turborepo you know
+
+Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
+
+Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
+
+This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
+<!-- END:turborepo-agent-rules -->

@@ -1,4 +1,4 @@
-# Infraestrutura como código (ARG-116)
+# Infraestrutura como código
 
 Terraform da conta AWS do Argon (382597877834, `sa-east-1`): as funções Lambda da API, os
 CloudFront da API e do site, os buckets, os papéis, os alarmes e o resto que o `deploy/README.md`
@@ -43,8 +43,6 @@ descreve.
 - **Segredos do GitHub** (`AWS_DEPLOY_ROLE_ARN`, `AWS_ALERTS_TOPIC_ARN`): copie dos `outputs`.
 - **Valores dos parâmetros.** Ver "Parâmetros". `/argon/neon/*` existem e não estão em
   `parameters.tf`.
-- `/argon/rds/master_password`: sobra do RDS, não gerido. Apague à mão. Os `/argon/caddy/*`, criados
-  à mão para o Caddy da instância, também ficaram sem uso.
 
 ## Alarmes
 
@@ -52,17 +50,16 @@ Todos publicam no tópico `argon-alerts`.
 
 | Alarme | Fonte | Dispara quando |
 | --- | --- | --- |
-| `argon-prod-schedule-not-fired` | log `schedule fired` | nenhum no dia (UTC). Falso positivo conhecido: de domingo à noite até segunda 5h30, porque não há edição de domingo |
-| `argon-prod-send-not-finished` | log `send finished` | nenhum no dia. Mesmo falso positivo |
-| `argon-backup-missing` | métrica `Argon/BackupOk`, publicada pelo job `backup` da função `argon-prod-jobs` (etapa 14) | nenhuma no dia. O plano pedia 26 h; a janela de um alarme é limitada a um dia |
+| `argon-prod-schedule-not-fired` | log `schedule fired` | nenhum no dia (UTC). O domingo também registra: o job `sunday-edition` grava a linha sem gerar edição |
+| `argon-prod-send-not-finished` | log `send finished` | nenhum no dia. No domingo, quem grava é o `sunday-send` |
+| `argon-backup-missing` | métrica `Argon/BackupOk`, publicada pelo job `backup` da função `argon-prod-jobs` | nenhuma no dia |
 | `argon-prod-api-errors` | log `level = error` | um ou mais em 5 min |
-| `argon-prod-edition-stuck` | log `edition stuck` (etapa 8) | um ou mais em 5 min |
-| `argon-prod-owner-alert-skipped` | log `owner alert skipped` (etapa 2) | um ou mais em 5 min |
+| `argon-prod-edition-stuck` | log `edition stuck`, do job `watch` | um ou mais em 5 min |
+| `argon-prod-owner-alert-skipped` | log `owner alert skipped`: um alerta sem destinatário em `owner_emails` | um ou mais em 5 min |
 
 Os alarmes diários avaliam o dia UTC e, enquanto o dia corrente não tem ponto, usam o anterior:
 o alarme de uma execução perdida chega no dia UTC seguinte (por volta das 21h BRT) e some na
-execução seguinte. Não é a checagem das 8h que o plano imaginou; para isso seria preciso um
-agendamento fora do CloudWatch.
+execução seguinte. Quem olha às 8h é o job `watch`.
 
 Os padrões dos filtros usam `$.message.msg`, não `$.msg`: o `ConsoleLogger` do Nest em modo
 JSON embrulha o objeto logado no campo `message`.
@@ -94,11 +91,6 @@ manual.
 `<bucket>/<env>/email/` (`apps/api/src/email/assets.ts`), e a API confere ao subir se elas
 respondem (`EmailAssets`). `PUBLIC_ASSETS_ORIGIN` no ambiente da API troca essa origem; uma
 máquina local usa o site (`WEB_ORIGIN`).
-
-**Primeira vez.** O `apply` deste root precisa acontecer antes do primeiro deploy com o passo novo;
-sem o bucket e a permissão, o passo "Arquivos públicos" falha. O `plan` deve mostrar só a criação
-do bucket e das suas configurações (acesso público, dono, criptografia, versionamento, política,
-CORS) e a atualização in-place da política `argon-deploy`.
 
 **Block Public Access da conta.** Se a conta bloqueia políticas públicas no nível da conta, a
 política do bucket é recusada (`AccessDenied` no `PutBucketPolicy`). Confira com

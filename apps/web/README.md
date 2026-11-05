@@ -1,6 +1,7 @@
 # Argon — site
 
-Site institucional da Argon: home, cadastro na newsletter e política de privacidade.
+Site institucional da Argon: home, cadastro, confirmação e cancelamento da newsletter, e política
+de privacidade.
 
 Pacote `web` do monorepo, em `apps/web`.
 
@@ -78,13 +79,18 @@ pnpm -C apps/web test:e2e
 
 | Rota                      | Descrição                                                                  |
 | ------------------------- | -------------------------------------------------------------------------- |
-| `/`                       | Home. Vazia por ora — só a marca e um CTA para a newsletter.               |
+| `/`                       | Home: abertura e as seções newsletter, consultoria e eventos.              |
 | `/newsletter`             | Cadastro. Tela cheia, sem cabeçalho nem rodapé.                            |
 | `/newsletter/confirm`     | Confirmação. Destino do link do e-mail de inscrição, com o token na query. |
+| `/newsletter/confirmed`   | Inscrição confirmada. Destino da confirmação, com o caminho para o início. |
 | `/newsletter/unsubscribe` | Cancelamento. Destino do link no rodapé da edição, com o token na query.   |
 | `/privacy`                | Placeholder — destino do aceite no cadastro.                               |
+| `/page-not-found`         | A página 404, que o CloudFront serve para todo caminho que não existe.     |
 
 Os caminhos ficam sempre em inglês, independente do idioma escolhido.
+
+A 404 leva o texto dos dois idiomas e mostra o do cookie: a resposta de erro do CloudFront não passa
+pela função que escolhe a pasta.
 
 ## Navegação
 
@@ -110,7 +116,12 @@ src/
 │   │   │   ├── layout.tsx
 │   │   │   ├── page.tsx              → /
 │   │   │   └── privacy/page.tsx      → /privacy
-│   │   ├── newsletter/page.tsx       → /newsletter (fora do grupo: tela cheia)
+│   │   ├── newsletter/
+│   │   │   ├── page.tsx              → /newsletter (fora do grupo: tela cheia)
+│   │   │   ├── confirm/page.tsx      → /newsletter/confirm
+│   │   │   ├── confirmed/page.tsx    → /newsletter/confirmed
+│   │   │   └── unsubscribe/page.tsx  → /newsletter/unsubscribe
+│   │   ├── page-not-found/page.tsx   → a 404 do CloudFront
 │   │   ├── layout.tsx    # html/body, fontes, script de tema, skip link e metadata base
 │   │   └── opengraph-image.tsx       # imagem do preview ao compartilhar o link
 │   ├── robots.ts / sitemap.ts        # gerados no build, com o WEB_ORIGIN do ambiente

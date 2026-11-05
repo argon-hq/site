@@ -1,9 +1,9 @@
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BuildReport, IngestReport, WriteReport } from "../../pipeline/pipeline.service";
 import { runDate, STEP_RETRIES } from "../../pipeline/run";
-import type { EditionContext, EditionSteps } from "./context";
+import { bindPipeline, type EditionContext, type PipelinePort } from "./context";
 import { buildStep, editionRunSchema, editionWorkflow, ingestStep, writeStep, type EditionRun } from "./edition";
 
 class StepFailed extends Data.TaggedError("StepFailed")<{ reason: string }> {}
@@ -44,15 +44,22 @@ const buildReport = {
   durationMs: 70,
 } as unknown as BuildReport;
 
-const steps = (over: Partial<EditionSteps> = {}): EditionSteps => ({
+const unused = () => Effect.die("not part of the generation");
+
+const steps = (over: Partial<PipelinePort> = {}): PipelinePort => ({
   ingest: () => Effect.succeed(ingestReport),
   write: () => Effect.succeed(writeReport),
   build: () => Effect.succeed(buildReport),
+  alert: () => Effect.void,
+  send: unused,
+  deliveryStatus: unused,
+  editionHtml: unused,
+  addToWriteDataset: unused,
   ...over,
 });
 
 // The step only ever sees the run context, so the test hands it the same thing the run does.
-const contextOf = (pipeline: EditionSteps) => {
+const contextOf = (pipeline: PipelinePort) => {
   const requestContext = new RequestContext<EditionContext>();
   requestContext.set("pipeline", pipeline);
   return requestContext;
@@ -60,8 +67,10 @@ const contextOf = (pipeline: EditionSteps) => {
 
 type Step = { execute: (args: unknown) => Promise<EditionRun>; retries?: number };
 
-const execute = (step: unknown, inputData: EditionRun, pipeline = steps()): Promise<EditionRun> =>
-  (step as Step).execute({ inputData, requestContext: contextOf(pipeline), runId: "run-1" });
+const execute = (step: unknown, inputData: unknown, pipeline = steps(), retryCount = 0): Promise<EditionRun> =>
+  (step as Step).execute({ inputData, requestContext: contextOf(pipeline), runId: "run-1", retryCount });
+
+afterEach(() => bindPipeline(undefined));
 
 const today = (over: Partial<EditionRun> = {}): EditionRun => ({ date: runDate(new Date()), mode: "live", ...over });
 
@@ -76,7 +85,7 @@ describe("the edition steps", () => {
   it("hands every step the workflow's run id, for its log lines", async () => {
     const ingest = vi.fn(() => Effect.succeed(ingestReport));
     await execute(ingestStep, today({ mode: "mock" }), steps({ ingest }));
-    expect(ingest).toHaveBeenCalledWith({ mode: "mock", runId: "run-1" });
+    expect(ingest).toHaveBeenCalledWith({ mode: "mock", runId: "run-1", tracingContext: undefined });
   });
 
   it("folds the writing into the run, keeping what came before", async () => {
@@ -123,12 +132,42 @@ describe("the edition steps", () => {
     await expect(execute(ingestStep, today(), pipeline)).rejects.toThrow("settings: boom");
   });
 
-  it("fails by name when the run carries no pipeline, as a run from the Studio does", async () => {
+  it("settles the day and the mode the Studio's form left empty", async () => {
+    const run = await execute(ingestStep, {});
+
+    expect(run.date).toBe(runDate(new Date()));
+    // A development machine's profile is mocked.
+    expect(run.mode).toBe("mock");
+  });
+
+  it("finds the pipeline the process bound when the run carries none, as a run from the Studio does", async () => {
+    bindPipeline(steps());
+    const step = ingestStep as unknown as Step;
+
+    const run = await step.execute({ inputData: today(), requestContext: new RequestContext(), runId: "run-1" });
+
+    expect(run.ingest).toEqual(ingestSummary);
+  });
+
+  it("fails by name when neither the run nor the process has a pipeline", async () => {
     const step = ingestStep as unknown as Step;
 
     await expect(step.execute({ inputData: today(), requestContext: new RequestContext() })).rejects.toThrow(
       "no pipeline in the run context",
     );
+  });
+
+  it("alerts the owners on the last attempt only, so a step that tried three times costs one e-mail", async () => {
+    const alert = vi.fn(() => Effect.void);
+    const pipeline = steps({ ingest: () => new StepFailed({ reason: "settings: boom" }), alert });
+
+    for (let attempt = 0; attempt < STEP_RETRIES; attempt++) {
+      await expect(execute(ingestStep, today(), pipeline, attempt)).rejects.toThrow("settings: boom");
+    }
+    expect(alert).not.toHaveBeenCalled();
+
+    await expect(execute(ingestStep, today(), pipeline, STEP_RETRIES)).rejects.toThrow("settings: boom");
+    expect(alert).toHaveBeenCalledExactlyOnceWith("ingest", "settings: boom");
   });
 
   it("refuses a run for another day, because the steps read the real clock", async () => {

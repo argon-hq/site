@@ -1,4 +1,4 @@
-import type { MastraService } from "@mastra/nestjs";
+import type { ArgonMastra } from "../mastra/token";
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { MailService } from "../mail/mail.service";
@@ -46,7 +46,7 @@ function service(p: { mastra?: unknown; delivery?: { send?: unknown } } = {}) {
   const delivery = { send: vi.fn(() => Effect.succeed({ status: "sent" })), ...p.delivery };
   const alert = { send: vi.fn(() => Effect.void), onFailure: vi.fn((_, e) => e) };
   const pipeline = new PipelineService(
-    (p.mastra ?? { getWorkflow: vi.fn(), getAgent: vi.fn() }) as unknown as MastraService,
+    (p.mastra ?? { getWorkflow: vi.fn(), getAgent: vi.fn() }) as unknown as ArgonMastra,
     {} as unknown as PrismaService,
     {} as unknown as SettingsService,
     alert as unknown as OwnerAlert,
@@ -84,7 +84,7 @@ describe("PipelineService.run", () => {
     expect(start).toHaveBeenCalledTimes(2);
   });
 
-  it("opens the gate again after a failed run, and alerts once for the step that failed", async () => {
+  it("opens the gate again after a failed run, and leaves the alert to the step that failed", async () => {
     const { mastra, start } = workflow({
       status: "failed",
       steps: { ingest: { status: "success" }, write: { status: "failed", error: new Error("no news") } },
@@ -94,10 +94,24 @@ describe("PipelineService.run", () => {
     const exit = await Effect.runPromiseExit(pipeline.run({ mode: "mock" }));
 
     expect(failureOf(exit)).toMatchObject({ step: "write", reason: "no news" });
-    expect(alert.send).toHaveBeenCalledWith("write", "no news");
+    // The step mailed the owners on its last attempt; a second e-mail here would be one too many.
+    expect(alert.send).not.toHaveBeenCalled();
     // The gate is open again: the next call reaches the workflow.
     await Effect.runPromiseExit(pipeline.run({ mode: "mock" }));
     expect(start).toHaveBeenCalledTimes(2);
+  });
+
+  it("alerts for a run that failed outside every step", async () => {
+    const createRun = vi.fn(async () => {
+      throw new Error("storage down");
+    });
+    const mastra = { getWorkflow: vi.fn(() => ({ createRun })), getAgent: vi.fn() };
+    const { pipeline, alert } = service({ mastra });
+
+    const exit = await Effect.runPromiseExit(pipeline.run({ mode: "mock" }));
+
+    expect(failureOf(exit)).toMatchObject({ step: "run", reason: expect.stringContaining("storage down") });
+    expect(alert.send).toHaveBeenCalledWith("run", expect.stringContaining("storage down"));
   });
 });
 
