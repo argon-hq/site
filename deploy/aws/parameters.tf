@@ -10,7 +10,7 @@ locals {
   # The variables every environment's functions load at boot (../README.md, "Variáveis"). The
   # switches the EC2 read from here (SCHEDULER_ENABLED, STUDIO_ENABLED) are the functions' own
   # environment now (lambda.tf), which wins over the Parameter Store.
-  common_secure = ["ANTHROPIC_API_KEY", "DATABASE_URL", "INTERNAL_API_SECRET", "RESEND_API_KEY"]
+  common_secure = ["ANTHROPIC_API_KEY", "DATABASE_URL", "INTERNAL_API_SECRET", "RESEND_API_KEY", "UNSUBSCRIBE_TOKEN_SECRET"]
   common_plain  = ["API_ORIGIN", "MAIL_FROM", "MAIL_TRANSPORT", "WEB_ORIGIN"]
 
   parameters = merge([
