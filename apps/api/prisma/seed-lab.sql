@@ -14,10 +14,18 @@
 -- detached — a seed that inherits what was already there is not a fixture, it is a surprise.
 
 -- Refuses any database that is not a test one. The image is the same in every environment, and
--- seeding fake news into production would be silent damage.
+-- seeding fake news into production would be silent damage. On Neon every branch names its database
+-- `argon`, so there the branch decides: only lab's and dev's (deploy/README.md, "Banco"). Off Neon —
+-- the local container — the database name still does.
 DO $$
+DECLARE
+  branch text := current_setting('neon.branch_id', true);
 BEGIN
-  IF current_database() NOT IN ('argon_lab', 'argon_dev') THEN
+  IF branch IS NOT NULL AND branch <> '' THEN
+    IF branch NOT IN ('br-young-unit-b6klssh3', 'br-square-wave-b6297fow') THEN -- lab, dev
+      RAISE EXCEPTION 'seed-lab.sql refused: Neon branch % is not lab or dev', branch;
+    END IF;
+  ELSIF current_database() NOT IN ('argon_lab', 'argon_dev') THEN
     RAISE EXCEPTION 'seed-lab.sql refused: database % is not a test one', current_database();
   END IF;
 END $$;
