@@ -6,12 +6,13 @@ import { EditionWatch, STUCK_AFTER_HOURS } from "./watch";
 
 const now = new Date("2026-09-24T11:00:00Z");
 
-function watch(rows: { id: string; date: Date; status: string; updatedAt: Date }[]) {
+function watch(rows: { id: string; date: Date; status: string; updatedAt: Date }[], checkAtBoot = false) {
   const findMany = vi.fn(async () => rows);
   const send = vi.fn(() => Effect.void);
   const service = new EditionWatch(
     { edition: { findMany } } as unknown as PrismaService,
     { send } as unknown as OwnerAlert,
+    checkAtBoot,
   );
   return { service, findMany, send };
 }
@@ -48,5 +49,15 @@ describe("EditionWatch", () => {
     expect(send.mock.calls[0]?.[0 as never]).toBe("watch");
     expect(String(send.mock.calls[0]?.[1 as never])).toContain("2026-09-23 is sending");
     expect(String(send.mock.calls[0]?.[1 as never])).toContain("/pipeline/send");
+  });
+
+  it("looks at boot only where it was asked to (a process with its own clock)", async () => {
+    const lambda = watch([]);
+    await lambda.service.onApplicationBootstrap();
+    expect(lambda.findMany).not.toHaveBeenCalled();
+
+    const longRunning = watch([], true);
+    await longRunning.service.onApplicationBootstrap();
+    expect(longRunning.findMany).toHaveBeenCalledTimes(1);
   });
 });

@@ -66,7 +66,7 @@ O repositório não expressa isto; confira em Settings do repositório `argon-hq
 - Segredo `AWS_ALERTS_TOPIC_ARN` com o ARN do tópico SNS de alertas da conta (output
   `alerts_topic_arn`).
 
-`AWS_INSTANCE_ID` e a variável `AWS_DEPLOY_BUCKET` eram da instância; nada os lê mais.
+`AWS_INSTANCE_ID` e a variável `AWS_DEPLOY_BUCKET`, da instância, foram apagados em 04/11/2026.
 
 As actions dos dois workflows são fixadas pelo SHA do commit, com a versão em comentário; o
 Dependabot (`.github/dependabot.yml`) abre PRs semanais para actions, a imagem do Dockerfile da API
@@ -145,7 +145,9 @@ Um bucket privado, `argon-site-382597877834`, com uma pasta por ambiente, lido s
 distribuições (OAC). Uma CloudFront Function (`aws/site_router.js`) escolhe a pasta do idioma pelo
 cookie `locale`, mapeia o caminho da página para o `index.html` e redireciona `www` para o host
 canônico. A CSP e o `Referrer-Policy` vêm de uma response headers policy, com os valores de
-`apps/web/src/lib/security-headers.ts`. Caminho que não existe vira o `404.html` do export.
+`apps/web/src/lib/security-headers.ts`. Caminho que não existe responde 404 com
+`/pt-BR/page-not-found/`: a resposta de erro não passa pela função, então a página leva o texto dos
+dois idiomas e mostra o do cookie (`apps/web/src/app/[locale]/page-not-found`).
 
 ## Variáveis
 
@@ -356,7 +358,7 @@ Terraform dos arquivos públicos vêm da branch em que ele roda (normalmente `de
 do site vem da branch escolhida. Fica em `lab.argonbusiness.com` e `api.lab.argonbusiness.com`.
 
 ```bash
-gh workflow run deploy.yml --ref dev -f env=lab -f branch=feat/ARG-94-db-schema-prisma
+gh workflow run deploy.yml --ref dev -f env=lab -f branch=feat/ARGN-<n>-<descricao>
 ```
 
 Parado, o lab quase não custa: a função só roda quando chamada e pelo keep-warm, e a branch do Neon

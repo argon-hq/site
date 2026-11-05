@@ -1,5 +1,6 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import type { Config } from "../config";
+import { PrismaService } from "../prisma/prisma.service";
 import { UNSUBSCRIBE_SECRET } from "../subscriber/token";
 import { ORIGINS, originsFrom } from "../subscriber/urls";
 import { DeliveryService } from "./delivery.service";
@@ -34,7 +35,12 @@ export class PipelineModule {
         OwnerAlert,
         // The lock opens a connection of its own, outside the pool, so it takes the URL directly.
         { provide: EditionLock, useFactory: () => new EditionLock(config.DATABASE_URL) },
-        EditionWatch,
+        {
+          provide: EditionWatch,
+          useFactory: (prisma: PrismaService, alert: OwnerAlert) =>
+            new EditionWatch(prisma, alert, config.SCHEDULER_ENABLED),
+          inject: [PrismaService, OwnerAlert],
+        },
         // The methods of the day's jobs. They only tick where SCHEDULER_ENABLED loads the
         // ScheduleModule (app.module.ts); elsewhere nothing calls them but the jobs route, and an
         // environment with neither has no timer at all: the run is still one POST /pipeline/run away.
