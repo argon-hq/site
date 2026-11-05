@@ -177,6 +177,21 @@ jobs:
               jq -e '.done == true' migrate.json >/dev/null || { echo "deploy: migrations failed, the API stays where it was" >&2; exit 1; }
             fi
           done
+      # The environment's tag names the image it runs: a push that does not touch the API deploys a
+      # copy of it, and the lifecycle policy never expires it. After a rollback it must name the
+      # rolled-back image, or the next such push would quietly bring back the one rolled away from.
+      - name: Tag do ambiente no rollback
+        if: inputs.tag != ''
+        env:
+          TAG: ${{ steps.src.outputs.tag }}
+        run: |
+          MANIFEST=$(aws ecr batch-get-image --repository-name argon/api --image-ids "imageTag=$TAG" --query 'images[0].imageManifest' --output text)
+          TYPE=$(aws ecr batch-get-image --repository-name argon/api --image-ids "imageTag=$TAG" --query 'images[0].imageManifestMediaType' --output text)
+          if ! OUT=$(aws ecr put-image --repository-name argon/api --image-tag "$ENV_NAME" --image-manifest "$MANIFEST" --image-manifest-media-type "$TYPE" 2>&1 >/dev/null); then
+            # The tag already names this image: nothing to move.
+            echo "$OUT" | grep -q ImageAlreadyExistsException || { echo "$OUT" >&2; exit 1; }
+          fi
+          echo "argon/api:$TAG -> argon/api:$ENV_NAME"
       # The static site (deploy/aws/site_cdn.tf): built with this environment's origins, synced to its
       # folder in the site bucket, and the distribution invalidated. An environment whose distribution
       # does not exist yet skips it.

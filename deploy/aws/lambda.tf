@@ -19,10 +19,11 @@ variable "lambda_environments" {
   default     = ["lab", "dev", "prod"]
 }
 
+# Only a function being created reads it: the image is in ignore_changes, and the deploy moves it.
 variable "lambda_bootstrap_tag" {
   description = "Tag of argon/api a new function is created with. It must carry the Lambda Web Adapter."
   type        = string
-  default     = ""
+  default     = "prod"
 }
 
 locals {
@@ -185,11 +186,6 @@ resource "aws_lambda_function" "argon" {
 
   lifecycle {
     ignore_changes = [image_uri]
-
-    precondition {
-      condition     = var.lambda_bootstrap_tag != ""
-      error_message = "lambda_bootstrap_tag must name an argon/api image with the Lambda Web Adapter."
-    }
   }
 
   depends_on = [aws_iam_role_policy.lambda]
