@@ -163,8 +163,8 @@ Cada parâmetro `/argon/<env>/NOME` vira a variável `NOME` da função, lida a 
 | `MAIL_TRANSPORT`           | API                   | String       |
 | `MAIL_FROM`                | API                   | String       |
 
-O Terraform cria os oito primeiros nomes (`aws/parameters.tf`); `UNSUBSCRIBE_TOKEN_SECRET` não está
-lá e foi criado à mão.
+O Terraform cria esses nomes (`aws/parameters.tf`), com um valor provisório que nunca mais mexe; os
+valores são escritos à mão.
 
 `INTERNAL_API_SECRET` protege as rotas do operador (pipeline, configurações, fontes); as do site são
 públicas e não o usam.
@@ -229,7 +229,9 @@ para ela depois de as migrations dela terem rodado. Um deploy que morre no meio 
 na imagem que ainda funciona.
 
 Voltar para uma tag anterior é rodar o workflow com o input `tag`: o build é pulado e as duas funções
-passam para a imagem dessa tag, com o job `migrate` dela antes, como em todo deploy. A tag precisa
+passam para a imagem dessa tag, com o job `migrate` dela antes, como em todo deploy. Depois, a tag
+do ambiente (`prod`, `dev`, `lab`) passa para essa imagem: é dela que sai o próximo push que não
+mexe na API, e sem isso ele traria de volta a imagem que o rollback tirou do ar. A tag precisa
 existir no ECR — o ciclo de vida guarda as dez últimas. O rollback só move a API: os arquivos
 públicos e o site ficam como estão, porque o checkout não é o código daquela tag. Para voltar o site,
 um revert na branch e um deploy.
@@ -251,6 +253,10 @@ aws lambda wait function-updated --function-name argon-prod-jobs
 aws lambda invoke --function-name argon-prod-jobs --payload '{"job":"migrate"}' \
   --cli-binary-format raw-in-base64-out --cli-read-timeout 900 /dev/stdout   # espera {"done":true}
 aws lambda update-function-code --function-name argon-prod-api --image-uri "$IMAGE"
+# a tag prod passa a apontar para a imagem que voltou
+aws ecr put-image --repository-name argon/api --image-tag prod --image-manifest \
+  "$(aws ecr batch-get-image --repository-name argon/api --image-ids imageTag=<sha> \
+    --query 'images[0].imageManifest' --output text)"
 ```
 
 Migrations não voltam: o `prisma migrate deploy` da imagem antiga não desfaz o que a nova aplicou.

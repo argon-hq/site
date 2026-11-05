@@ -36,12 +36,13 @@ descreve.
   validação dos certificados e os do Resend são mantidos à mão. O que criar sai dos `outputs`:
   `api_cloudfront_domains`, `site_cloudfront`, `api_certificate_validation` e
   `site_certificate_validation`. O `apply` espera até 30 minutos pela validação de cada certificado.
-- **O código das funções.** Cada função nasce com a imagem de `lambda_bootstrap_tag`, e o Terraform
-  ignora a imagem dali em diante (`ignore_changes = [image_uri]`): quem a move é o workflow de deploy.
+- **O código das funções.** Cada função nasce com a imagem de `lambda_bootstrap_tag` (`prod`, por
+  padrão), e o Terraform ignora a imagem dali em diante (`ignore_changes = [image_uri]`): quem a
+  move é o workflow de deploy.
 - **O banco.** O projeto `argon` no Neon e suas branches são do console do Neon.
 - **Segredos do GitHub** (`AWS_DEPLOY_ROLE_ARN`, `AWS_ALERTS_TOPIC_ARN`): copie dos `outputs`.
-- **Valores dos parâmetros.** Ver "Parâmetros". `/argon/<env>/UNSUBSCRIBE_TOKEN_SECRET` e
-  `/argon/neon/*` existem e não estão em `parameters.tf`.
+- **Valores dos parâmetros.** Ver "Parâmetros". `/argon/neon/*` existem e não estão em
+  `parameters.tf`.
 - `/argon/rds/master_password`: sobra do RDS, não gerido. Apague à mão. Os `/argon/caddy/*`, criados
   à mão para o Caddy da instância, também ficaram sem uso.
 
@@ -150,13 +151,12 @@ cd deploy/aws
 terraform fmt -recursive
 terraform init
 terraform validate
-terraform plan -var lambda_bootstrap_tag=prod -out=argon.tfplan
+terraform plan -out=argon.tfplan
 terraform apply argon.tfplan
 ```
 
-Todo `plan` pede `lambda_bootstrap_tag`: o precondition das funções recusa o vazio. Para as que já
-existem o valor não muda nada, porque a imagem está em `ignore_changes`; a tag de um ambiente
-(`prod`) serve.
+`lambda_bootstrap_tag` só vale para uma função que ainda não existe: as que existem têm a imagem
+em `ignore_changes`, e quem a move é o deploy.
 
 O critério é o de sempre: depois do `apply`, `terraform plan` responde "No changes". Diferenças
 pequenas que podem aparecer e são cosméticas (documentos JSON reordenados, campos computados):
@@ -207,14 +207,14 @@ Numa conta nova, todos nascem assim e precisam de valor antes do primeiro deploy
 ## Conta nova
 
 Com a conta vazia: crie o bucket de estado ("Estado") e preencha o `terraform.tfvars`. As funções
-precisam de uma imagem `argon/api` no ECR antes de existir — `lambda_bootstrap_tag` é obrigatório
-e o precondition recusa o vazio —, então o repositório vem primeiro:
+precisam de uma imagem `argon/api` no ECR antes de existir, com a tag `prod` (o padrão de
+`lambda_bootstrap_tag`), então o repositório vem primeiro:
 
 ```bash
 terraform apply -target=aws_ecr_repository.app
 docker buildx build --platform linux/arm64 --provenance=false -f apps/api/Dockerfile \
-  -t 382597877834.dkr.ecr.sa-east-1.amazonaws.com/argon/api:<tag> --push .   # da raiz do monorepo
-terraform apply -var lambda_bootstrap_tag=<tag>
+  -t 382597877834.dkr.ecr.sa-east-1.amazonaws.com/argon/api:prod --push .   # da raiz do monorepo
+terraform apply
 ```
 
 Depois: valores dos parâmetros (inclusive `UNSUBSCRIBE_TOKEN_SECRET`), registros DNS na Cloudflare a
