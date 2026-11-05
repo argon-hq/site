@@ -22,11 +22,6 @@ import { SubscriberService } from "./subscriber.service";
 const signUpBody = z.object({
   // Normalized before it is validated: an address pasted with spaces or in capitals is valid, not an error.
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
-  // Proof of opt-in (LGPD), sent only by the EC2 site's server action (with the internal secret):
-  // a browser's own address and user agent come from the request (src/auth/internal-call.ts). A
-  // malformed address here is the proxy's problem, never the subscriber's: `catch` drops it.
-  consentIp: z.union([z.ipv4(), z.ipv6()]).optional().catch(undefined),
-  consentUserAgent: z.string().max(500).optional(),
 });
 
 // 32 bytes in base64url: 43 characters. The bound keeps a pasted e-mail body out of the query.
@@ -43,18 +38,18 @@ export class SubscriberController {
 
   // The four routes the site calls are public: the static site calls them from the visitor's
   // browser (CORS for the site's origin, src/main.ts), and every one is rate limited by the
-  // visitor's address (SignupThrottleGuard). The EC2 site still calls them with the internal secret
-  // until it goes; what the secret changes is only who the visitor is (src/auth/internal-call.ts).
+  // visitor's address (SignupThrottleGuard).
 
   // POST /subscriber { email } → pending subscriber. The response never carries the token: it only
   // reaches the subscriber through the confirmation e-mail, and it is the same for a new, pending
-  // or confirmed address, so the page cannot tell who is on the list.
+  // or confirmed address, so the page cannot tell who is on the list. The proof of opt-in (LGPD),
+  // address and user agent, is the request's own (src/auth/internal-call.ts).
   @Public()
   @Post()
   @HttpCode(200)
   @UseGuards(SignupThrottleGuard)
   async signUp(@Body(ZodBody(signUpBody)) body: z.infer<typeof signUpBody>, @Req() req: Request) {
-    const visitor = visitorOf(req, body);
+    const visitor = visitorOf(req);
     const result = await runEffect(
       "sign-up",
       this.subscribers.signUp({ email: body.email, consentIp: visitor.ip, consentUserAgent: visitor.userAgent }),

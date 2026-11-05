@@ -1,5 +1,5 @@
-# Every alarm, the deploy workflow's failure step and the backup unit's OnFailure publish here.
-# Neither topic exists yet: the first apply creates both.
+# Every alarm and the deploy workflow's failure step publish here. The jobs' own failures mail the
+# owners directly (apps/api/src/pipeline/owner-alert.ts).
 #
 # An e-mail subscription is only live after the recipient clicks the confirmation link. The
 # provider waits a couple of minutes for that during apply; if it gives up, confirm the e-mail

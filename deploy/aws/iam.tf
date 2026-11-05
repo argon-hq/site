@@ -1,155 +1,4 @@
-# Two roles: the instance's, and the one GitHub Actions assumes through OIDC to deploy.
-
-# ---- Instance role -------------------------------------------------------------------------
-
-data "aws_iam_policy_document" "ec2_trust" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "ec2" {
-  name               = "argon-ec2"
-  description        = "Argon EC2: SSM, ECR pull, Parameter Store /argon/*, CloudWatch logs"
-  assume_role_policy = data.aws_iam_policy_document.ec2_trust.json
-}
-
-resource "aws_iam_instance_profile" "ec2" {
-  name = "argon-ec2"
-  role = aws_iam_role.ec2.name
-}
-
-# Session Manager (no SSH) and image pulls.
-resource "aws_iam_role_policy_attachment" "ec2_ssm" {
-  role       = aws_iam_role.ec2.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_role_policy_attachment" "ec2_ecr" {
-  role       = aws_iam_role.ec2.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-# backup-db.sh writes the dumps. The restore drill reads them back from the production jobs
-# function now (deploy/aws/lambda.tf), not from here. The backup bucket also carries the deploy files under deploy/<tag>/ (AWS_DEPLOY_BUCKET in the
-# GitHub variables): the workflow writes them, the instance reads them back.
-data "aws_iam_policy_document" "ec2_backups" {
-  statement {
-    sid       = "EscreveDumpsDoPostgres"
-    effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.backups.arn}/postgres/*"]
-  }
-
-  statement {
-    sid       = "LeArquivosDeDeploy"
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.backups.arn}/deploy/*"]
-  }
-
-  statement {
-    sid       = "ListaArquivosDeDeploy"
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.backups.arn]
-
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["deploy/*"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "ec2_backups" {
-  name   = "argon-backups"
-  role   = aws_iam_role.ec2.name
-  policy = data.aws_iam_policy_document.ec2_backups.json
-}
-
-# deploy.sh reads /argon/<env>/* to build the env files; the awslogs driver writes /argon/*.
-data "aws_iam_policy_document" "ec2_params_and_logs" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ssm:GetParametersByPath",
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:PutParameter",
-      "ssm:AddTagsToResource",
-    ]
-    resources = ["arn:aws:ssm:${var.region}:${var.account_id}:parameter/argon/*"]
-  }
-
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:Decrypt", "kms:Encrypt"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${var.region}.amazonaws.com"]
-    }
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogStreams",
-      "logs:PutRetentionPolicy",
-    ]
-    resources = ["arn:aws:logs:${var.region}:${var.account_id}:log-group:/argon/*"]
-  }
-
-  statement {
-    effect    = "Allow"
-    actions   = ["sts:GetCallerIdentity"]
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_role_policy" "ec2_params_and_logs" {
-  name   = "argon-params-and-logs"
-  role   = aws_iam_role.ec2.name
-  policy = data.aws_iam_policy_document.ec2_params_and_logs.json
-}
-
-# The alert on a failed backup and the BackupOk heartbeat leave the instance through these two
-# calls, and through nothing else.
-data "aws_iam_policy_document" "ec2_alerts" {
-  statement {
-    actions   = ["sns:Publish"]
-    resources = [aws_sns_topic.alerts.arn]
-  }
-
-  statement {
-    actions   = ["cloudwatch:PutMetricData"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "cloudwatch:namespace"
-      values   = ["Argon"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "ec2_alerts" {
-  name   = "argon-alerts-and-metrics"
-  role   = aws_iam_role.ec2.name
-  policy = data.aws_iam_policy_document.ec2_alerts.json
-}
+# The role GitHub Actions assumes through OIDC to deploy.
 
 # ---- GitHub Actions deploy role ------------------------------------------------------------
 
@@ -194,8 +43,8 @@ locals {
   state_bucket = "argon-terraform-state-${var.account_id}"
 }
 
-# Push images, then run deploy.sh on the instance through SSM Run Command, and publish
-# apps/web/public to the public bucket.
+# Push the API image, run the migrations and move the functions to it (lambda.tf), publish the
+# static site and apps/web/public, and invalidate the site's distribution.
 data "aws_iam_policy_document" "github_deploy" {
   statement {
     effect    = "Allow"
@@ -256,43 +105,13 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["arn:aws:lambda:${var.region}:${var.account_id}:function:argon-*"]
   }
 
-  # Only instances tagged Project=argon can receive the command.
+  # The deploy runs the migrations through the jobs function before the API function moves
+  # (.github/workflows/deploy.yml, apps/api/src/pipeline/migrate.ts). Only the jobs functions.
   statement {
-    effect  = "Allow"
-    actions = ["ssm:SendCommand"]
-    resources = [
-      "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
-      "arn:aws:ec2:${var.region}:${var.account_id}:instance/*",
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "ssm:resourceTag/Project"
-      values   = ["argon"]
-    }
-  }
-
-  statement {
+    sid       = "RodaAsMigrationsNaFuncaoDeJobs"
     effect    = "Allow"
-    actions   = ["ssm:SendCommand"]
-    resources = ["arn:aws:ssm:${var.region}::document/AWS-RunShellScript"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "ssm:GetCommandInvocation",
-      "ssm:ListCommands",
-      "ssm:ListCommandInvocations",
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    sid       = "PublicaArquivosDeDeploy"
-    effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.backups.arn}/deploy/*"]
+    actions   = ["lambda:InvokeFunction"]
+    resources = ["arn:aws:lambda:${var.region}:${var.account_id}:function:argon-*-jobs"]
   }
 
   # The ./public-assets root writes apps/web/public into the public bucket, one prefix per

@@ -196,5 +196,11 @@
       "body": "Something went wrong on our side. Open the link from your email again in a moment.",
       "cta": "Go to sign-up"
     }
+  },
+  "notFound": {
+    "badge": "Error 404",
+    "heading": "This page doesn't exist.",
+    "body": "The address may have changed or have a typo in it. The home page leads to everything the site has.",
+    "cta": "Back to home"
   }
 }

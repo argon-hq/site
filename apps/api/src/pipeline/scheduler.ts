@@ -6,9 +6,10 @@ import { PipelineService } from "./pipeline.service";
 import { SCHEDULE, SEND_SCHEDULE, SUNDAY_SCHEDULE, SUNDAY_SEND_SCHEDULE, TIMEZONE, WATCH_SCHEDULE } from "./run";
 import { EditionWatch } from "./watch";
 
-// The two clocks of the day, inside the API, which is a process that never goes to sleep. They only
-// fire: a bad day is ignored here, because the owners have already been told, and the timer stays
-// alive for tomorrow.
+// The clocks of the day. Inside the API they tick only where SCHEDULER_ENABLED loads the clock; in
+// AWS, EventBridge Scheduler runs the same methods on the jobs function (jobs.controller.ts). They
+// only fire: a bad day is ignored here, because the owners have already been told, and the timer
+// stays alive for tomorrow.
 @Injectable()
 export class PipelineScheduler {
   private readonly logger = new Logger(PipelineScheduler.name);

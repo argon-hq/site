@@ -1,5 +1,5 @@
 # The site as static files (apps/web built with `output: "export"`) in a private bucket, served by
-# one CloudFront distribution per environment, in place of the web containers on the EC2.
+# one CloudFront distribution per environment.
 #
 # Each locale is a folder (/pt-BR/..., /en-US/...), and the URLs stay unprefixed, as they are in the
 # e-mails already sent: a CloudFront Function (site_router.js) picks the folder by the `locale`
@@ -13,7 +13,6 @@
 variable "site_domains" {
   description = "Hostnames served by each environment's site distribution; the first is the canonical one. The others are redirected to it."
   type        = map(list(string))
-  # One environment at a time: an environment joins when its site moves off the EC2.
   default = {
     lab  = ["lab.argonbusiness.com"]
     dev  = ["dev.argonbusiness.com"]
@@ -194,11 +193,12 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   # A path that exists in no locale folder: the bucket answers 403 to what it does not have. The
-  # export's 404.html is Next's default page, not localized (the root layout is under [locale]).
+  # error page does not go through the router, so one page serves every locale: it carries the
+  # text of each one and shows the cookie's (apps/web/src/app/[locale]/page-not-found).
   custom_error_response {
     error_code         = 403
     response_code      = 404
-    response_page_path = "/404.html"
+    response_page_path = "/pt-BR/page-not-found/index.html"
   }
 
   restrictions {

@@ -3,9 +3,9 @@
 // API, so we fill them here.
 //
 // Everything points at the origin the request arrived on. The Studio and the Mastra routes answer
-// on the same host — Caddy sends both /studio and /mastra to this container — so the browser calls
-// the API same-origin: no CORS, and the `x-internal-secret` the operator saves in the Studio
-// travels on every call it makes.
+// on the same host — this API serves both /studio and /mastra — so the browser calls the API
+// same-origin: no CORS, and the `x-internal-secret` the operator saves in the Studio travels on
+// every call it makes.
 
 import { MASTRA_API_PREFIX, STUDIO_BASE_PATH } from "./studio.paths";
 

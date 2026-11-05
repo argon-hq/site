@@ -3,7 +3,7 @@ import { Data, Effect } from "effect";
 import { Client } from "pg";
 
 // One step at a time per edition, enforced by the database and not by a flag in memory: the flag
-// only sees this process, and a run that a restart cut halfway, or a second container, or a
+// only sees this process, and a run that a restart cut halfway, or a second process, or a
 // per-step route fired by hand while the 5h30 workflow is on its way, all pass it. A Postgres
 // advisory lock is held for as long as the step runs and released when it ends, however it ends.
 //

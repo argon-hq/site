@@ -37,8 +37,8 @@ CloudFront — não há servidor Node. Daí as regras abaixo:
 - **Uma pasta por idioma.** Toda rota vive sob `src/app/[locale]/` e é gerada para `pt-BR` e
   `en-US`: `out/pt-BR/newsletter/index.html`, `out/en-US/newsletter/index.html`. Os links
   internos não levam prefixo (`/newsletter`); o CloudFront reescreve a URL para a pasta do idioma
-  pelo cookie `locale`, e sem cookie para a do padrão. No `next dev` (e no build standalone),
-  rewrites no `next.config.ts` fazem o mesmo papel.
+  pelo cookie `locale`, e sem cookie para a do padrão. No `next dev`, rewrites no
+  `next.config.ts` fazem o mesmo papel.
 - **Preferências em cookie do navegador.** O seletor de idioma grava `locale` e recarrega; o de
   tema grava `theme` e troca o `data-theme` na hora. Nenhum servidor lê os cookies: o tema é
   aplicado antes da pintura por um script inline no `<head>` (`src/theme/script.ts`).
@@ -46,14 +46,12 @@ CloudFront — não há servidor Node. Daí as regras abaixo:
 - **Variáveis no build.** `NEXT_PUBLIC_API_ORIGIN` e `WEB_ORIGIN` são lidas no `next build` e
   ficam no HTML e no bundle: cada ambiente tem o seu build.
 - **Headers de segurança na CDN.** O export não aplica `headers()`; a CSP e o `Referrer-Policy`
-  que o CloudFront deve mandar estão em `src/lib/security-headers.ts`.
+  que o CloudFront manda (`deploy/aws/site_cdn.tf`) estão em `src/lib/security-headers.ts`.
 
 ```bash
 WEB_ORIGIN=https://lab.argonbusiness.com NEXT_PUBLIC_API_ORIGIN=https://api.lab.argonbusiness.com \
   pnpm -C apps/web build
 ```
-
-O `Dockerfile` continua gerando a imagem Node, com `NEXT_OUTPUT=standalone`.
 
 ## Testes
 
@@ -78,19 +76,19 @@ pnpm -C apps/web test:e2e
 
 ## Rotas
 
-| Rota | Descrição |
-| --- | --- |
-| `/` | Home. Vazia por ora — só a marca e um CTA para a newsletter. |
-| `/newsletter` | Cadastro. Tela cheia, sem cabeçalho nem rodapé. |
-| `/newsletter/confirm` | Confirmação. Destino do link do e-mail de inscrição, com o token na query. |
-| `/newsletter/unsubscribe` | Cancelamento. Destino do link no rodapé da edição, com o token na query. |
-| `/privacy` | Placeholder — destino do aceite no cadastro. |
+| Rota                      | Descrição                                                                  |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `/`                       | Home. Vazia por ora — só a marca e um CTA para a newsletter.               |
+| `/newsletter`             | Cadastro. Tela cheia, sem cabeçalho nem rodapé.                            |
+| `/newsletter/confirm`     | Confirmação. Destino do link do e-mail de inscrição, com o token na query. |
+| `/newsletter/unsubscribe` | Cancelamento. Destino do link no rodapé da edição, com o token na query.   |
+| `/privacy`                | Placeholder — destino do aceite no cadastro.                               |
 
 Os caminhos ficam sempre em inglês, independente do idioma escolhido.
 
 ## Navegação
 
-O `BackButton` da newsletter só volta no histórico quando existe página anterior *dentro* do
+O `BackButton` da newsletter só volta no histórico quando existe página anterior _dentro_ do
 site. Detectar isso não é trivial: o Next 16 não expõe índice de histórico, `document.referrer`
 vem vazio em navegação client-side, e `history.length` conta o `about:blank` da aba — usá-lo
 levaria quem abriu o link direto para uma tela branca.
@@ -169,10 +167,10 @@ precisa existir no servidor.
 
 Variáveis (veja `.env.example`, ambas lidas no build):
 
-| Variável | Para quê |
-| --- | --- |
+| Variável                 | Para quê                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_ORIGIN` | Origem da API, chamada pelo navegador. Local (padrão): `http://localhost:3001`. Entra no `connect-src` da CSP. |
-| `WEB_ORIGIN` | Origem pública do site, para as URLs absolutas de Open Graph, sitemap e robots. |
+| `WEB_ORIGIN`             | Origem pública do site, para as URLs absolutas de Open Graph, sitemap e robots.                                |
 
 ## Confirmação
 
@@ -206,7 +204,7 @@ o servidor do Gmail, não o site.
 `public/email/*.png` são os ícones do rodapé da newsletter. Cliente de e-mail não aceita SVG nem
 caminho relativo, então são PNG e a URL é absoluta. Nos ambientes publicados, a API aponta para o
 bucket público, no prefixo do ambiente (`<bucket>/<env>/email/`), para onde o deploy copia esta
-pasta antes de reiniciar os containers; numa máquina local, aponta para o próprio site
+pasta antes de atualizar as funções da API; numa máquina local, aponta para o próprio site
 (`WEB_ORIGIN` + `/email`). Apagar ou renomear um PNG aqui quebra o e-mail do deploy seguinte — e a
 API diz isso no log, ao subir (`EmailAssets`). Quem gera os ícones das redes é o
 `pnpm -C apps/api email:icons`.

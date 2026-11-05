@@ -8,8 +8,8 @@ provider "aws" {
   }
 }
 
-# Route 53 health-check metrics only exist in us-east-1, so the alarm on them, and the SNS topic
-# it notifies, live there too. Everything else stays in sa-east-1.
+# CloudFront only takes certificates from us-east-1: the site's and the API's live there
+# (site_cdn.tf, api_cdn.tf). Everything else stays in sa-east-1.
 provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"

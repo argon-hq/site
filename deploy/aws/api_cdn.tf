@@ -53,8 +53,9 @@ resource "aws_cloudfront_origin_request_policy" "api" {
 }
 
 # Proves to the API function that a request came through CloudFront. It lives in the Terraform
-# state and in the function's environment, not in the Parameter Store: the EC2 reads every
-# parameter of its environment and would start refusing what Caddy forwards.
+# state and in the API function's environment, not in the Parameter Store: every function of the
+# environment loads /argon/<env>/ at boot, and the jobs function, which nothing reaches through
+# CloudFront, must not set it.
 resource "random_password" "origin_verify" {
   for_each = toset(var.lambda_environments)
 
