@@ -121,6 +121,12 @@ importers:
       '@fortawesome/free-brands-svg-icons':
         specifier: ^7.1.0
         version: 7.3.1
+      '@mastra/evals':
+        specifier: ^1.10.11
+        version: 1.10.11(@mastra/core@1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7))(vitest@5.0.5)
+      '@mastra/observability':
+        specifier: ^1.23.1
+        version: 1.23.1(@mastra/core@1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7))(zod@4.6.7)
       '@nestjs/cli':
         specifier: ^11.0.24
         version: 11.0.24(@swc/core@1.16.13(@swc/helpers@0.5.23))(@types/node@22.20.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(prettier@3.9.10)
@@ -1422,6 +1428,16 @@ packages:
       '@mastra/mcp':
         optional: true
 
+  '@mastra/evals@1.10.11':
+    resolution: {integrity: sha512-5UGBjace+4VvqpcEBKATLCtb3daHSu7wSsTFn0daJLAb+YRVHytFosY9guidU9MP5CgYHMBqWDDaObkoKpTaoQ==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.0.0-0 <2.0.0-0'
+      vitest: '>=3.0.0 <6.0.0'
+    peerDependenciesMeta:
+      vitest:
+        optional: true
+
   '@mastra/loggers@1.3.10':
     resolution: {integrity: sha512-gpUpNh5mIH//SgKENtZQ/qlBMNrZgzyzKHKswF4aIijztKLc03u1rBB4yFV4wO87r0E33OVCjw10mHxyMuWkCA==}
     engines: {node: '>=22.13.0'}
@@ -1442,6 +1458,13 @@ packages:
       '@nestjs/common': ^10.0.0 || ^11.0.0 || ^12.0.0
       '@nestjs/core': ^10.0.0 || ^11.0.0 || ^12.0.0
       express: ^4.0.0 || ^5.0.0
+      zod: ^3.25.0 || ^4.0.0
+
+  '@mastra/observability@1.23.1':
+    resolution: {integrity: sha512-yzI/Cp43vz9IeYKHm/3uC3OCIQtz9H22py1sp66+7W5W19X/pBl+lcM1Ee2DzDXcCqeIPWpj83pWU37PHUYRmg==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.16.0-0 <2.0.0-0'
       zod: ^3.25.0 || ^4.0.0
 
   '@mastra/pg@1.34.0':
@@ -3654,6 +3677,10 @@ packages:
     resolution: {integrity: sha512-g0S8KAD8qf4+V//pr3BfB1aBnARLXNz2Gx+jmHU0LEriUuoQUOPOulVquHKTJ8+EAIIO7fhseNDr9wK5Q9FKBQ==}
     engines: {node: '>=18'}
 
+  compromise@14.19.0:
+    resolution: {integrity: sha512-nA/ClpXt0PaS2Ne389wClhxFBBxV0el3nv6V7XFpoRRQBr8eCnV3Iv4ZY6C5H06UHq1k7bqth73nVc/hv/rrCg==}
+    engines: {node: '>=18'}
+
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
@@ -3959,6 +3986,10 @@ packages:
 
   effect@3.22.4:
     resolution: {integrity: sha512-RNshu7AXVxxDh6aS4lothhJ+QoZ4xSykbWNaaVdvDN72RMyVwhCGdALkyl1TbEydgAmRIdD1eTyJqBUGwSBGDA==}
+
+  efrt@2.9.0:
+    resolution: {integrity: sha512-ZMAvlcu4AfmtJ4K/0hs0uofVUZPSeLG/w4yOyZawQLl9YEy8iDKIxIIPsUAlS907clC7bgD17e73vi5unwNE/g==}
+    engines: {node: '>=12.0.0'}
 
   electron-to-chromium@1.5.427:
     resolution: {integrity: sha512-n14zb3FdsChZ2BNobqNHAJMcP3ifFv4paox2LvCrfVAQcqGiSURgbJl+PfMpHVCNFkStnNc+RRVtPBTVW5PDgw==}
@@ -4924,6 +4955,10 @@ packages:
 
   keyv@5.6.0:
     resolution: {integrity: sha512-CYDD3SOtsHtyXeEORYRx2qBtpDJFjRTGXUtmNEMGyzYOKj1TE3tycdlho7kA1Ufx9OYWZzg52QFBGALTirzDSw==}
+
+  keyword-extractor@0.0.28:
+    resolution: {integrity: sha512-oi7dSPpYtW/3fE0vZiqQgZ8mW3F1V9K4+rBJ0FcVrdXBEQuhZ0zKj7sX74eqGASuepLHf9aYdeonyKHWhYpHQA==}
+    engines: {node: '>= 0.10.0'}
 
   language-subtag-registry@0.3.23:
     resolution: {integrity: sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==}
@@ -6169,6 +6204,10 @@ packages:
     resolution: {integrity: sha512-1gnZf7DFcoIcajTjTwjwuDjzuz4PPcY2StKPlsGAQ1+YH20IRVrBaXSWmdjowTJ6u8Rc01PoYOGHXfP1mYcZNQ==}
     engines: {node: '>= 18'}
 
+  sentiment@5.0.2:
+    resolution: {integrity: sha512-ZeC3y0JsOYTdwujt5uOd7ILJNilbgFzUtg/LEG4wUv43LayFNLZ28ec8+Su+h3saHlJmIwYxBzfDHHZuiMA15g==}
+    engines: {node: '>=8.0'}
+
   serve-handler@6.1.7:
     resolution: {integrity: sha512-CinAq1xWb0vR3twAv9evEU8cNWkXCb9kd5ePAHUKJBkOsUpR1wt/CvGdeca7vqumL1U5cSaeVQ6zZMxiJ3yWsg==}
 
@@ -6294,6 +6333,10 @@ packages:
   streamx@2.28.1:
     resolution: {integrity: sha512-zEzXb0s5Cds7tqMH6rhZ05lcJydCWiQPEwiNngVqzsxCc962vLY4Uw+mW7od8kDH258k2Uz/JrOkdIAAhSh9VA==}
 
+  string-similarity@4.0.4:
+    resolution: {integrity: sha512-/q/8Q4Bl4ZKAPjj8WerIBJWALKkaPRfrvhfF8k/B23i4nzrlRj2/go1m90In7nG/3XDSbOo0+pu6RvCTM9RGMQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}
     engines: {node: '>=8'}
@@ -6370,6 +6413,10 @@ packages:
         optional: true
       babel-plugin-macros:
         optional: true
+
+  suffix-thumb@6.0.0:
+    resolution: {integrity: sha512-HsCTMLaupbob5ZG//ZW6PSj446tHT5kSJ1qXS5F/qO2Nt13uAn6ZLPhJQ/H6bN/jVQCb+pcqe2psEwy4Mp5+Vw==}
+    engines: {node: '>=18'}
 
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
@@ -8267,6 +8314,16 @@ snapshots:
       - ws
       - zod
 
+  '@mastra/evals@1.10.11(@mastra/core@1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7))(vitest@5.0.5)':
+    dependencies:
+      '@mastra/core': 1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7)
+      compromise: 14.19.0
+      keyword-extractor: 0.0.28
+      sentiment: 5.0.2
+      string-similarity: 4.0.4
+    optionalDependencies:
+      vitest: 5.0.5(@types/node@22.20.5)(@vitest/coverage-v8@5.0.5)(jsdom@30.1.3)(vite@8.3.0(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   '@mastra/loggers@1.3.10(@mastra/core@1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7))':
     dependencies:
       '@mastra/core': 1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7)
@@ -8296,6 +8353,11 @@ snapshots:
       '@nestjs/core': 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@11.2.5)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       express: 5.2.1(supports-color@8.1.1)
       hono: 4.13.16
+      zod: 4.6.7
+
+  '@mastra/observability@1.23.1(@mastra/core@1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7))(zod@4.6.7)':
+    dependencies:
+      '@mastra/core': 1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7)
       zod: 4.6.7
 
   '@mastra/pg@1.34.0(@mastra/core@1.81.0(effect@3.22.2)(express@5.2.1(supports-color@8.1.1))(rxjs@7.8.2)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7))':
@@ -10328,6 +10390,11 @@ snapshots:
       normalize-path: 3.0.0
       readable-stream: 4.8.0
 
+  compromise@14.19.0:
+    dependencies:
+      efrt: 2.9.0
+      suffix-thumb: 6.0.0
+
   concat-map@0.0.1: {}
 
   confbox@0.1.8: {}
@@ -10609,6 +10676,8 @@ snapshots:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
+
+  efrt@2.9.0: {}
 
   electron-to-chromium@1.5.427: {}
 
@@ -11824,6 +11893,8 @@ snapshots:
   keyv@5.6.0:
     dependencies:
       '@keyv/serialize': 1.1.1
+
+  keyword-extractor@0.0.28: {}
 
   language-subtag-registry@0.3.23: {}
 
@@ -13285,6 +13356,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  sentiment@5.0.2: {}
+
   serve-handler@6.1.7:
     dependencies:
       bytes: 3.0.0
@@ -13455,6 +13528,8 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
 
+  string-similarity@4.0.4: {}
+
   string-width@4.2.3:
     dependencies:
       emoji-regex: 8.0.0
@@ -13550,6 +13625,8 @@ snapshots:
       react: 19.3.1
     optionalDependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
+
+  suffix-thumb@6.0.0: {}
 
   supports-color@7.2.0:
     dependencies:

@@ -35,8 +35,9 @@ const schema = z
 
     // Mastra Studio, served by this API under /studio (src/studio). Off by default and off on every
     // deployed function: it is a development machine's tool, where looking at the agents is the
-    // point (`pnpm mastra:dev` is the usual way in). The bundle it serves is public; the agents
-    // behind it are not.
+    // point. It also decides whether the Mastra routes under /mastra exist (app.module.ts), and the
+    // Editor tab, the traces and the scores (src/mastra/index.ts). The bundle it serves is public;
+    // the agents behind it are not.
     STUDIO_ENABLED: z.stringbool().default(false),
 
     // Which environment this is. The value decides how much a run may cost — the model, how far the
