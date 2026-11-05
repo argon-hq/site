@@ -1,7 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { Agent } from "@mastra/core/agent";
-import { MastraService } from "@mastra/nestjs";
 import { RequestContext } from "@mastra/core/request-context";
 import { Data, Effect } from "effect";
 import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
@@ -16,6 +15,7 @@ import { ingest, type IngestReport } from "../ingest/ingest";
 import { ingestWorld } from "../ingest/mode";
 import { MAX_FICHAS, REPUBLISH_DAYS } from "../ingest/triage";
 import { triageAnswerSchema } from "../mastra/schemas/triage";
+import { MASTRA, type ArgonMastra } from "../mastra/token";
 import { modelContext, modelId, type ModelStep } from "../mastra/models";
 import { fetchArticle } from "../mastra/tools/read-page";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
@@ -124,7 +124,7 @@ export class PipelineService {
   private sending = false;
 
   constructor(
-    private readonly mastra: MastraService,
+    @Inject(MASTRA) private readonly mastra: ArgonMastra,
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly alert: OwnerAlert,
@@ -236,7 +236,6 @@ export class PipelineService {
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
       // the second attempt can quote what the first got wrong. Writing loads its skill through the
       // `skill` tool, so it works and takes shape in two calls (see `generateStructured`).
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
       const editor: Agent = this.mastra.getAgent("editor");
       const generating =
         <S extends z.ZodType>(step: ModelStep, schema: S): Generate<z.infer<S>> =>

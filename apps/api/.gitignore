@@ -1,5 +1,6 @@
 dist
 .mastra
+.mastra-editor
 out
 .env
 *.tsbuildinfo

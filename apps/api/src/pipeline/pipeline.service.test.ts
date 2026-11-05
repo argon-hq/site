@@ -1,4 +1,4 @@
-import type { MastraService } from "@mastra/nestjs";
+import type { ArgonMastra } from "../mastra/token";
 import { Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import type { MailService } from "../mail/mail.service";
@@ -46,7 +46,7 @@ function service(p: { mastra?: unknown; delivery?: { send?: unknown } } = {}) {
   const delivery = { send: vi.fn(() => Effect.succeed({ status: "sent" })), ...p.delivery };
   const alert = { send: vi.fn(() => Effect.void), onFailure: vi.fn((_, e) => e) };
   const pipeline = new PipelineService(
-    (p.mastra ?? { getWorkflow: vi.fn(), getAgent: vi.fn() }) as unknown as MastraService,
+    (p.mastra ?? { getWorkflow: vi.fn(), getAgent: vi.fn() }) as unknown as ArgonMastra,
     {} as unknown as PrismaService,
     {} as unknown as SettingsService,
     alert as unknown as OwnerAlert,

@@ -4,7 +4,7 @@ import { PostgresStore } from "@mastra/pg";
 import { loadConfig } from "../config";
 import { POOL_MAX } from "../prisma/pool";
 import { editor } from "./agents/editor";
-import { mastraDir } from "./paths";
+import { scratchEditorDir } from "./paths";
 import { editionWorkflow } from "./workflows/edition";
 
 // The same validated configuration the API boots on: a missing DATABASE_URL fails here, by name,
@@ -22,13 +22,10 @@ export const mastra = new Mastra({
     schemaName: "mastra",
     max: POOL_MAX,
   }),
-  // The Studio edits the agent's instructions and tools. `source: "code"` keeps what it writes in
-  // one JSON file per agent inside the repository, so a change to the prompt is reviewed in a PR and
-  // deployed with everything else — instead of living in the database, where each environment could
-  // end up with a different text and no history.
-  //
-  // Mastra writes into that folder as it runs (it creates the folder and subfolders such as
-  // skills/), which a read-only image refuses: on Lambda, MASTRA_EDITOR_DIR points at a copy in /tmp
-  // (src/lambda/main.ts). Everywhere else it is the folder itself.
-  editor: new MastraEditor({ source: "code", codePath: process.env.MASTRA_EDITOR_DIR ?? mastraDir("editor") }),
+  // The agent's text lives in the code alone: the instructions in prompts/, the skills in skills/.
+  // The Studio's Editor tab is a scratchpad for trying a change on a development machine: what it
+  // writes goes to a folder git ignores and never reaches an image, so a try cannot ship by accident
+  // and no environment runs a text other than the one in the repository. Where the Studio is not
+  // served — every deployed function — there is no Editor at all.
+  ...(config.STUDIO_ENABLED ? { editor: new MastraEditor({ source: "code", codePath: scratchEditorDir() }) } : {}),
 });

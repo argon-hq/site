@@ -9,6 +9,7 @@ import { MailModule } from "./mail/mail.module";
 import { HealthController } from "./health/health.controller";
 import { SourcesModule } from "./ingest/sources.module";
 import { mastra } from "./mastra";
+import { MastraInstanceModule } from "./mastra/mastra.module";
 import { PipelineModule } from "./pipeline/pipeline.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SettingsModule } from "./settings/settings.module";
@@ -23,6 +24,7 @@ const config = loadConfig();
     // plain methods: the Lambda calls them by name through the jobs route instead.
     ...(config.SCHEDULER_ENABLED ? [ScheduleModule.forRoot()] : []),
     PrismaModule.forRoot(config.DATABASE_URL),
+    MastraInstanceModule,
     SettingsModule,
     EmailModule.forRoot(config),
     MailModule.forRoot(config),
@@ -30,9 +32,11 @@ const config = loadConfig();
     PipelineModule.forRoot(config),
     SubscriberModule.forRoot(config),
     StudioModule.forRoot(config),
-    // Last on purpose: MastraModule registers a catch-all controller. Its routes live under /mastra.
-    // Global so any module can inject MastraService without re-registering the instance.
-    { ...MastraModule.register({ mastra, prefix: "/mastra" }), global: true },
+    // The Mastra routes under /mastra are the Studio's and nobody else's, so they exist only where the
+    // Studio is served — a development machine. Every deployed function runs without them: no route
+    // to an agent or a workflow, and no /mastra catch-all, on a Lambda. The pipeline reaches the
+    // instance through MastraInstanceModule either way. Last on purpose: it registers a catch-all.
+    ...(config.STUDIO_ENABLED ? [MastraModule.register({ mastra, prefix: "/mastra" })] : []),
   ],
   controllers: [HealthController],
   providers: [
