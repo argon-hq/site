@@ -14,9 +14,11 @@ export type StuckEdition = { id: string; date: string; status: string; updatedAt
 // An edition left in `generating` or `sending` is the one failure nothing else reports: the run
 // that would have moved it on is gone, the next day's run works on the next day's row, and the
 // alert that goes with a failure was never sent because nothing failed — the process just stopped.
-// This looks for them at boot, when a restart is exactly what leaves them behind, and once a day
-// after the send should have finished, and says so in the log and to the owners. It fixes nothing:
-// resuming is `POST /pipeline/send { date }` or, for a generation, a run by hand.
+// This looks for them once a day after the send should have finished, and says so in the log and to
+// the owners. It fixes nothing: resuming is `POST /pipeline/send { date }` or, for a generation, a
+// run by hand. A long-running process (SCHEDULER_ENABLED) also looks at boot, when a restart is
+// exactly what leaves them behind. A Lambda function does not: it boots on every cold start, and
+// each boot would mail the owners again and wake the database the keep-warm leaves asleep.
 @Injectable()
 export class EditionWatch implements OnApplicationBootstrap {
   private readonly logger = new Logger(EditionWatch.name);
@@ -24,10 +26,11 @@ export class EditionWatch implements OnApplicationBootstrap {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alert: OwnerAlert,
+    private readonly checkAtBoot = false,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await Effect.runPromise(Effect.ignore(this.check()));
+    if (this.checkAtBoot) await Effect.runPromise(Effect.ignore(this.check()));
   }
 
   // Never fails the caller over a check: a database that cannot answer is logged, and the cron
