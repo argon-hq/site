@@ -79,7 +79,7 @@ pnpm -C apps/web test:e2e
 
 | Rota                      | Descrição                                                                  |
 | ------------------------- | -------------------------------------------------------------------------- |
-| `/`                       | Home. Vazia por ora — só a marca e um CTA para a newsletter.               |
+| `/`                       | Home: abertura e as seções newsletter, consultoria e eventos.              |
 | `/newsletter`             | Cadastro. Tela cheia, sem cabeçalho nem rodapé.                            |
 | `/newsletter/confirm`     | Confirmação. Destino do link do e-mail de inscrição, com o token na query. |
 | `/newsletter/confirmed`   | Inscrição confirmada. Destino da confirmação, com o caminho para o início. |
