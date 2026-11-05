@@ -45,7 +45,7 @@
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.2.0",
     "dotenv": "^18.0.9",
-    "effect": "^3.22.2",
+    "effect": "^3.22.4",
     "fast-xml-parser": "^5.11.2",
     "linkedom": "^0.18.15",
     "nodemailer": "^10.3.1",
