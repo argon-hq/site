@@ -1,13 +1,12 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { Agent } from "@mastra/core/agent";
-import { MastraService } from "@mastra/nestjs";
-import { RequestContext } from "@mastra/core/request-context";
+import type { MastraScorers } from "@mastra/core/evals";
+import type { TracingContext } from "@mastra/core/observability";
 import { Data, Effect } from "effect";
 import { CONFLICT, UNPROCESSABLE, type Failure } from "../effect/failure";
 import type { z } from "zod";
 import { editionHeaderSchema, writtenItemSchema, type EditionHeader } from "../mastra/schemas/edition";
-import type { EditionContext } from "../mastra/workflows/context";
 import { editionRunSchema, type EditionRun } from "../mastra/workflows/edition";
 import { allowedDomains, isAllowedDomain, setAllowedDomains } from "../ingest/allowlist";
 import { fetchFeed } from "../ingest/fetch-feed";
@@ -16,6 +15,8 @@ import { ingest, type IngestReport } from "../ingest/ingest";
 import { ingestWorld } from "../ingest/mode";
 import { MAX_FICHAS, REPUBLISH_DAYS } from "../ingest/triage";
 import { triageAnswerSchema } from "../mastra/schemas/triage";
+import { MASTRA, type ArgonMastra } from "../mastra/token";
+import { liveScorers } from "../mastra/live-scorers";
 import { modelContext, modelId, type ModelStep } from "../mastra/models";
 import { fetchArticle } from "../mastra/tools/read-page";
 import { buildEdition, editionContext, toEditionInput, validateEdition } from "../email";
@@ -94,7 +95,9 @@ export type RunReport = EditionRun & { runId: string; durationMs: number };
 // What a step is told before it starts: which clock to read and whether this run pays for judgement
 // or works over the fixture. Both have a default, so a step can still be called bare in a test. The
 // run id, when the step is part of a workflow run, goes into every line it logs.
-export type StepRun = { mode?: Mode; now?: Date; runId?: string };
+// The tracing context is the workflow step's, when a run is what called: the agent's calls then
+// show in the Studio's trace as children of the step instead of traces of their own.
+export type StepRun = { mode?: Mode; now?: Date; runId?: string; tracingContext?: TracingContext };
 
 // The ingestion step also takes what the manual command takes: read without writing, judge again
 // what earlier runs listed, or one source only. None of them is for the schedule.
@@ -124,7 +127,7 @@ export class PipelineService {
   private sending = false;
 
   constructor(
-    private readonly mastra: MastraService,
+    @Inject(MASTRA) private readonly mastra: ArgonMastra,
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly alert: OwnerAlert,
@@ -236,16 +239,18 @@ export class PipelineService {
       // One generation with a schema: the Mastra promise becomes an effect carrying its reason, so
       // the second attempt can quote what the first got wrong. Writing loads its skill through the
       // `skill` tool, so it works and takes shape in two calls (see `generateStructured`).
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- the registry types its agents with `any`
       const editor: Agent = this.mastra.getAgent("editor");
       const generating =
-        <S extends z.ZodType>(step: ModelStep, schema: S): Generate<z.infer<S>> =>
+        <S extends z.ZodType>(step: ModelStep, schema: S, scorers?: MastraScorers): Generate<z.infer<S>> =>
         (text) =>
           Effect.tryPromise({
             try: async () => {
               const generated = await generateStructured(editor, text, {
                 schema,
                 requestContext: modelContext(step),
+                tracingContext: run.tracingContext,
+                metadata: { step, mode, date: day, ...(run.runId ? { runId: run.runId } : {}) },
+                scorers,
               });
               return { object: generated.object, usage: generated.usage };
             },
@@ -294,7 +299,7 @@ export class PipelineService {
         (candidate) =>
           writeItem(
             candidate,
-            mode === "mock" ? mockItem(candidate) : generating("write", writtenItemSchema),
+            mode === "mock" ? mockItem(candidate) : generating("write", writtenItemSchema, liveScorers().write),
             this.logger,
           ),
       );
@@ -465,11 +470,12 @@ export class PipelineService {
       if (this.inFlight) return new RunFailed({ step: "run", reason: "a run is already in flight", status: CONFLICT });
       this.inFlight = true;
       return this.startRun(mode, now).pipe(
-        // The one alert of a failed run, addressed to the step that failed. Nothing alerts inside the
-        // steps, so a step that tried twice still costs one e-mail.
+        // A step that gives up has already mailed the owners on its last attempt
+        // (mastra/workflows/step.ts), whoever started the run. What is left here is a run that
+        // failed outside every step — it did not start, or ended in a shape it should not have.
         Effect.tapError((error) =>
           Effect.sync(() => this.logger.error({ msg: "run failed", step: error.step, reason: error.reason })).pipe(
-            Effect.andThen(this.alert.send(error.step, error.reason)),
+            Effect.andThen(error.step === "run" ? this.alert.send(error.step, error.reason) : Effect.void),
           ),
         ),
         Effect.ensuring(
@@ -487,14 +493,11 @@ export class PipelineService {
       const date = runDate(now);
       this.logger.log({ msg: "run started", date, mode });
 
-      const requestContext = new RequestContext<EditionContext>();
-      requestContext.set("pipeline", this);
-
       const workflow = this.mastra.getWorkflow("edition");
       const started = yield* Effect.tryPromise({
         try: async () => {
           const run = await workflow.createRun();
-          const result = await run.start({ inputData: { date, mode }, requestContext });
+          const result = await run.start({ inputData: { date, mode } });
           return { runId: run.runId, result };
         },
         catch: (error) => new RunFailed({ step: "run", reason: String(error) }),

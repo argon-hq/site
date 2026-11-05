@@ -5,10 +5,7 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "tsConfigPath": "tsconfig.build.json",
-    "assets": [
-      { "include": "mastra/skills/**/*.md", "outDir": "dist" },
-      { "include": "mastra/editor/**/*.json", "outDir": "dist" }
-    ],
+    "assets": [{ "include": "mastra/skills/**/*.md", "outDir": "dist" }],
     "watchAssets": true
   }
 }

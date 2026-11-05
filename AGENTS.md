@@ -39,7 +39,9 @@ pnpm dev; pnpm build; pnpm lint; pnpm check-types; pnpm test
 ```
 
 Em um pacote só: `pnpm -C apps/api <script>`. Na API: `db:up` sobe o Postgres local,
-`db:migrate` cria migration, `mastra:dev` abre o Studio, `email:preview` renderiza o e-mail.
+`db:migrate` cria migration, `db:pull` copia o conteúdo de uma branch do Neon para o banco local,
+`email:preview` renderiza o e-mail. O Studio é o da própria API, em `http://localhost:3001/studio`,
+com `STUDIO_ENABLED=true`.
 
 O cliente Prisma é gerado em `apps/api/src/generated/prisma`, fora do git, pela tarefa `generate`
 do turbo, da qual build, dev, lint, test e check-types dependem: roda uma vez por execução e só
@@ -69,8 +71,11 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
   - onde `STUDIO_ENABLED` está ligado (só numa máquina local), os estáticos do Studio em `/studio`
     e `GET /mastra/auth/capabilities`, que o Studio precisa antes de desenhar a tela.
 
-  Todas as outras, inclusive as rotas do Mastra, exigem `x-internal-secret` — o Studio manda o
-  segredo que o operador guarda nele, no navegador. A chave de metadata do `@Public` é um
+  Todas as outras exigem `x-internal-secret`. As rotas do Mastra, em `/mastra`, só existem onde
+  `STUDIO_ENABLED` está ligado, numa máquina local; lá o Studio manda o segredo que o operador
+  guarda nele, no navegador. O texto do agente mora só no código (`prompts/`, `skills/`): a aba
+  Editor do Studio grava em `apps/api/.mastra-editor/`, fora do git, e serve só para testar. A
+  chave de metadata do `@Public` é um
   `Symbol`, não uma string: o `@mastra/nestjs` marca o `/health`, o `/ready` e o `/info` dele com
   a chave `"isPublic"`, e uma string de mesmo nome abriria essas rotas junto.
 
@@ -113,3 +118,14 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
 - Propor o texto de documento e de card **antes** de escrever, e esperar a revisão.
 - Commit local. Push e PR só quando pedidos.
 - Planos de tarefa ficam fora do repositório, em `~/dev/Argon/plans/`.
+
+<!-- BEGIN:turborepo-agent-rules -->
+
+# This is NOT the Turborepo you know
+
+Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
+
+Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
+
+This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
+<!-- END:turborepo-agent-rules -->

@@ -8,6 +8,8 @@ import { EditionLock } from "./lock";
 import { OwnerAlert } from "./owner-alert";
 import { PipelineController } from "./pipeline.controller";
 import { PipelineService } from "./pipeline.service";
+import { PipelinePortAdapter } from "./port";
+import { WriteDataset } from "./write-dataset";
 import { RetentionScheduler } from "./retention";
 import { PipelineScheduler } from "./scheduler";
 import { BackupJob } from "./backup";
@@ -41,6 +43,9 @@ export class PipelineModule {
             new EditionWatch(prisma, alert, config.SCHEDULER_ENABLED),
           inject: [PrismaService, OwnerAlert],
         },
+        // What the workflows and the Studio's tools reach the application through (port.ts).
+        WriteDataset,
+        PipelinePortAdapter,
         // The methods of the day's jobs. They only tick where SCHEDULER_ENABLED loads the
         // ScheduleModule (app.module.ts); elsewhere nothing calls them but the jobs route, and an
         // environment with neither has no timer at all: the run is still one POST /pipeline/run away.

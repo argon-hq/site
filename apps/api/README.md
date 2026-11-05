@@ -6,10 +6,10 @@ Source of truth for decisions: the Architecture and Stack documents on OneDrive.
 
 ## Layout
 
-- `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step), `editor/agents/<id>.json`, `prompts/`, `schemas/`, `tools/`, `workflows/`. `MastraModule` is imported last and mounted under `/mastra`.
-  `paths.ts` names the two folders that are data and not code — the skills and the Studio's overrides. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
-  The Studio's **Editor** edits the agent's instructions and tools. `source: "code"` keeps what it writes in `src/mastra/editor/agents/<id>.json`, one file per agent: a change to the prompt is reviewed in a PR and deployed with everything else, instead of living in the database where each environment could drift with no history. The file only exists once someone edits something.
-  `workflows/edition.ts` is the generation as one run — `ingest` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps read the pipeline service from the run context (`workflows/context.ts`), the same way the tools are served. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
+- `src/mastra/`: Mastra instance (`index.ts`), the single agent `agents/editor.ts`, `skills/<name>/SKILL.md` (one per pipeline step), `prompts/`, `schemas/`, `tools/`, `workflows/`. The services reach the instance through `MastraInstanceModule` (`mastra.module.ts`, the `MASTRA` token in `token.ts`); the `MastraModule` of `@mastra/nestjs`, which mounts the Mastra routes under `/mastra`, is registered only where `STUDIO_ENABLED` is on — a development machine — so no deployed function has a route to an agent or a workflow.
+  `paths.ts` names the folder that is data and not code — the skills — and the Editor's scratch folder. Neither `__dirname` nor the working directory can name them in both runtimes (the Studio runs an ESM bundle from `src/mastra/public`, the API runs CommonJS from `apps/api`), so it climbs from wherever the process started until it finds the Mastra tree, preferring `src` over `dist` — the image carries only `dist`, filled by the nest-cli assets.
+  The agent's text lives in the code alone: the instructions in `prompts/editor.ts`, the craft of each step in its `SKILL.md`, the model per step in `MODEL_SELECT` / `MODEL_WRITE`. A change to the agent is a change to those files, reviewed in a PR and deployed with the image. The Studio's **Editor** tab is a scratchpad for trying a change locally: it exists only where the Studio is served, writes to `apps/api/.mastra-editor/` (ignored by git), and what it writes overrides the code on that machine only — once a try is good, its text goes into the files above and the scratch file is deleted.
+  `workflows/edition.ts` is the generation as one run — `ingest` → `write` → `build`, two retries each. It is registered on the instance, so the Studio draws it and shows the state of every step; since the instance is built at import time, with no Nest around, the steps reach the application through a port Nest binds at boot (`workflows/context.ts`, `pipeline/port.ts`); `workflows/step.ts` is the shape every step shares, and `workflows/send.ts` the send, for the Studio. `tools/studio.ts` holds the Studio's tools. A step reports failure by throwing, which is what makes Mastra try it again; the services keep speaking Effect.
 - `src/ingest/`: the news, listed and judged by code (ARG-123). `POST /pipeline/ingest` is the first step of the
   run; the manual commands run the same code to read the sources of an environment and calibrate the triage. No
   model and no page read:
@@ -172,8 +172,8 @@ Source of truth for decisions: the Architecture and Stack documents on OneDrive.
 ```bash
 pnpm db:up             # local Postgres 16 with pgvector and Mailpit (Docker); inbox at http://localhost:8025
 cp .env.example .env   # fill ANTHROPIC_API_KEY and INTERNAL_API_SECRET
-pnpm dev               # http://localhost:3001
-pnpm mastra:dev        # Mastra Studio. The repeated "does not support listing feedback" log line is a Studio bug (mastra-ai/mastra#23745), harmless.
+pnpm dev               # http://localhost:3001; with STUDIO_ENABLED=true, the Studio at /studio
+pnpm db:pull           # the news of dev (sources, feeds, editions, articles, seen links) into the local database
 pnpm test
 pnpm email:preview     # out/email-preview*.html and .txt from the fixtures, images inlined, for the visual review
 ```
@@ -222,17 +222,61 @@ ficha         9      Agência Inventada   Diário Fictício  Copom mantém a Sel
 
 ## Studio
 
-The Studio is a development machine's tool, against the local database. `pnpm mastra:dev` is the
-usual way in; with `STUDIO_ENABLED=true` in `.env`, this API serves the same Studio itself, at
-<http://localhost:3001/studio>. Every deployed function runs with `STUDIO_ENABLED=false`
-(`deploy/aws/lambda.tf`): no environment in AWS serves it.
+The Studio is a development machine's tool. With `STUDIO_ENABLED=true` in `.env`, `pnpm dev` serves it
+at <http://localhost:3001/studio>, together with the Mastra routes it calls under `/mastra`. Every
+deployed function runs with `STUDIO_ENABLED=false` (`deploy/aws/lambda.tf`): no Studio, no `/mastra`, no
+Editor, no traces.
 
-Served by the API, the Studio and the routes it calls share one origin — `/studio` and `/mastra` on
-the same host — so the browser calls the API same-origin. A browser cannot put `x-internal-secret` on
-a navigation, so the bundle under `/studio` is the one public thing here; everything under `/mastra`
-still answers 401 without the header. The instance URL and the API prefix are already filled by the
-page (`src/studio/studio.html.ts`); the secret, `INTERNAL_API_SECRET` from `.env`, goes into the
-Studio's Settings, as a header.
+In AWS, Mastra is not a service of its own: it is a library inside this same Nest process. The jobs
+function gets `{"job":"edition"}` from EventBridge, the Lambda Web Adapter turns it into
+`POST /events`, and the job runs the `edition` workflow in the process, step by step, until it is
+done. So a local run is the same code a Lambda runs; what differs is the configuration (`.env` instead
+of the Parameter Store), the database, and what only a Lambda has — the 900 s ceiling, the freeze once
+the answer is sent, the read-only disk, the cold start. Those are seen in dev, by invoking the jobs
+function (`deploy/README.md`).
+
+### The work loop
+
+1. **Data.** `pnpm db:pull` copies the news of dev into the local database: sources, feeds, editions,
+   articles and seen links — not subscribers, deliveries or settings, and not the `mastra` schema
+   (`scripts/db-pull.ts`). It reads `/argon/dev/DATABASE_URL` from the Parameter Store with the shell's
+   AWS profile (`AWS_PROFILE=argon-new`), or `PULL_DATABASE_URL`; `pnpm db:pull --check` does everything
+   but the copy. The two databases must be on the same migration: the local one is migrated first, and
+   a source ahead or behind stops the command. The articles keep their text until their edition is
+   sent, so the recent days are the ones worth writing from. With the fixture instead (`mode: mock`),
+   nothing needs pulling.
+2. **Change the agent in the code.** The instructions are `src/mastra/prompts/editor.ts`, the craft of
+   each step its `SKILL.md`, the model per step `MODEL_SELECT` / `MODEL_WRITE`; `pnpm dev` picks a
+   change up on its own. The Editor tab is a scratchpad: what it writes goes to `.mastra-editor/`,
+   ignored by git, and overrides the code on this machine only — move the text that works into the
+   files above and delete the scratch file.
+3. **Run it.** Workflows → `edition` → Run, with `date` and `mode` optional (empty: today, the
+   profile's mode, which is `mock` locally). `send` sends the built edition (to Mailpit, locally). Each
+   step reads the services through the port Nest binds at boot (`src/mastra/workflows/context.ts`,
+   `src/pipeline/port.ts`), so a run from the Studio does what the job does, alerts included: a step
+   that gives up mails the owners once, on its last attempt (`src/mastra/workflows/step.ts`).
+4. **Look.** A `live` run leaves a trace under Observability, with each of the Editor's calls nested
+   under its step, and every written item gets a `hallucination-scorer` score (0 is faithful to its
+   article, 1 is invented). Tools: `edition_html` (the stored e-mail of a day), `delivery_status`
+   (where a day's delivery stands), `dataset_add_day`.
+5. **Compare.** `dataset_add_day` puts a day's articles into the `write` dataset, each as the exact
+   prompt the writing step gives the Editor. Datasets → write → run an experiment on the `editor`
+   agent before and after a change, and compare the scores item by item (Experiments → Compare).
+6. **Ship.** The change is files: commit, PR to `dev`, and invoke dev's jobs function to see it on a
+   Lambda before `main`.
+
+The traces and the scores come from `@mastra/observability` and `@mastra/evals`, development
+dependencies loaded by `require` only where the Studio is served (`src/mastra/studio-extras.ts`): the
+image does not carry them, and no deployed database keeps token cost.
+
+### Serving it
+
+The Studio and the routes it calls share one origin — `/studio` and `/mastra` on the same host — so the
+browser calls the API same-origin. A browser cannot put `x-internal-secret` on a navigation, so the
+bundle under `/studio` is the one public thing here; everything under `/mastra` still answers 401
+without the header. The instance URL and the API prefix are already filled by the page
+(`src/studio/studio.html.ts`); the secret, `INTERNAL_API_SECRET` from `.env`, goes into the Studio's
+Settings, as a header.
 
 One Mastra route answers without the secret where the Studio is served — `GET /mastra/auth/capabilities`,
 which the Studio asks before it renders anything and which tells whether Mastra's own auth is on
