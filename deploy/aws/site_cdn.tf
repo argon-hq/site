@@ -193,11 +193,12 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   # A path that exists in no locale folder: the bucket answers 403 to what it does not have. The
-  # export's 404.html is Next's default page, not localized (the root layout is under [locale]).
+  # error page does not go through the router, so one page serves every locale: it carries the
+  # text of each one and shows the cookie's (apps/web/src/app/[locale]/page-not-found).
   custom_error_response {
     error_code         = 403
     response_code      = 404
-    response_page_path = "/404.html"
+    response_page_path = "/pt-BR/page-not-found/index.html"
   }
 
   restrictions {
