@@ -203,7 +203,7 @@ jobs:
           [ "$ID" = None ] && ID=""
           echo "id=$ID" >> "$GITHUB_OUTPUT"
           [ -n "$ID" ] || echo "no site distribution for $ENV_NAME, skipped"
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         if: steps.site.outputs.id != ''
         with:
           package_json_file: ${{ steps.src.outputs.dir }}/package.json
