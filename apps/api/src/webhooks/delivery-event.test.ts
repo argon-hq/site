@@ -9,13 +9,22 @@ const event = (type: string, data: Record<string, unknown> = {}) => ({
 
 describe("parseEvent", () => {
   it("reads the type and the provider's id of the message", () => {
-    expect(parseEvent(event("email.delivered"))).toEqual({ type: "email.delivered", emailId: "re_1" });
+    expect(parseEvent(event("email.delivered"))).toEqual({
+      type: "email.delivered",
+      emailId: "re_1",
+      createdAt: new Date("2026-11-13T10:00:00.000Z"),
+    });
   });
 
   it("reads the kind of a bounce", () => {
     expect(
       parseEvent(event("email.bounced", { bounce: { type: "Permanent", subType: "General", message: "x" } })),
-    ).toEqual({ type: "email.bounced", emailId: "re_1", bounceType: "Permanent" });
+    ).toEqual({
+      type: "email.bounced",
+      emailId: "re_1",
+      bounceType: "Permanent",
+      createdAt: new Date("2026-11-13T10:00:00.000Z"),
+    });
   });
 
   it("returns null for anything that is not an e-mail event the provider could send", () => {

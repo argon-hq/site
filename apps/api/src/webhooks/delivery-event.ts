@@ -6,20 +6,27 @@ import type { DeliveryStatus } from "../generated/prisma/client";
 // Everything else the provider sends is ignored, and an event without an e-mail id is not ours.
 const eventSchema = z.object({
   type: z.string().startsWith("email."),
+  // When the provider recorded the event; a malformed one reads as unknown, not as a refusal.
+  created_at: z.iso.datetime({ offset: true }).optional().catch(undefined),
   data: z.object({
     email_id: z.string().min(1).max(200),
     bounce: z.object({ type: z.string() }).partial().optional(),
   }),
 });
 
-export type DeliveryEvent = { type: string; emailId: string; bounceType?: string };
+export type DeliveryEvent = { type: string; emailId: string; bounceType?: string; createdAt?: Date };
 
 export function parseEvent(body: unknown): DeliveryEvent | null {
   const parsed = eventSchema.safeParse(body);
   if (!parsed.success) return null;
-  const { type, data } = parsed.data;
+  const { type, data, created_at: createdAt } = parsed.data;
   const bounceType = data.bounce?.type;
-  return bounceType === undefined ? { type, emailId: data.email_id } : { type, emailId: data.email_id, bounceType };
+  return {
+    type,
+    emailId: data.email_id,
+    ...(bounceType === undefined ? {} : { bounceType }),
+    ...(createdAt === undefined ? {} : { createdAt: new Date(createdAt) }),
+  };
 }
 
 // The status an event moves a row to, and the statuses it may move it from. The row only moves

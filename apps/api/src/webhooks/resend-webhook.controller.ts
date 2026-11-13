@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Controller,
   Headers,
   HttpCode,
@@ -19,6 +20,13 @@ import { verifySignature } from "./signature";
 
 // Injection token: the endpoint's signing secret (RESEND_WEBHOOK_SECRET).
 export const RESEND_WEBHOOK_SECRET = "RESEND_WEBHOOK_SECRET";
+
+// How long an unknown provider id is worth a retry. The sending step stores the ids only when the
+// provider has answered the whole batch (send.ts, recordBatch), so an early event — a failure or a
+// suppression comes within milliseconds — can arrive before its row has one. A 409 makes the
+// provider retry (seconds, then minutes later); past this window the id is taken as not ours — a
+// confirmation e-mail, an edition already trimmed — and answered 200 so it stops.
+export const UNKNOWN_RETRY_WINDOW_MS = 15 * 60_000;
 
 @Controller("webhooks")
 export class ResendWebhookController {
@@ -45,24 +53,33 @@ export class ResendWebhookController {
   ) {
     // main.ts keeps the raw body (`rawBody: true`); the signature is over those bytes, not over a
     // re-serialized object.
-    const raw = req.rawBody?.toString("utf8");
+    const raw = req.rawBody;
+    // Header-controlled and logged before it is trusted: bounded.
+    const svixId = id?.slice(0, 100);
     if (
       raw === undefined ||
       !verifySignature(this.secret, { id: id ?? "", timestamp: timestamp ?? "", signature: signature ?? "" }, raw)
     ) {
-      this.logger.warn({ msg: "delivery webhook refused: bad signature", svixId: id });
+      this.logger.warn({ msg: "delivery webhook refused: bad signature", svixId });
       throw new UnauthorizedException();
     }
 
-    const event = parseEvent(parseJson(raw));
+    const event = parseEvent(parseJson(raw.toString("utf8")));
     if (!event) {
-      this.logger.log({ msg: "delivery webhook ignored: not an e-mail event", svixId: id });
+      this.logger.log({ msg: "delivery webhook ignored: not an e-mail event", svixId });
       return { status: "ignored" };
     }
 
     const result = await runEffect("delivery-webhook", this.deliveries.apply(event));
+    if (result.outcome === "unknown" && isRecent(event.createdAt)) {
+      throw new ConflictException({ status: "unknown", retry: true });
+    }
     return { status: result.outcome };
   }
+}
+
+function isRecent(createdAt: Date | undefined, now: Date = new Date()): boolean {
+  return createdAt !== undefined && now.getTime() - createdAt.getTime() < UNKNOWN_RETRY_WINDOW_MS;
 }
 
 function parseJson(raw: string): unknown {

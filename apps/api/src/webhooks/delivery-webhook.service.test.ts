@@ -83,11 +83,7 @@ describe("DeliveryWebhookService.apply", () => {
     const bounce = { type: "email.bounced", emailId: "re_1", bounceType: "Transient" };
 
     await run(webhook.apply(bounce));
-    await expect(run(webhook.apply(bounce))).resolves.toEqual({
-      outcome: "stale",
-      deliveryId: "d_1",
-      status: "soft_bounce",
-    });
+    await expect(run(webhook.apply(bounce))).resolves.toEqual({ outcome: "stale", deliveryId: "d_1" });
     expect(tx.subscriber.update).toHaveBeenCalledTimes(1);
   });
 
@@ -97,7 +93,6 @@ describe("DeliveryWebhookService.apply", () => {
     await expect(run(webhook.apply({ type: "email.delivered", emailId: "re_1" }))).resolves.toEqual({
       outcome: "stale",
       deliveryId: "d_1",
-      status: "hard_bounce",
     });
     expect(state.row?.status).toBe("hard_bounce");
   });

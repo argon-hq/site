@@ -153,9 +153,11 @@ Source of truth for decisions: the Architecture and Stack documents on OneDrive.
   a complaint `blocked`, and a soft bounce adds one to `soft_bounces` — counted, not acted on: how many soft bounces give up
   on an address is not decided yet. The row only moves forward: each event may move it only from the statuses listed in
   `transitionFor`, with a conditional update in the same transaction as the subscriber's change, so an event received twice
-  or late applies once and never moves a final status back. An id no delivery carries (a confirmation e-mail, an edition
-  already trimmed) answers 200 and is logged as `delivery webhook` with `outcome: "unknown"`; only a database failure
-  answers 500, which the provider retries. Registering the endpoint in Resend is done by hand, once per environment:
+  or late applies once and never moves a final status back. An id no delivery carries is logged as `delivery webhook` with
+  `outcome: "unknown"`: while the event is less than 15 minutes old it answers 409, so the provider retries — the sending
+  step stores the ids only when the provider has answered the whole batch, and a failure or a suppression can arrive
+  before that; after that it answers 200 (a confirmation e-mail, an edition already trimmed). A database failure answers
+  500, which the provider also retries. A hard bounce marks a `cancelled` subscriber `bounced` too: the address is dead. Registering the endpoint in Resend is done by hand, once per environment:
   `<API_ORIGIN>/webhooks/resend`, with the e-mail events; its signing secret goes to `/argon/<env>/RESEND_WEBHOOK_SECRET`.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
   `signup-throttle.guard.ts` rate-limits every public subscriber route by the visitor's address (`req.ip`, which the

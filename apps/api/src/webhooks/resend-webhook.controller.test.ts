@@ -68,7 +68,11 @@ describe("POST /webhooks/resend", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: "applied" });
-    expect(apply).toHaveBeenCalledWith({ type: "email.delivered", emailId: "re_1" });
+    expect(apply).toHaveBeenCalledWith({
+      type: "email.delivered",
+      emailId: "re_1",
+      createdAt: new Date("2026-11-13T10:00:00Z"),
+    });
   });
 
   it("refuses a request whose signature does not match, and applies nothing", async () => {
@@ -109,13 +113,23 @@ describe("POST /webhooks/resend", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it("answers 200 to an id no delivery carries", async () => {
+  it("answers 200 to an id no delivery carries once the event is old enough", async () => {
     const { post } = await start(vi.fn<Apply>(() => Effect.succeed({ outcome: "unknown" })));
+    const old = DELIVERED.replace("2026-11-13T10:00:00Z", new Date(Date.now() - 60 * 60_000).toISOString());
 
-    const response = await post(DELIVERED, signed(DELIVERED));
+    const response = await post(old, signed(old));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: "unknown" });
+  });
+
+  it("answers 409 to an unknown id of a fresh event: the sending step may not have stored it yet, and the provider retries", async () => {
+    const { post } = await start(vi.fn<Apply>(() => Effect.succeed({ outcome: "unknown" })));
+    const fresh = DELIVERED.replace("2026-11-13T10:00:00Z", new Date().toISOString());
+
+    const response = await post(fresh, signed(fresh));
+
+    expect(response.status).toBe(409);
   });
 
   it("answers 500 when the database fails, so the provider retries", async () => {

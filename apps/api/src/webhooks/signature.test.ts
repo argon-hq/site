@@ -6,12 +6,13 @@ const KEY = randomBytes(24);
 const SECRET = `whsec_${KEY.toString("base64")}`;
 const NOW = new Date("2026-11-13T10:00:00Z");
 const NOW_SECONDS = String(Math.floor(NOW.getTime() / 1000));
-const BODY = '{"type":"email.delivered","data":{"email_id":"abc"}}';
+const TEXT = '{"type":"email.delivered","data":{"email_id":"abc"}}';
+const BODY = Buffer.from(TEXT);
 
 // What the provider does on its side (Svix): HMAC-SHA256 of "<id>.<timestamp>.<body>" under the
 // decoded secret, base64, prefixed with the version.
-function sign(id: string, timestamp: string, body: string, key: Buffer = KEY): string {
-  return `v1,${createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest("base64")}`;
+function sign(id: string, timestamp: string, body: Buffer, key: Buffer = KEY): string {
+  return `v1,${createHmac("sha256", key).update(`${id}.${timestamp}.`).update(body).digest("base64")}`;
 }
 
 function headers(overrides: Partial<{ id: string; timestamp: string; signature: string }> = {}) {
@@ -32,7 +33,7 @@ describe("verifySignature", () => {
   });
 
   it("refuses a body changed after signing", () => {
-    expect(verifySignature(SECRET, headers(), BODY.replace("delivered", "bounced"), NOW)).toBe(false);
+    expect(verifySignature(SECRET, headers(), Buffer.from(TEXT.replace("delivered", "bounced")), NOW)).toBe(false);
   });
 
   it("refuses a signature made under another secret", () => {
@@ -66,6 +67,15 @@ describe("verifySignature", () => {
     expect(verifySignature(SECRET, headers({ signature: "" }), BODY, NOW)).toBe(false);
     expect(verifySignature(SECRET, headers({ signature: "v1," }), BODY, NOW)).toBe(false);
     expect(verifySignature(SECRET, headers({ signature: "garbage" }), BODY, NOW)).toBe(false);
+  });
+
+  it("signs the bytes as received, not a decoded copy of them", () => {
+    const bytes = Buffer.concat([Buffer.from('{"x":"'), Buffer.from([0xff]), Buffer.from('"}')]);
+    const signature = `v1,${createHmac("sha256", KEY)
+      .update("msg_1." + NOW_SECONDS + ".")
+      .update(bytes)
+      .digest("base64")}`;
+    expect(verifySignature(SECRET, headers({ signature }), bytes, NOW)).toBe(true);
   });
 
   it("refuses a signature of another version", () => {

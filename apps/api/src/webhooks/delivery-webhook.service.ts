@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Data, Effect } from "effect";
 import { dbEffect } from "../effect/db";
 import type { Failure } from "../effect/failure";
@@ -19,7 +19,7 @@ export type ApplyResult =
   // e-mail, or an edition already trimmed.
   | { outcome: "unknown" }
   // The row is already past where the event would put it: a repeat, or an older event late.
-  | { outcome: "stale"; deliveryId: string; status: DeliveryStatus }
+  | { outcome: "stale"; deliveryId: string }
   | { outcome: "applied"; deliveryId: string; status: DeliveryStatus };
 
 type Tx = Prisma.TransactionClient;
@@ -30,7 +30,7 @@ type Tx = Prisma.TransactionClient;
 export class DeliveryWebhookService {
   private readonly logger = new Logger(DeliveryWebhookService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   apply(event: DeliveryEvent): Effect.Effect<ApplyResult, DeliveryWebhookFailed> {
     const transition = transitionFor(event);
@@ -55,7 +55,7 @@ export class DeliveryWebhookService {
       where: { id: row.id, status: { in: transition.from } },
       data: { status: transition.to },
     });
-    if (moved.count === 0) return { outcome: "stale", deliveryId: row.id, status: row.status };
+    if (moved.count === 0) return { outcome: "stale", deliveryId: row.id };
 
     await this.settleSubscriber(tx, row.subscriberId, transition.to);
     return { outcome: "applied", deliveryId: row.id, status: transition.to };
@@ -70,7 +70,8 @@ export class DeliveryWebhookService {
         await tx.subscriber.update({ where: { id: subscriberId }, data: { softBounces: { increment: 1 } } });
         return;
       case "hard_bounce":
-        // A complaint is the stronger mark and stays.
+        // A complaint is the stronger mark and stays. A cancelled address becomes bounced too: it
+        // is dead, and a sign-up that reopened it would only bounce again.
         await tx.subscriber.updateMany({
           where: { id: subscriberId, status: { not: "blocked" } },
           data: { status: "bounced" },

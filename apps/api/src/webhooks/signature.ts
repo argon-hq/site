@@ -15,7 +15,7 @@ export type SignatureHeaders = { id: string; timestamp: string; signature: strin
 export function verifySignature(
   secret: string,
   headers: SignatureHeaders,
-  body: string,
+  body: Buffer,
   now: Date = new Date(),
 ): boolean {
   const { id, timestamp, signature } = headers;
@@ -23,7 +23,8 @@ export function verifySignature(
   if (Math.abs(Math.floor(now.getTime() / 1000) - Number(timestamp)) > SIGNATURE_TOLERANCE_SECONDS) return false;
 
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
-  const expected = createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest();
+  // Over the bytes as received: a decoded copy would turn invalid UTF-8 into replacement characters.
+  const expected = createHmac("sha256", key).update(`${id}.${timestamp}.`).update(body).digest();
 
   return signature
     .split(" ")
