@@ -13,6 +13,7 @@ export default defineConfig({
         "src/subscriber/**/*.ts",
         "src/ingest/**/*.ts",
         "src/net/**/*.ts",
+        "src/webhooks/**/*.ts",
         "src/mastra/tools/read-page.ts",
       ],
       exclude: [

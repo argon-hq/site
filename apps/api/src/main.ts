@@ -14,7 +14,9 @@ async function bootstrap() {
   const config = loadConfig();
   // JSON in AWS, where CloudWatch indexes the fields; one readable line on a terminal.
   const logger = config.NODE_ENV === "production" ? new ConsoleLogger({ json: true }) : new PrettyLogger();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger });
+  // The raw body is kept next to the parsed one: the delivery webhook checks the provider's signature
+  // over the exact bytes it sent (src/webhooks).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger, rawBody: true });
   // One proxy in front: on Lambda, the Web Adapter in the image, which passes on the headers of the
   // invocation. `req.ip` is the address they forward, not the adapter's own. The public routes count
   // their rate limit by it.

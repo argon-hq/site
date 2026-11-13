@@ -12,7 +12,12 @@ export const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
 export type SignatureHeaders = { id: string; timestamp: string; signature: string };
 
-export function verifySignature(secret: string, headers: SignatureHeaders, body: string, now: Date = new Date()): boolean {
+export function verifySignature(
+  secret: string,
+  headers: SignatureHeaders,
+  body: string,
+  now: Date = new Date(),
+): boolean {
   const { id, timestamp, signature } = headers;
   if (!id || !/^\d+$/.test(timestamp)) return false;
   if (Math.abs(Math.floor(now.getTime() / 1000) - Number(timestamp)) > SIGNATURE_TOLERANCE_SECONDS) return false;

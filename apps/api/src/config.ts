@@ -67,6 +67,13 @@ const schema = z
     // postal address are the business's and stay in the settings; only the address moves with the
     // environment, so a fresh database cannot make prod mail from dev's domain.
     MAIL_FROM: z.email().optional(),
+    // The signing secret of the delivery webhook (src/webhooks), as the provider shows it when the
+    // endpoint is registered: "whsec_" and the key in base64. Unset, POST /webhooks/resend does not
+    // exist — a development machine sends to Mailpit and has nothing to hear back from.
+    RESEND_WEBHOOK_SECRET: z
+      .string()
+      .regex(/^whsec_[A-Za-z0-9+/]{16,}={0,2}$/)
+      .optional(),
   })
   // The key is only required by the provider that uses it.
   .refine((c) => c.MAIL_TRANSPORT !== "resend" || Boolean(c.RESEND_API_KEY), {

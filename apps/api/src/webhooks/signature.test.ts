@@ -41,9 +41,9 @@ describe("verifySignature", () => {
   });
 
   it("refuses a signature replayed under another message id", () => {
-    expect(verifySignature(SECRET, headers({ id: "msg_2", signature: sign("msg_1", NOW_SECONDS, BODY) }), BODY, NOW)).toBe(
-      false,
-    );
+    expect(
+      verifySignature(SECRET, headers({ id: "msg_2", signature: sign("msg_1", NOW_SECONDS, BODY) }), BODY, NOW),
+    ).toBe(false);
   });
 
   it("refuses a timestamp outside the tolerance, either way", () => {
@@ -59,9 +59,9 @@ describe("verifySignature", () => {
   });
 
   it("refuses missing or malformed headers instead of throwing", () => {
-    expect(verifySignature(SECRET, { id: "", timestamp: NOW_SECONDS, signature: sign("", NOW_SECONDS, BODY) }, BODY, NOW)).toBe(
-      false,
-    );
+    expect(
+      verifySignature(SECRET, { id: "", timestamp: NOW_SECONDS, signature: sign("", NOW_SECONDS, BODY) }, BODY, NOW),
+    ).toBe(false);
     expect(verifySignature(SECRET, headers({ timestamp: "soon" }), BODY, NOW)).toBe(false);
     expect(verifySignature(SECRET, headers({ signature: "" }), BODY, NOW)).toBe(false);
     expect(verifySignature(SECRET, headers({ signature: "v1," }), BODY, NOW)).toBe(false);

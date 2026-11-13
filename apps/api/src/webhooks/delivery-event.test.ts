@@ -13,9 +13,9 @@ describe("parseEvent", () => {
   });
 
   it("reads the kind of a bounce", () => {
-    expect(parseEvent(event("email.bounced", { bounce: { type: "Permanent", subType: "General", message: "x" } }))).toEqual(
-      { type: "email.bounced", emailId: "re_1", bounceType: "Permanent" },
-    );
+    expect(
+      parseEvent(event("email.bounced", { bounce: { type: "Permanent", subType: "General", message: "x" } })),
+    ).toEqual({ type: "email.bounced", emailId: "re_1", bounceType: "Permanent" });
   });
 
   it("returns null for anything that is not an e-mail event the provider could send", () => {
