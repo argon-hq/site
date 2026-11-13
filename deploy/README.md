@@ -152,7 +152,7 @@ dois idiomas e mostra o do cookie (`apps/web/src/app/[locale]/page-not-found`).
 ## Variáveis
 
 Cada parâmetro `/argon/<env>/NOME` vira a variável `NOME` da função, lida a cada partida a frio
-(`apps/api/src/lambda/env.ts`). Todo ambiente espera estas nove:
+(`apps/api/src/lambda/env.ts`). Todo ambiente espera estas nove, e a última da tabela é opcional:
 
 | Variável                   | Quem lê               | Tipo         |
 | -------------------------- | --------------------- | ------------ |
@@ -164,6 +164,7 @@ Cada parâmetro `/argon/<env>/NOME` vira a variável `NOME` da função, lida a 
 | `WEB_ORIGIN`, `API_ORIGIN` | API e o build do site | String       |
 | `MAIL_TRANSPORT`           | API                   | String       |
 | `MAIL_FROM`                | API                   | String       |
+| `RESEND_WEBHOOK_SECRET`    | API (opcional)        | SecureString |
 
 O Terraform cria esses nomes (`aws/parameters.tf`), com um valor provisório que nunca mais mexe; os
 valores são escritos à mão.
@@ -184,6 +185,13 @@ API não sobe.
 ambiente: `newsletter@argonbusiness.com` em prod, `newsletter@dev.argonbusiness.com` em dev e
 lab. Sem ela a API não sobe. Nome e endereço postal do remetente ficam na tabela de configurações;
 o link da política e o do site saem de `WEB_ORIGIN`.
+
+`RESEND_WEBHOOK_SECRET` (SecureString, opcional) é o segredo de assinatura do webhook de entrega,
+`POST /webhooks/resend` (`apps/api/README.md`, `src/webhooks/`): o `whsec_...` que o Resend mostra ao
+cadastrar o endpoint `<API_ORIGIN>/webhooks/resend`, um por ambiente. Sem ele a rota não existe e
+`sent` continua sendo o último status de uma entrega; com um valor fora desse formato a API não sobe.
+Ainda não está no `aws/parameters.tf`: o parâmetro é criado à mão (`aws ssm put-parameter --type
+SecureString`), porque o valor provisório `CHANGE-ME` do Terraform derrubaria a API.
 
 As imagens do e-mail não têm parâmetro: a API as busca no bucket público, no prefixo do próprio
 ambiente (`ARGON_ENV`), que o deploy preenche antes de mover as funções (`aws/README.md`, "Arquivos

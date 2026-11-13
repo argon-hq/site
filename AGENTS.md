@@ -66,6 +66,8 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
   - as rotas do site em `/subscriber` (cadastro, confirmação, consulta e cancelamento), com limite
     por IP e CORS só para a origem do site;
   - `POST /subscriber/unsubscribe/one-click`, que o servidor do cliente de e-mail chama sozinho;
+  - `POST /webhooks/resend`, o webhook de entrega, que vale pela assinatura do Resend sobre o corpo, montada só onde
+    `RESEND_WEBHOOK_SECRET` existe;
   - `POST /events`, por onde o Lambda Web Adapter entrega os jobs, montada só na função de jobs,
     que não tem URL;
   - onde `STUDIO_ENABLED` está ligado (só numa máquina local), os estáticos do Studio em `/studio`

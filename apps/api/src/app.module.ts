@@ -15,6 +15,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { SettingsModule } from "./settings/settings.module";
 import { StudioModule } from "./studio/studio.module";
 import { SubscriberModule } from "./subscriber/subscriber.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
 
 const config = loadConfig();
 
@@ -31,6 +32,8 @@ const config = loadConfig();
     SourcesModule,
     PipelineModule.forRoot(config),
     SubscriberModule.forRoot(config),
+    // POST /webhooks/resend, only where RESEND_WEBHOOK_SECRET is set.
+    WebhooksModule.forRoot(config),
     StudioModule.forRoot(config),
     // The Mastra routes under /mastra are the Studio's and nobody else's, so they exist only where the
     // Studio is served — a development machine. Every deployed function runs without them: no route

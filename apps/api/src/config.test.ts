@@ -30,4 +30,14 @@ describe("loadConfig", () => {
       "newsletter@argonbusiness.com",
     );
   });
+
+  it("leaves the delivery webhook off without its secret", () => {
+    expect(loadConfig(valid).RESEND_WEBHOOK_SECRET).toBeUndefined();
+  });
+
+  it("takes the webhook secret only in the provider's format, so a placeholder fails at boot", () => {
+    const secret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
+    expect(loadConfig({ ...valid, RESEND_WEBHOOK_SECRET: secret }).RESEND_WEBHOOK_SECRET).toBe(secret);
+    expect(() => loadConfig({ ...valid, RESEND_WEBHOOK_SECRET: "CHANGE-ME" })).toThrow(/RESEND_WEBHOOK_SECRET/);
+  });
 });

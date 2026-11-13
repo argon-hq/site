@@ -90,9 +90,8 @@ Source of truth for decisions: the Architecture and Stack documents on OneDrive.
   `<edition>:<batch>`. The queue is whatever the database calls pending, so running again only picks up what is left; the
   edition closes as `sent` when nothing is pending. `scheduler.ts` fires it at 7h, the same days, behind the same
   `SCHEDULER_ENABLED` (in AWS, the `send` job). Two things to know about what it means: the key the provider dedupes on **expires after 24h**, so
-  resuming the same morning is safe and resuming a two-day-old edition would deliver again; and without the delivery
-  webhook (ARG-100's second half) `sent` means the provider accepted the message, not that anyone received it —
-  `delivered`, the bounces and `complaint` are unreachable and `subscriber.soft_bounces` stays at zero.
+  resuming the same morning is safe and resuming a two-day-old edition would deliver again; and `sent` means the provider accepted the
+  message, not that anyone received it: what happened next comes back through the delivery webhook (`src/webhooks/`).
   A batch is all-or-nothing at the row level: either the provider answered and every row moved to `sent` or `failed`, or
   it did not and every row is still `pending`. That is what makes the key honest, and it holds only while batch numbers
   are frozen at creation, a subscriber who confirms later starts a batch of their own, and the rows of a batch keep a
@@ -142,6 +141,24 @@ Source of truth for decisions: the Architecture and Stack documents on OneDrive.
   subscriber id and `UNSUBSCRIBE_TOKEN_SECRET` (`token.ts`); the confirmation records only its hash. The service speaks
   Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures — and the controller runs it
   through `runEffect`, so a provider that is down answers 503 and a database that is down answers 500.
+- `src/webhooks/`: `POST /webhooks/resend`, the delivery webhook — the second half of the distributor. Public, because
+  the provider cannot send `x-internal-secret`; instead every request carries the Svix signature (`svix-id`,
+  `svix-timestamp`, `svix-signature`) over its raw body, checked against `RESEND_WEBHOOK_SECRET` before anything is read
+  (`signature.ts`: HMAC-SHA256, five minutes of tolerance on the timestamp, constant-time comparison; `main.ts` keeps the
+  raw body for it). A bad signature answers 401 and changes nothing. The route exists only where the secret is set.
+  The event is matched to its `delivery` row by `provider_email_id` (`delivery-event.ts`, `delivery-webhook.service.ts`):
+  `email.delivered` → `delivered`; `email.bounced` → `hard_bounce` if `Permanent`, otherwise `soft_bounce`;
+  `email.complained` → `complaint`; `email.suppressed` → `hard_bounce`; `email.failed` → `failed`. The rest (sent, delayed,
+  opened, clicked) is logged and ignored. On the subscriber, a hard bounce marks them `bounced` (unless already `blocked`),
+  a complaint `blocked`, and a soft bounce adds one to `soft_bounces` — counted, not acted on: how many soft bounces give up
+  on an address is not decided yet. The row only moves forward: each event may move it only from the statuses listed in
+  `transitionFor`, with a conditional update in the same transaction as the subscriber's change, so an event received twice
+  or late applies once and never moves a final status back. An id no delivery carries is logged as `delivery webhook` with
+  `outcome: "unknown"`: while the event is less than 15 minutes old it answers 409, so the provider retries — the sending
+  step stores the ids only when the provider has answered the whole batch, and a failure or a suppression can arrive
+  before that; after that it answers 200 (a confirmation e-mail, an edition already trimmed). A database failure answers
+  500, which the provider also retries. A hard bounce marks a `cancelled` subscriber `bounced` too: the address is dead. Registering the endpoint in Resend is done by hand, once per environment:
+  `<API_ORIGIN>/webhooks/resend`, with the e-mail events; its signing secret goes to `/argon/<env>/RESEND_WEBHOOK_SECRET`.
 - `src/auth/`: global guard; every route needs the `x-internal-secret` header unless marked `@Public()`.
   `signup-throttle.guard.ts` rate-limits every public subscriber route by the visitor's address (`req.ip`, which the
   API function takes from `CloudFront-Viewer-Address`, `src/net/cloudfront.ts`): ten a minute, in memory.
