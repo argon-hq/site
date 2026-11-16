@@ -1,12 +1,18 @@
-import { NotFoundException, RequestMethod } from "@nestjs/common";
-import { GUARDS_METADATA, HEADERS_METADATA, METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
+import { HttpStatus, NotFoundException, RequestMethod } from "@nestjs/common";
+import {
+  GUARDS_METADATA,
+  HEADERS_METADATA,
+  METHOD_METADATA,
+  PATH_METADATA,
+  REDIRECT_METADATA,
+} from "@nestjs/common/constants";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import { IS_PUBLIC } from "../auth/public.decorator";
 import { SignupThrottleGuard } from "../auth/signup-throttle.guard";
 import { SubscriberController } from "./subscriber.controller";
 import type { SubscriberService } from "./subscriber.service";
-import { unsubscribeHeaders } from "./urls";
+import { unsubscribeHeaders, unsubscribePageUrl } from "./urls";
 
 // The cancellation policies of ARG-49 are decorators, not logic: what these tests read is the route
 // table Nest builds from them, so a policy dropped in a refactor fails here instead of in an inbox.
@@ -22,7 +28,7 @@ function controller() {
     unsubscribe: vi.fn(() => Effect.succeed({ status: "cancelled", email: "ana@example.com" } as const)),
     findByUnsubscribeToken: vi.fn(() => Effect.succeed({ email: "ana@example.com", status: "confirmed" })),
   };
-  return { subscribers, route: new SubscriberController(subscribers as unknown as SubscriberService) };
+  return { subscribers, route: new SubscriberController(subscribers as unknown as SubscriberService, origins) };
 }
 
 describe("one-click unsubscribe (RFC 8058)", () => {
@@ -39,7 +45,7 @@ describe("one-click unsubscribe (RFC 8058)", () => {
 
   it("needs no secret, like every route the static site calls from the browser", () => {
     expect(handlers.filter((name) => meta(IS_PUBLIC, name) === true).sort()).toEqual(
-      ["confirm", "lookup", "oneClick", "signUp", "unsubscribe"].sort(),
+      ["confirm", "lookup", "oneClick", "oneClickInBrowser", "signUp", "unsubscribe"].sort(),
     );
   });
 
@@ -63,8 +69,31 @@ describe("one-click unsubscribe (RFC 8058)", () => {
   });
 });
 
+// Clients that do not post the one-click open the same URI in the browser; that GET used to be a 404.
+describe("the one-click URI opened in a browser", () => {
+  it("is a GET on the same path as the one-click POST", () => {
+    expect(meta(PATH_METADATA, "oneClickInBrowser")).toBe(meta(PATH_METADATA, "oneClick"));
+    expect(meta(METHOD_METADATA, "oneClickInBrowser")).toBe(RequestMethod.GET);
+  });
+
+  it("redirects to the site's page with the token, without cancelling", () => {
+    const { route, subscribers } = controller();
+
+    expect(meta(REDIRECT_METADATA, "oneClickInBrowser")).toMatchObject({ statusCode: HttpStatus.SEE_OTHER });
+    expect(route.oneClickInBrowser(TOKEN)).toEqual({ url: unsubscribePageUrl(origins, TOKEN) });
+    expect(subscribers.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it("sends a malformed or missing token to the page without it, which shows an invalid link", () => {
+    const { route } = controller();
+
+    expect(route.oneClickInBrowser("short")).toEqual({ url: unsubscribePageUrl(origins, "") });
+    expect(route.oneClickInBrowser(undefined as unknown as string)).toEqual({ url: unsubscribePageUrl(origins, "") });
+  });
+});
+
 describe("the public routes", () => {
-  it.each(["signUp", "confirm", "lookup", "unsubscribe", "oneClick"] as const)(
+  it.each(["signUp", "confirm", "lookup", "unsubscribe", "oneClick", "oneClickInBrowser"] as const)(
     "%s is rate limited by the visitor's address, being open to the internet",
     (name) => {
       expect(meta(GUARDS_METADATA, name)).toEqual([SignupThrottleGuard]);
@@ -73,7 +102,7 @@ describe("the public routes", () => {
 });
 
 describe("routes that carry a token", () => {
-  it.each(["confirm", "lookup", "unsubscribe", "oneClick"] as const)(
+  it.each(["confirm", "lookup", "unsubscribe", "oneClick", "oneClickInBrowser"] as const)(
     "%s sends Referrer-Policy: no-referrer, so the token does not leak in the Referer",
     (name) => {
       expect(meta(HEADERS_METADATA, name)).toContainEqual({ name: "Referrer-Policy", value: "no-referrer" });

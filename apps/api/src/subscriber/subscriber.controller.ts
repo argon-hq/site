@@ -4,9 +4,12 @@ import {
   Get,
   Header,
   HttpCode,
+  HttpStatus,
+  Inject,
   NotFoundException,
   Post,
   Query,
+  Redirect,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -18,6 +21,7 @@ import { Public } from "../auth/public.decorator";
 import { SignupThrottleGuard } from "../auth/signup-throttle.guard";
 import { ZodBody } from "../validation/zod-body.pipe";
 import { SubscriberService } from "./subscriber.service";
+import { ORIGINS, type Origins, unsubscribePageUrl } from "./urls";
 
 const signUpBody = z.object({
   // Normalized before it is validated: an address pasted with spaces or in capitals is valid, not an error.
@@ -34,7 +38,10 @@ const confirmBody = z.object({ token: unsubscribeToken });
 
 @Controller("subscriber")
 export class SubscriberController {
-  constructor(private readonly subscribers: SubscriberService) {}
+  constructor(
+    private readonly subscribers: SubscriberService,
+    @Inject(ORIGINS) private readonly origins: Origins,
+  ) {}
 
   // The four routes the site calls are public: the static site calls them from the visitor's
   // browser (CORS for the site's origin, src/main.ts), and every one is rate limited by the
@@ -109,5 +116,20 @@ export class SubscriberController {
     // 200, so a retry loop is not started over something a retry cannot fix.
     if (parsed.success) await runEffect("one-click", this.subscribers.unsubscribe(parsed.data));
     return { status: "ok" };
+  }
+
+  // The same URI opened in a browser. Clients that skip the one-click POST (Gmail for a sender it
+  // does not trust yet, Outlook, Apple Mail) open `List-Unsubscribe` as a link instead, and without
+  // this route that landed on a 404. It sends the reader to the site's page, which confirms before
+  // cancelling: a GET never cancels, because link scanners follow every URL they find.
+  @Public()
+  @Get("unsubscribe/one-click")
+  @UseGuards(SignupThrottleGuard)
+  @Header("Referrer-Policy", "no-referrer")
+  @Redirect(undefined, HttpStatus.SEE_OTHER)
+  oneClickInBrowser(@Query("token") token: string) {
+    const parsed = unsubscribeToken.safeParse(token);
+    // A malformed token still lands on the page, which shows it as an invalid link.
+    return { url: unsubscribePageUrl(this.origins, parsed.success ? parsed.data : "") };
   }
 }
