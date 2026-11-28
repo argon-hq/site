@@ -226,12 +226,12 @@ jobs:
           BUCKET="argon-site-$(aws sts get-caller-identity --query Account --output text)"
           cd "$SRC_DIR"
           pnpm install --frozen-lockfile --filter web...
-          WEB_ORIGIN="$WEB_ORIGIN" NEXT_PUBLIC_API_ORIGIN="$API_ORIGIN" pnpm --filter web build
-          aws s3 sync apps/web/out "s3://$BUCKET/$ENV_NAME/" --delete --only-show-errors
-          # The Open Graph image has no extension, so sync stores it as octet-stream: a link preview
-          # needs image/png.
-          aws s3 cp apps/web/out "s3://$BUCKET/$ENV_NAME/" --recursive --exclude '*' --include '*/opengraph-image' \
-            --content-type image/png --metadata-directive REPLACE --only-show-errors
+          # The build id comes from the site's code and the lockfile: a deploy that does not touch
+          # the site builds the same files, and site-sync.py uploads none of them.
+          NEXT_BUILD_ID=$(git rev-parse HEAD:apps/web HEAD:pnpm-lock.yaml | sha1sum | cut -c1-20)
+          WEB_ORIGIN="$WEB_ORIGIN" NEXT_PUBLIC_API_ORIGIN="$API_ORIGIN" NEXT_BUILD_ID="$NEXT_BUILD_ID" \
+            pnpm --filter web build
+          python3 "$GITHUB_WORKSPACE/deploy/site-sync.py" apps/web/out "$BUCKET" "$ENV_NAME"
           aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths '/*' --query Invalidation.Id --output text
       # The function answering is not the same as the API answering from the internet: this also
       # covers CloudFront, DNS and the certificate.

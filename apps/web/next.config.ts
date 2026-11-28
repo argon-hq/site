@@ -27,6 +27,9 @@ const localeRewrites = [
 
 const nextConfig: NextConfig = {
   output,
+  // O deploy passa um id tirado do código do site (deploy/site-sync.py): sem mudança no site, o
+  // build sai igual e nenhum arquivo sobe de novo. Sem a variável, o Next sorteia um id por build.
+  ...(process.env.NEXT_BUILD_ID ? { generateBuildId: async () => process.env.NEXT_BUILD_ID! } : {}),
   // Cada página vira <pasta>/index.html, que o S3 serve sem regra extra.
   trailingSlash: true,
   // O build estático ignora rewrites e headers (o Next só avisaria): lá quem faz isso é o
