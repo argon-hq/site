@@ -45,14 +45,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "backups" {
   }
 }
 
-# Never versioned: a dump is immutable and expires on its own. "Disabled" is the status the
-# provider expects for a bucket that has never had versioning turned on.
+# Versioned and locked (06/11/2026): a mistake or a stolen credential cannot erase the dumps.
+# Object Lock in governance mode keeps every dump for 30 days; deleting one earlier takes the
+# s3:BypassGovernanceRetention permission on purpose. Once on, Object Lock cannot be turned off
+# for the bucket. Uploads must carry a checksum, which the AWS SDK v3 sends by default (backup.ts).
 resource "aws_s3_bucket_versioning" "backups" {
   bucket = aws_s3_bucket.backups.id
 
   versioning_configuration {
-    status = "Disabled"
+    status = "Enabled"
   }
+}
+
+resource "aws_s3_bucket_object_lock_configuration" "backups" {
+  bucket = aws_s3_bucket.backups.id
+
+  rule {
+    default_retention {
+      mode = "GOVERNANCE"
+      days = 30
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.backups]
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "backups" {
@@ -70,8 +85,27 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
       days = 30
     }
 
+    # With versioning, expiring a dump only hides it behind a delete marker; the old version goes
+    # a day later, once its 30-day lock has run out.
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
+
     abort_incomplete_multipart_upload {
       days_after_initiation = 3
+    }
+  }
+
+  rule {
+    id     = "limpa-marcadores-de-delecao"
+    status = "Enabled"
+
+    filter {
+      prefix = "postgres/"
+    }
+
+    expiration {
+      expired_object_delete_marker = true
     }
   }
 }

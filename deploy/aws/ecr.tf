@@ -6,9 +6,9 @@ resource "aws_ecr_repository" "app" {
   name                 = "argon/${each.key}"
   image_tag_mutability = "MUTABLE"
 
-  # Off today. Step 15 of the review plan turns it on; flip it here, not in the console.
+  # Basic scanning on push (free): findings show in the console for each image.
   image_scanning_configuration {
-    scan_on_push = false
+    scan_on_push = true
   }
 
   encryption_configuration {
