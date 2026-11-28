@@ -65,7 +65,9 @@ quando o schema muda. Quem chama um script direto no pacote gera antes, com
   - `/health` e `/health/live`;
   - as rotas do site em `/subscriber` (cadastro, confirmação, consulta e cancelamento), com limite
     por IP e CORS só para a origem do site;
-  - `POST /subscriber/unsubscribe/one-click`, que o servidor do cliente de e-mail chama sozinho;
+  - `POST /subscriber/unsubscribe/one-click`, que o servidor do cliente de e-mail chama sozinho, e o
+    `GET` na mesma URL, para o cliente que a abre no navegador: redireciona para a página de
+    descadastro do site, sem cancelar;
   - `POST /events`, por onde o Lambda Web Adapter entrega os jobs, montada só na função de jobs,
     que não tem URL;
   - onde `STUDIO_ENABLED` está ligado (só numa máquina local), os estáticos do Studio em `/studio`

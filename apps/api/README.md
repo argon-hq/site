@@ -138,7 +138,8 @@ Source of truth for decisions: the Architecture and Stack documents on OneDrive.
   Unsubscribing lives here too: `GET /subscriber/unsubscribe?token=…` only says who the token belongs to, so the page can
   confirm first — a GET that cancelled would unsubscribe people on its own, since e-mail clients follow every link they find.
   `POST /subscriber/unsubscribe { token }` cancels, and `POST /subscriber/unsubscribe/one-click?token=…` is the
-  public RFC 8058 endpoint the `List-Unsubscribe` header announces. The permanent unsubscribe token is derived from the
+  public RFC 8058 endpoint the `List-Unsubscribe` header announces; a GET on the same URI, from a client that opens it as
+  a link instead of posting, answers 303 to the site's unsubscribe page and cancels nothing. The permanent unsubscribe token is derived from the
   subscriber id and `UNSUBSCRIBE_TOKEN_SECRET` (`token.ts`); the confirmation records only its hash. The service speaks
   Effect end to end — `SubscriberDbFailed` and `ConfirmationMailFailed` are its failures — and the controller runs it
   through `runEffect`, so a provider that is down answers 503 and a database that is down answers 500.
